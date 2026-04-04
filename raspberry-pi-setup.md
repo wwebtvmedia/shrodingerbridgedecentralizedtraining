@@ -1,6 +1,6 @@
 # Raspberry Pi Deployment Guide
 
-This guide explains how to deploy the Training Consolidation Server on a Raspberry Pi.
+This guide explains how to deploy the Training Consolidation Server on a Raspberry Pi, making it accessible via your domain `tree4five.com` on port 8080.
 
 ## Prerequisites
 
@@ -59,7 +59,7 @@ Type=simple
 User=$USER
 WorkingDirectory=$PROJECT_DIR
 Environment=NODE_ENV=production
-Environment=PORT=3001
+Environment=PORT=8080
 ExecStart=/usr/bin/node server/index.js
 Restart=on-failure
 RestartSec=10
@@ -75,8 +75,8 @@ sudo systemctl start consolidation-server
 
 echo "✅ Setup complete!"
 echo "📊 Check service status: sudo systemctl status consolidation-server"
-echo "🌐 Access web interface: http://$(hostname -I | awk '{print $1}'):3001"
-echo "📡 WebSocket: ws://$(hostname -I | awk '{print $1}'):3001"
+echo "🌐 Access web interface: http://$(hostname -I | awk '{print $1}'):8080"
+echo "📡 WebSocket: ws://$(hostname -I | awk '{print $1}'):8080"
 ```
 
 ## Manual Setup Steps
@@ -117,7 +117,7 @@ Create a `.env` file:
 
 ```bash
 cat > .env <<EOF
-PORT=3001
+PORT=8080
 NODE_ENV=production
 MODELS_DIR=./models
 LOG_LEVEL=info
@@ -159,7 +159,7 @@ Type=simple
 User=pi
 WorkingDirectory=/home/pi/training-consolidation
 Environment=NODE_ENV=production
-Environment=PORT=3001
+Environment=PORT=8080
 ExecStart=/usr/bin/node server/index.js
 Restart=on-failure
 RestartSec=10
@@ -190,7 +190,7 @@ sudo journalctl -u consolidation-server -f
 If you have a firewall enabled:
 
 ```bash
-sudo ufw allow 3001/tcp
+sudo ufw allow 8080/tcp
 sudo ufw reload
 ```
 
@@ -222,9 +222,9 @@ sudo systemctl enable consolidation-server
 ### For Local Network Access
 
 The server will be accessible at:
-- Web Interface: `http://<raspberry-pi-ip>:3001`
-- WebSocket: `ws://<raspberry-pi-ip>:3001`
-- API: `http://<raspberry-pi-ip>:3001/api`
+- Web Interface: `http://<raspberry-pi-ip>:8080`
+- WebSocket: `ws://<raspberry-pi-ip>:8080`
+- API: `http://<raspberry-pi-ip>:8080/api`
 
 Find your Raspberry Pi's IP address:
 ```bash
@@ -235,7 +235,7 @@ hostname -I
 
 If you want to access from outside your local network:
 
-1. Configure your router to forward port 3001 to your Raspberry Pi's IP address
+1. Configure your router to forward port 8080 to your Raspberry Pi's IP address
 2. Consider using a dynamic DNS service if you don't have a static IP
 3. **Important**: Add authentication/security measures for production use
 
@@ -339,7 +339,7 @@ For multiple clients:
    ```bash
    sudo ufw enable
    sudo ufw allow 22/tcp  # SSH
-   sudo ufw allow 3001/tcp # Consolidation server
+   sudo ufw allow 8080/tcp # Consolidation server
    ```
 
 3. **Use HTTPS** in production:
@@ -364,7 +364,7 @@ sudo journalctl -u consolidation-server -xe
 ```
 
 Common issues:
-- Port 3001 already in use: `sudo lsof -i :3001`
+- Port 8080 already in use: `sudo lsof -i :8080`
 - Permission issues: Check file ownership in project directory
 - Node.js version too old: Update to Node.js 18+
 
@@ -377,7 +377,7 @@ Common issues:
 
 2. Check if port is listening:
    ```bash
-   sudo netstat -tlnp | grep :3001
+   sudo netstat -tlnp | grep :8080
    ```
 
 3. Check firewall rules:
@@ -387,7 +387,7 @@ Common issues:
 
 4. Test locally on Raspberry Pi:
    ```bash
-   curl http://localhost:3001/api/health
+   curl http://localhost:8080/api/health
    ```
 
 ### High Memory Usage
@@ -448,6 +448,75 @@ For larger deployments, consider:
 1. **Load balancing**: Use multiple Raspberry Pis with a load balancer
 2. **Database**: Use external database for model metadata
 3. **Shared storage**: Use NFS or similar for shared model storage
+
+## Exposing with Cloudflare Tunnel
+
+To make your server publicly accessible via your domain `tree4five.com` without opening ports on your router, you can use Cloudflare Tunnel (formerly Argo Tunnel). This creates a secure outbound connection to Cloudflare's network.
+
+### 1. Install Cloudflare Tunnel
+
+```bash
+# Download and install cloudflared
+wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+sudo dpkg -i cloudflared-linux-arm64.deb
+cloudflared --version
+```
+
+### 2. Authenticate with Cloudflare
+
+```bash
+cloudflared tunnel login
+```
+
+This will open a browser (or provide a URL) to log in to your Cloudflare account and authorize the tunnel.
+
+### 3. Create a Tunnel
+
+```bash
+cloudflared tunnel create tree4five-tunnel
+```
+
+Note the tunnel UUID displayed. Configure the tunnel:
+
+```bash
+sudo mkdir -p /etc/cloudflared
+sudo nano /etc/cloudflared/config.yml
+```
+
+Add the following configuration (replace `tunnel-uuid` with your actual tunnel ID):
+
+```yaml
+tunnel: tree4five-tunnel
+credentials-file: /home/pi/.cloudflared/tunnel-uuid.json
+
+ingress:
+  - hostname: tree4five.com
+    service: http://localhost:8080
+  - service: http_status:404
+```
+
+### 4. Run the Tunnel as a Service
+
+```bash
+sudo cloudflared service install
+sudo systemctl start cloudflared
+sudo systemctl enable cloudflared
+```
+
+### 5. Configure DNS
+
+In your Cloudflare dashboard, go to DNS settings and create a CNAME record pointing `tree4five.com` to `<tunnel-uuid>.cfargotunnel.com`.
+
+### 6. Verify
+
+Check tunnel status:
+
+```bash
+cloudflared tunnel list
+cloudflared tunnel info tree4five-tunnel
+```
+
+Your server will now be accessible at `https://tree4five.com` via Cloudflare's network.
 
 ## Support
 
