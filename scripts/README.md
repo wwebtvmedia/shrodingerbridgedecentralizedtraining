@@ -5,16 +5,20 @@ This directory contains scripts to help you set up and manage Cloudflare service
 ## Scripts Overview
 
 ### 1. `install-cloudflared.sh`
+
 **Purpose**: Install Cloudflared on Raspberry Pi (ARM64/ARMv7)
-**Usage**: 
+**Usage**:
+
 ```bash
 chmod +x scripts/install-cloudflared.sh
 ./scripts/install-cloudflared.sh
 ```
 
 ### 2. `setup-cloudflare-tunnel.sh`
+
 **Purpose**: Complete Cloudflare Tunnel setup for Training Consolidation Server
 **Usage**:
+
 ```bash
 chmod +x scripts/setup-cloudflare-tunnel.sh
 # Edit the configuration variables at the top of the script first
@@ -22,16 +26,20 @@ chmod +x scripts/setup-cloudflare-tunnel.sh
 ```
 
 ### 3. `cloudflare-health-check.sh`
+
 **Purpose**: Comprehensive health check for Cloudflare Tunnel
 **Usage**:
+
 ```bash
 chmod +x scripts/cloudflare-health-check.sh
 ./scripts/cloudflare-health-check.sh
 ```
 
 ### 4. `update-cloudflared.sh`
+
 **Purpose**: Update Cloudflared to the latest version
 **Usage**:
+
 ```bash
 chmod +x scripts/update-cloudflared.sh
 ./scripts/update-cloudflared.sh
@@ -40,17 +48,21 @@ chmod +x scripts/update-cloudflared.sh
 ## Quick Start Guide
 
 ### Step 1: Make Scripts Executable
+
 ```bash
 chmod +x scripts/*.sh
 ```
 
 ### Step 2: Install Cloudflared
+
 ```bash
 ./scripts/install-cloudflared.sh
 ```
 
 ### Step 3: Configure Environment Variables
+
 1. Copy the template and configure your environment:
+
 ```bash
 cp .env.template .env
 nano .env  # Edit with your values
@@ -62,6 +74,7 @@ nano .env  # Edit with your values
    - `CLOUDFLARE_TUNNEL_LOCAL_PORT` (optional, default: 8080)
 
 3. Run the setup:
+
 ```bash
 ./scripts/setup-cloudflare-tunnel.sh
 ```
@@ -69,6 +82,7 @@ nano .env  # Edit with your values
 **Important**: The `.env` file is not committed to git (see `.gitignore`). The `URL` variable will be parsed to extract domain and subdomain automatically.
 
 ### Step 4: Verify Setup
+
 ```bash
 ./scripts/cloudflare-health-check.sh
 ```
@@ -76,14 +90,18 @@ nano .env  # Edit with your values
 ## Configuration Files
 
 ### Cloudflared Config (`/etc/cloudflared/config.yml`)
+
 The setup script creates this configuration file with:
+
 - Tunnel connection settings
 - Ingress rules for your domain/subdomains
 - Logging configuration
 - Health check endpoints
 
 ### Environment Variables
+
 Consider creating a `.env` file for your server with:
+
 ```bash
 CLOUDFLARE_TUNNEL_ENABLED=true
 PUBLIC_URL=https://training.yourdomain.com
@@ -93,19 +111,24 @@ WS_URL=wss://ws.training.yourdomain.com
 ## Maintenance
 
 ### Regular Health Checks
+
 Run the health check script periodically:
+
 ```bash
 # Add to crontab for daily checks
 0 8 * * * /home/pi/prototype/scripts/cloudflare-health-check.sh >> /var/log/cloudflare-health.log
 ```
 
 ### Updates
+
 Check for updates monthly:
+
 ```bash
 ./scripts/update-cloudflared.sh
 ```
 
 ### Monitoring Logs
+
 ```bash
 # Live logs
 sudo journalctl -u cloudflared -f
@@ -119,6 +142,7 @@ sudo journalctl -u cloudflared --since "1 hour ago" | grep -i error
 ### Common Issues
 
 1. **Tunnel won't start**
+
    ```bash
    sudo systemctl restart cloudflared
    sudo journalctl -u cloudflared -xe
@@ -130,6 +154,7 @@ sudo journalctl -u cloudflared --since "1 hour ago" | grep -i error
    - Wait for DNS propagation (up to 24 hours)
 
 3. **Certificate errors**
+
    ```bash
    cloudflared tunnel login  # Re-authenticate
    sudo systemctl restart cloudflared
@@ -144,6 +169,7 @@ sudo journalctl -u cloudflared --since "1 hour ago" | grep -i error
    ```
 
 ### Diagnostic Commands
+
 ```bash
 # List all tunnels
 cloudflared tunnel list
@@ -168,17 +194,20 @@ sudo cloudflared tunnel --config /etc/cloudflared/config.yml ingress validate
 ## Integration with Training Consolidation Server
 
 ### Server Configuration
+
 Update your `server/index.js` to use environment variables:
 
 ```javascript
 const config = {
   port: process.env.PORT || 8080,
-  publicUrl: process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 8080}`,
-  cloudflareTunnel: process.env.CLOUDFLARE_TUNNEL_ENABLED === 'true'
+  publicUrl:
+    process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 8080}`,
+  cloudflareTunnel: process.env.CLOUDFLARE_TUNNEL_ENABLED === "true",
 };
 ```
 
 ### Client Configuration
+
 Update client WebSocket connections:
 
 ```javascript
@@ -196,6 +225,7 @@ const wsUrl = process.env.WS_URL || `ws://localhost:${window.location.port}`;
 ## Support
 
 For issues:
+
 1. Check the comprehensive guide: `../cloudflare-raspberry-pi-guide.md`
 2. Review script output and logs
 3. Check Cloudflare status: https://www.cloudflarestatus.com/

@@ -5,6 +5,7 @@ This guide provides comprehensive instructions for using Cloudflare services wit
 ## Overview
 
 Cloudflare offers several services that are particularly useful for Raspberry Pi deployments:
+
 1. **Cloudflare Tunnel** - Secure outbound connection without opening ports
 2. **Cloudflare DNS** - Domain management and DNS records
 3. **Cloudflare Workers** - Serverless functions for edge computing
@@ -23,25 +24,28 @@ Cloudflare offers several services that are particularly useful for Raspberry Pi
 Before starting, configure your environment variables:
 
 1. **Copy the template file**:
+
    ```bash
    cp .env.template .env
    ```
 
 2. **Edit the `.env` file** with your values:
+
    ```bash
    nano .env
    ```
 
 3. **Key variables to set**:
+
    ```bash
    # Your public URL (required)
    URL=https://training.yourdomain.com
-   
+
    # Cloudflare Tunnel configuration (optional, defaults shown)
    CLOUDFLARE_TUNNEL_NAME=training-consolidation-tunnel
    CLOUDFLARE_TUNNEL_SUBDOMAIN=training
    CLOUDFLARE_TUNNEL_LOCAL_PORT=8080
-   
+
    # Server configuration
    SERVER_PORT=8080
    NODE_ENV=production
@@ -50,6 +54,7 @@ Before starting, configure your environment variables:
 4. **Important**: The `.env` file is excluded from git (see `.gitignore`). Never commit sensitive information.
 
 The `URL` variable is the primary configuration. Scripts will automatically parse it to extract:
+
 - Domain (e.g., `yourdomain.com`)
 - Subdomain (e.g., `training`)
 - Full domain (e.g., `training.yourdomain.com`)
@@ -87,6 +92,7 @@ cloudflared tunnel login
 ```
 
 If you're running headless (no browser), use:
+
 ```bash
 cloudflared tunnel login --url-only
 # Copy the URL and open it on another device with browser access
@@ -126,15 +132,15 @@ ingress:
   # Route web interface
   - hostname: training.tree4five.com
     service: http://localhost:8080
-  
+
   # Route API endpoints
   - hostname: api.training.tree4five.com
     service: http://localhost:8080/api
-  
+
   # Route WebSocket
   - hostname: ws.training.tree4five.com
     service: http://localhost:8080
-  
+
   # Catch-all rule (404)
   - service: http_status:404
 ```
@@ -161,6 +167,7 @@ sudo journalctl -u cloudflared -f
 ### Step 6: Configure DNS Records
 
 In your Cloudflare dashboard:
+
 1. Go to DNS → Records
 2. Create CNAME records:
    - Name: `training` → Target: `<tunnel-id>.cfargotunnel.com`
@@ -248,19 +255,19 @@ ingress:
   # Main web interface
   - hostname: $SUBDOMAIN.$DOMAIN
     service: http://localhost:$LOCAL_PORT
-  
+
   # API endpoints
   - hostname: api.$SUBDOMAIN.$DOMAIN
     service: http://localhost:$LOCAL_PORT/api
-  
+
   # WebSocket endpoint
   - hostname: ws.$SUBDOMAIN.$DOMAIN
     service: http://localhost:$LOCAL_PORT
-  
+
   # Health check endpoint
   - hostname: health.$SUBDOMAIN.$DOMAIN
     service: http://localhost:$LOCAL_PORT/api/health
-  
+
   # Catch-all 404
   - service: http_status:404
 EOF
@@ -392,19 +399,19 @@ ingress:
   # Training Consolidation Server
   - hostname: training.tree4five.com
     service: http://localhost:8080
-  
+
   # Home Assistant (if running)
   - hostname: home.tree4five.com
     service: http://localhost:8123
-  
+
   # Pi-hole DNS (if running)
   - hostname: pihole.tree4five.com
     service: http://localhost:80
-  
+
   # SSH over HTTPS (Cloudflare Access)
   - hostname: ssh.tree4five.com
     service: ssh://localhost:22
-  
+
   # Catch-all
   - service: http_status:404
 ```
@@ -419,7 +426,7 @@ ingress:
     service: http://localhost:8080
     originRequest:
       noTLSVerify: true
-  
+
   # Load balancer pool
   - hostname: lb.training.tree4five.com
     service: lb-pool:training-servers
@@ -504,6 +511,7 @@ app.use(compression());
 ### Common Issues and Solutions
 
 #### Issue 1: Tunnel won't start
+
 ```bash
 # Check logs
 sudo journalctl -u cloudflared -xe
@@ -514,6 +522,7 @@ cloudflared tunnel login
 ```
 
 #### Issue 2: DNS not resolving
+
 ```bash
 # Check DNS propagation
 dig training.tree4five.com
@@ -523,6 +532,7 @@ dig training.tree4five.com
 ```
 
 #### Issue 3: High memory usage
+
 ```bash
 # Monitor memory
 htop
@@ -535,6 +545,7 @@ sudo journalctl -u cloudflared | grep -i "memory\|oom"
 ```
 
 #### Issue 4: Connection timeouts
+
 ```bash
 # Test local connectivity
 curl http://localhost:8080/api/health
@@ -591,9 +602,10 @@ For real-time training updates, ensure WebSocket support:
 
 ```javascript
 // In your client code (src/consolidation-client.js)
-const wsUrl = window.location.protocol === 'https:' 
-  ? `wss://${window.location.host}`
-  : `ws://${window.location.host}`;
+const wsUrl =
+  window.location.protocol === "https:"
+    ? `wss://${window.location.host}`
+    : `ws://${window.location.host}`;
 
 const socket = new WebSocket(wsUrl);
 ```
@@ -616,9 +628,10 @@ Update your server to use these variables:
 // server/index.js
 const config = {
   port: process.env.PORT || 8080,
-  publicUrl: process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 8080}`,
+  publicUrl:
+    process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 8080}`,
   wsUrl: process.env.WS_URL || `ws://localhost:${process.env.PORT || 8080}`,
-  cloudflareTunnel: process.env.CLOUDFLARE_TUNNEL_ENABLED === 'true'
+  cloudflareTunnel: process.env.CLOUDFLARE_TUNNEL_ENABLED === "true",
 };
 ```
 

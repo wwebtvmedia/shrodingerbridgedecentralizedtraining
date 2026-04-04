@@ -14,7 +14,7 @@ The Schrödinger Bridge problem seeks the most likely stochastic process connect
 - **Target distribution**: \( p_1(x) \) (e.g., data distribution)
 - **Reference process**: \( dX_t = f(X_t, t)dt + \sigma(t)dW_t \)
 
-The Schrödinger Bridge finds the optimal drift \( u^*(x, t) \) that minimizes:
+The Schrödinger Bridge finds the optimal drift \( u^\*(x, t) \) that minimizes:
 
 \[
 \mathbb{E}\left[\int_0^T \frac{1}{2} \|u(X_t, t)\|^2 dt\right]
@@ -25,31 +25,35 @@ subject to \( X_0 \sim p_0 \) and \( X_T \sim p_1 \).
 ### Three-Phase Training Architecture
 
 #### Phase 1: Variational Autoencoder (VAE) Training
+
 **Objective**: Learn latent representations and reconstruction capabilities
 
 \[
-\mathcal{L}_{\text{VAE}} = \mathbb{E}_{q(z|x)}[\log p(x|z)] - \beta \cdot D_{KL}(q(z|x) \| p(z))
+\mathcal{L}_{\text{VAE}} = \mathbb{E}_{q(z|x)}[\log p(x|z)] - \beta \cdot D\_{KL}(q(z|x) \| p(z))
 \]
 
 where:
+
 - \( q(z|x) \): Encoder network (approximate posterior)
 - \( p(x|z) \): Decoder network (likelihood)
 - \( p(z) \): Prior distribution (typically \( \mathcal{N}(0, I) \))
 - \( \beta \): KL divergence weight (controlled annealing)
 
 #### Phase 2: Drift Network Training
+
 **Objective**: Learn the optimal drift function \( u(x, t) \)
 
 \[
-\mathcal{L}_{\text{drift}} = \mathbb{E}_{t \sim U(0,T), x_t \sim p_t} \left[ \|u(x_t, t) - u_{\text{target}}(x_t, t)\|^2 \right]
+\mathcal{L}_{\text{drift}} = \mathbb{E}_{t \sim U(0,T), x*t \sim p_t} \left[ \|u(x_t, t) - u*{\text{target}}(x_t, t)\|^2 \right]
 \]
 
-where \( u_{\text{target}} \) is computed via:
+where \( u*{\text{target}} \) is computed via:
 \[
-u_{\text{target}}(x_t, t) = \mathbb{E}_{x_T \sim p_1} \left[ \frac{x_T - x_t}{T - t} \middle| x_t \right]
+u*{\text{target}}(x*t, t) = \mathbb{E}*{x_T \sim p_1} \left[ \frac{x_T - x_t}{T - t} \middle| x_t \right]
 \]
 
 #### Phase 3: Joint Training (Both)
+
 **Objective**: Combined loss with adaptive weighting
 
 \[
@@ -58,7 +62,7 @@ u_{\text{target}}(x_t, t) = \mathbb{E}_{x_T \sim p_1} \left[ \frac{x_T - x_t}{T 
 
 where \( \alpha(t) \) decays from 1 to 0.5 over training, and consistency loss ensures:
 \[
-\mathcal{L}_{\text{consistency}} = \mathbb{E} \left[ \| \text{VAE}(\text{Drift}(x_t, t)) - x_t \|^2 \right]
+\mathcal{L}\_{\text{consistency}} = \mathbb{E} \left[ \| \text{VAE}(\text{Drift}(x_t, t)) - x_t \|^2 \right]
 \]
 
 ### Swarm Intelligence Formulation
@@ -72,7 +76,7 @@ Each client \( i \) maintains a model \( M_i \) with loss \( L_i \). The swarm e
    \theta_i^{(t+1)} = \theta_i^{(t)} - \eta \nabla L_i(\theta_i^{(t)})
    \]
 
-2. **Model Synchronization**: With probability \( p_{\text{sync}} = 0.5 \), client \( i \) adopts model \( M_j \) if:
+2. **Model Synchronization**: With probability \( p\_{\text{sync}} = 0.5 \), client \( i \) adopts model \( M_j \) if:
    \[
    L_j < L_i \cdot (1 - \epsilon) \quad \text{where } \epsilon = 0.1
    \]
@@ -92,20 +96,21 @@ Information propagates through the network via epidemic-style gossip:
 
 The probability a node receives a message after \( t \) rounds:
 \[
-P_{\text{receive}}(t) = 1 - \left(1 - \frac{k}{N}\right)^{t \cdot k}
+P\_{\text{receive}}(t) = 1 - \left(1 - \frac{k}{N}\right)^{t \cdot k}
 \]
 
 #### Composite Scoring Function
 
 Models evaluated using multi-objective scoring:
 \[
-S(M) = w_1 \cdot (1 - L_{\text{norm}}) + w_2 \cdot D + w_3 \cdot (1 - \text{KL}_{\text{norm}})
+S(M) = w*1 \cdot (1 - L*{\text{norm}}) + w*2 \cdot D + w_3 \cdot (1 - \text{KL}*{\text{norm}})
 \]
 
 where:
-- \( L_{\text{norm}} \): Normalized loss \( \in [0, 1] \)
+
+- \( L\_{\text{norm}} \): Normalized loss \( \in [0, 1] \)
 - \( D \): Diversity score (latent space coverage)
-- \( \text{KL}_{\text{norm}} \): Normalized KL divergence
+- \( \text{KL}\_{\text{norm}} \): Normalized KL divergence
 - \( w_1 + w_2 + w_3 = 1 \), with \( w_1 = 0.5, w_2 = 0.3, w_3 = 0.2 \)
 
 ### Phase Transition Dynamics
@@ -114,21 +119,21 @@ where:
 
 Phase selection follows a stochastic policy with weights updated via:
 \[
-w_{\text{phase}}^{(t+1)} = (1 - \gamma) \cdot w_{\text{phase}}^{(t)} + \gamma \cdot \frac{\exp(\beta \cdot R_{\text{phase}})}{\sum_{\text{phase}'} \exp(\beta \cdot R_{\text{phase}'})}
+w*{\text{phase}}^{(t+1)} = (1 - \gamma) \cdot w*{\text{phase}}^{(t)} + \gamma \cdot \frac{\exp(\beta \cdot R*{\text{phase}})}{\sum*{\text{phase}'} \exp(\beta \cdot R\_{\text{phase}'})}
 \]
 
-where \( R_{\text{phase}} \) is the recent reward (negative loss improvement) for each phase.
+where \( R\_{\text{phase}} \) is the recent reward (negative loss improvement) for each phase.
 
 #### Transition Conditions
 
 **VAE → Drift transition** occurs when:
 \[
-\text{epoch} \geq 30 \quad \land \quad L_{\text{recon}} \leq 0.15 \quad \land \quad \text{KL} \leq 0.05
+\text{epoch} \geq 30 \quad \land \quad L\_{\text{recon}} \leq 0.15 \quad \land \quad \text{KL} \leq 0.05
 \]
 
 **Drift → Both transition** occurs when:
 \[
-\text{epoch} \geq 50 \quad \land \quad D \geq 0.6 \quad \land \quad L_{\text{drift}} \leq 0.3
+\text{epoch} \geq 50 \quad \land \quad D \geq 0.6 \quad \land \quad L\_{\text{drift}} \leq 0.3
 \]
 
 ## 🏗️ System Architecture
@@ -205,6 +210,7 @@ where \( R_{\text{phase}} \) is the recent reward (negative loss improvement) fo
 ### Core Components
 
 #### 1. **SwarmTrainer** (`src/core/trainer.js`)
+
 - Manages local training loop with evolutionary optimization
 - Implements synchronization decision logic:
   \[
@@ -217,6 +223,7 @@ where \( R_{\text{phase}} \) is the recent reward (negative loss improvement) fo
 - Implements epoch jumping after synchronization
 
 #### 2. **PhaseManager** (`src/core/phase.js`)
+
 - Implements adaptive phase transition logic
 - Calculates phase weights using softmax over recent performance:
   \[
@@ -226,6 +233,7 @@ where \( R_{\text{phase}} \) is the recent reward (negative loss improvement) fo
 - Manages phase transition thresholds
 
 #### 3. **ModelManager** (`src/core/models.js`)
+
 - Handles model serialization/deserialization
 - Computes model hashes for versioning:
   \[
@@ -235,6 +243,7 @@ where \( R_{\text{phase}} \) is the recent reward (negative loss improvement) fo
 - Supports PyTorch checkpoint loading via `inspect_checkpoint.py`
 
 #### 4. **PeerNetwork** (`src/network/peer.js`)
+
 - Implements WebRTC-based P2P networking
 - Gossip protocol with exponential spread:
   \[
@@ -244,10 +253,11 @@ where \( R_{\text{phase}} \) is the recent reward (negative loss improvement) fo
 - Uses STUN servers for NAT traversal
 
 #### 5. **Consolidation Server** (`server/index.js`)
+
 - Optional centralized component for model aggregation
 - Implements federated averaging:
   \[
-  \theta_{\text{global}}^{(t+1)} = \frac{1}{N} \sum_{i=1}^N \theta_i^{(t)}
+  \theta*{\text{global}}^{(t+1)} = \frac{1}{N} \sum*{i=1}^N \theta_i^{(t)}
   \]
 - Provides checkpoint persistence and analytics
 - WebSocket-based real-time communication
@@ -386,6 +396,7 @@ Peer A (Sender)                          Peer B (Receiver)
 ## 🔬 Training Algorithm
 
 ### Algorithm 1: Swarm Training Loop
+
 ```
 Input: Initial model M, exploration rate ε, sync probability p
 Output: Trained model M*
@@ -394,13 +405,13 @@ Output: Trained model M*
 2: for epoch = 1 to E_max do
 3:   // Phase determination
 4:   phase ← PhaseManager.determinePhase(epoch, metrics)
-5:   
+5:
 6:   // Local training step
 7:   loss, metrics ← trainEpoch(M_i, phase)
-8:   
+8:
 9:   // Gossip results
 10:  broadcastToRandomPeers({epoch, loss, metrics, hash(M_i)})
-11:  
+11:
 12:  // Synchronization decision
 13:  if random() < p then
 14:    bestPeer ← argmin_{j∈peers} loss_j
@@ -409,7 +420,7 @@ Output: Trained model M*
 17:      epoch ← random(0, epoch_bestPeer)
 18:    end if
 19:  end if
-20:  
+20:
 21:  // Phase adaptation
 22:  PhaseManager.updateWeights(metrics)
 23: end for
@@ -417,6 +428,7 @@ Output: Trained model M*
 ```
 
 ### Algorithm 2: Gossip Protocol
+
 ```
 Input: Message m, fanout k, TTL h
 Output: Message delivered to network
@@ -425,10 +437,10 @@ Output: Message delivered to network
 2:   if m.id in cache or m.TTL ≤ 0 then
 3:     return
 4:   end if
-5:   
+5:
 6:   cache.add(m.id)
 7:   processMessage(m)
-8:   
+8:
 9:   if m.TTL > 0 then
 10:    peers ← selectRandomPeers(k, exclude=[sender])
 11:    for peer in peers do
@@ -444,30 +456,31 @@ Output: Message delivered to network
 
 1. **Reconstruction Loss** (VAE phase):
    \[
-   L_{\text{recon}} = \mathbb{E}_{x \sim p_{\text{data}}} \left[ \| x - \text{Decode}(\text{Encode}(x)) \|^2 \right]
+   L*{\text{recon}} = \mathbb{E}*{x \sim p\_{\text{data}}} \left[ \| x - \text{Decode}(\text{Encode}(x)) \|^2 \right]
    \]
 
 2. **KL Divergence**:
    \[
-   L_{\text{KL}} = D_{KL}(q(z|x) \| p(z))
+   L*{\text{KL}} = D*{KL}(q(z|x) \| p(z))
    \]
 
 3. **Drift Matching Loss**:
    \[
-   L_{\text{drift}} = \mathbb{E}_{t,x_t} \left[ \| u_{\theta}(x_t, t) - u_{\text{target}}(x_t, t) \|^2 \right]
+   L*{\text{drift}} = \mathbb{E}*{t,x*t} \left[ \| u*{\theta}(x*t, t) - u*{\text{target}}(x_t, t) \|^2 \right]
    \]
 
 4. **Diversity Score**:
    \[
-   D = \frac{1}{N(N-1)} \sum_{i \neq j} \| z_i - z_j \| \cdot \exp\left(-\frac{\| z_i - z_j \|^2}{2\sigma^2}\right)
+   D = \frac{1}{N(N-1)} \sum\_{i \neq j} \| z_i - z_j \| \cdot \exp\left(-\frac{\| z_i - z_j \|^2}{2\sigma^2}\right)
    \]
 
 ### Convergence Analysis
 
 The swarm system exhibits:
+
 - **Linear speedup** in early training: \( O(1/N) \) reduction in time to reach target loss
 - **Diminishing returns** due to synchronization overhead: \( O(\log N) \) communication complexity
-- **Phase transition critical points** at \( L_{\text{recon}} \approx 0.15 \) and \( D \approx 0.6 \)
+- **Phase transition critical points** at \( L\_{\text{recon}} \approx 0.15 \) and \( D \approx 0.6 \)
 
 ## 🚀 Implementation Details
 
@@ -478,16 +491,16 @@ The system uses WebTorch for browser-based PyTorch execution:
 ```javascript
 // Model architecture (simplified)
 class LabelConditionedVAE {
-  constructor(latentChannels=4, labelEmbDim=64) {
+  constructor(latentChannels = 4, labelEmbDim = 64) {
     this.encoder = this.buildEncoder();
     this.decoder = this.buildDecoder();
   }
-  
+
   encode(x, labels) {
     // Returns μ, logσ^2
     return torch.nn.Sequential(...this.encoder)(x, labels);
   }
-  
+
   decode(z, labels) {
     return torch.nn.Sequential(...this.decoder)(z, labels);
   }
@@ -497,6 +510,7 @@ class LabelConditionedVAE {
 ### Checkpoint Format
 
 PyTorch checkpoints (`latest.pt`) contain:
+
 ```python
 {
   'epoch': int,           # Current training epoch
@@ -513,11 +527,13 @@ PyTorch checkpoints (`latest.pt`) contain:
 ### Network Protocols
 
 #### WebRTC Signaling
+
 - **STUN servers**: `stun:stun.l.google.com:19302`, `stun:global.stun.twilio.com:3478`
 - **Data channels**: Reliable, ordered for model transfer
 - **Connection management**: ICE candidate exchange via simulated signaling
 
 #### Message Types
+
 1. `TRAINING_RESULT`: {epoch, loss, metrics, modelHash}
 2. `MODEL_REQUEST`: {peerId, modelHash}
 3. `MODEL_RESPONSE`: {modelData, metadata}
@@ -528,21 +544,22 @@ PyTorch checkpoints (`latest.pt`) contain:
 
 ### Simulated Performance
 
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **Training Speed** | 10× slower than native PyTorch | Browser execution overhead |
-| **Synchronization Rate** | 0.3-0.5 syncs/epoch | Exploration vs exploitation tradeoff |
-| **Network Coverage** | 95% in O(log N) rounds | Gossip protocol efficiency |
-| **Phase Transition** | Epochs 30, 50, 100+ | VAE→Drift→Both transitions |
+| Metric                   | Value                          | Description                          |
+| ------------------------ | ------------------------------ | ------------------------------------ |
+| **Training Speed**       | 10× slower than native PyTorch | Browser execution overhead           |
+| **Synchronization Rate** | 0.3-0.5 syncs/epoch            | Exploration vs exploitation tradeoff |
+| **Network Coverage**     | 95% in O(log N) rounds         | Gossip protocol efficiency           |
+| **Phase Transition**     | Epochs 30, 50, 100+            | VAE→Drift→Both transitions           |
 
 ### Scalability Analysis
 
 The system scales sublinearly due to:
+
 1. **Communication overhead**: \( O(N \log N) \) messages per epoch
 2. **Model transfer latency**: ~100ms per 10MB model
 3. **Browser memory limits**: ~2GB per client
 
-Optimal swarm size: \( N^* = 10-50 \) clients
+Optimal swarm size: \( N^\* = 10-50 \) clients
 
 ## 🔮 Future Research Directions
 
@@ -550,7 +567,7 @@ Optimal swarm size: \( N^* = 10-50 \) clients
 
 1. **Optimal Synchronization Policy**
    \[
-   \pi^*(s) = \arg\max_{\pi} \mathbb{E} \left[ \sum_{t=0}^\infty \gamma^t R(s_t, \pi(s_t)) \right]
+   \pi^\*(s) = \arg\max*{\pi} \mathbb{E} \left[ \sum*{t=0}^\infty \gamma^t R(s_t, \pi(s_t)) \right]
    \]
    where \( R(s, a) \) balances exploration vs exploitation.
 
@@ -575,7 +592,7 @@ Optimal swarm size: \( N^* = 10-50 \) clients
    - Knowledge distillation: Teacher → student
 
 2. **Federated Optimization**
-   - FedAvg with momentum: \( \theta \leftarrow \theta - \eta \nabla L + \mu (\theta - \theta_{\text{old}}) \)
+   - FedAvg with momentum: \( \theta \leftarrow \theta - \eta \nabla L + \mu (\theta - \theta\_{\text{old}}) \)
    - Adaptive client selection
    - Gradient clipping for stability
 
@@ -607,14 +624,14 @@ Optimal swarm size: \( N^* = 10-50 \) clients
 
 ### Performance Benchmarks
 
-| Operation | Time (ms) | Notes |
-|-----------|-----------|-------|
-| Model forward pass | 50-100 | Depends on model size |
-| Gradient computation | 100-200 | Backpropagation |
-| Model serialization | 20-50 | JSON vs binary |
-| Peer connection | 500-1000 | ICE negotiation |
-| Model transfer (10MB) | 100-500 | Depends on bandwidth |
-| Gossip propagation | O(log N) | Network diameter |
+| Operation             | Time (ms) | Notes                 |
+| --------------------- | --------- | --------------------- |
+| Model forward pass    | 50-100    | Depends on model size |
+| Gradient computation  | 100-200   | Backpropagation       |
+| Model serialization   | 20-50     | JSON vs binary        |
+| Peer connection       | 500-1000  | ICE negotiation       |
+| Model transfer (10MB) | 100-500   | Depends on bandwidth  |
+| Gossip propagation    | O(log N)  | Network diameter      |
 
 ### Mathematical Appendix
 
@@ -623,14 +640,14 @@ Optimal swarm size: \( N^* = 10-50 \) clients
 The Schrödinger Bridge can be formulated as an entropy-regularized optimal transport problem:
 
 \[
-\inf_{\pi \in \Pi(p_0, p_1)} \mathbb{E}_{(x_0, x_1) \sim \pi} \left[ c(x_0, x_1) \right] + \epsilon \cdot H(\pi)
+\inf*{\pi \in \Pi(p_0, p_1)} \mathbb{E}*{(x_0, x_1) \sim \pi} \left[ c(x_0, x_1) \right] + \epsilon \cdot H(\pi)
 \]
 
 where \( H(\pi) \) is the entropy of the coupling \( \pi \), and \( c(x_0, x_1) = \|x_0 - x_1\|^2 \).
 
 The solution is given by the Sinkhorn algorithm:
 \[
-\pi^*(x_0, x_1) = \alpha(x_0) \beta(x_1) \exp\left(-\frac{c(x_0, x_1)}{\epsilon}\right)
+\pi^\*(x_0, x_1) = \alpha(x_0) \beta(x_1) \exp\left(-\frac{c(x_0, x_1)}{\epsilon}\right)
 \]
 
 #### A.2 Swarm Convergence Proof Sketch
@@ -638,6 +655,7 @@ The solution is given by the Sinkhorn algorithm:
 **Theorem**: Under mild assumptions, the swarm training process converges to a stationary distribution.
 
 **Proof sketch**:
+
 1. Define Markov chain over model states \( \{M_t\} \)
 2. Show transition kernel satisfies detailed balance:
    \[
@@ -691,8 +709,8 @@ npm run server
 ### Basic Swarm Training
 
 ```javascript
-import { SwarmTrainer } from './src/core/trainer.js';
-import { PeerNetwork } from './src/network/peer.js';
+import { SwarmTrainer } from "./src/core/trainer.js";
+import { PeerNetwork } from "./src/network/peer.js";
 
 const network = new PeerNetwork();
 const trainer = new SwarmTrainer(network);
@@ -709,7 +727,7 @@ const config = {
   syncProbability: 0.6,
   phaseWeights: { vae: 0.5, drift: 0.3, both: 0.2 },
   gossipFanout: 4,
-  maxEpochs: 1000
+  maxEpochs: 1000,
 };
 ```
 
@@ -721,14 +739,15 @@ python inspect_checkpoint.py
 
 ## 📚 References
 
-1. **De Bortoli et al. (2021)** - *Diffusion Schrödinger Bridge Matching*
-2. **Chen et al. (2022)** - *Optimal Transport and Schrödinger Bridges*
-3. **Warnat-Herresthal et al. (2021)** - *Swarm Learning for Decentralized AI*
-4. **Rieke et al. (2020)** - *Future of Digital Health with Federated Learning*
+1. **De Bortoli et al. (2021)** - _Diffusion Schrödinger Bridge Matching_
+2. **Chen et al. (2022)** - _Optimal Transport and Schrödinger Bridges_
+3. **Warnat-Herresthal et al. (2021)** - _Swarm Learning for Decentralized AI_
+4. **Rieke et al. (2020)** - _Future of Digital Health with Federated Learning_
 
 ## 👥 Contributing
 
 This is a research prototype. Contributions welcome in:
+
 - WebTorch model implementation
 - Peer networking improvements
 - Mathematical analysis extensions
@@ -750,4 +769,4 @@ MIT License - see LICENSE file for details.
 
 **Note**: This is a prototype demonstrating decentralized swarm training concepts. The training is simulated for demonstration purposes; real WebTorch integration would replace simulated training with actual model training.
 
-*Last updated: April 2026*
+_Last updated: April 2026_

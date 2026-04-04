@@ -1,23 +1,26 @@
-import { defineConfig } from 'vite'
-import { resolve } from 'path'
+import { defineConfig } from "vite";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default defineConfig({
-  root: '.',
-  publicDir: 'public',
+  root: ".",
+  publicDir: "public",
   build: {
-    outDir: 'dist',
+    outDir: "dist",
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        worker: resolve(__dirname, 'src/network/worker.js')
-      }
-    }
+        main: resolve(__dirname, "index.html"),
+      },
+    },
   },
   server: {
     port: 3000,
-    open: true
+    open: true,
   },
   optimizeDeps: {
-    exclude: ['@web/torch']
-  }
-})
+    exclude: ["@web/torch"],
+  },
+});

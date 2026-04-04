@@ -135,6 +135,7 @@ node server/index.js
 ```
 
 Make it executable:
+
 ```bash
 chmod +x start-server.sh
 ```
@@ -222,11 +223,13 @@ sudo systemctl enable consolidation-server
 ### For Local Network Access
 
 The server will be accessible at:
+
 - Web Interface: `http://<raspberry-pi-ip>:8080`
 - WebSocket: `ws://<raspberry-pi-ip>:8080`
 - API: `http://<raspberry-pi-ip>:8080/api`
 
 Find your Raspberry Pi's IP address:
+
 ```bash
 hostname -I
 ```
@@ -287,12 +290,14 @@ sudo systemctl restart consolidation-server
 Raspberry Pi models have limited RAM. To optimize:
 
 1. **Reduce Node.js memory usage**:
+
    ```bash
    # Add to start command
    node --max-old-space-size=512 server/index.js
    ```
 
 2. **Use swap space** (if not already configured):
+
    ```bash
    sudo dphys-swapfile swapoff
    sudo nano /etc/dphys-swapfile
@@ -336,6 +341,7 @@ For multiple clients:
 
 1. **Change default password** for Raspberry Pi user
 2. **Enable firewall**:
+
    ```bash
    sudo ufw enable
    sudo ufw allow 22/tcp  # SSH
@@ -359,11 +365,13 @@ Add authentication to the server:
 ### Service Won't Start
 
 Check for errors:
+
 ```bash
 sudo journalctl -u consolidation-server -xe
 ```
 
 Common issues:
+
 - Port 8080 already in use: `sudo lsof -i :8080`
 - Permission issues: Check file ownership in project directory
 - Node.js version too old: Update to Node.js 18+
@@ -371,16 +379,19 @@ Common issues:
 ### Can't Connect to Server
 
 1. Check if service is running:
+
    ```bash
    sudo systemctl status consolidation-server
    ```
 
 2. Check if port is listening:
+
    ```bash
    sudo netstat -tlnp | grep :8080
    ```
 
 3. Check firewall rules:
+
    ```bash
    sudo ufw status
    ```
@@ -393,12 +404,14 @@ Common issues:
 ### High Memory Usage
 
 1. Check memory usage:
+
    ```bash
    free -h
    top
    ```
 
 2. Restart service to clear memory:
+
    ```bash
    sudo systemctl restart consolidation-server
    ```
@@ -521,6 +534,7 @@ Your server will now be accessible at `https://tree4five.com` via Cloudflare's n
 ## Support
 
 For issues or questions:
+
 1. Check logs: `sudo journalctl -u consolidation-server -f`
 2. Review this documentation
 3. Check project README for additional information

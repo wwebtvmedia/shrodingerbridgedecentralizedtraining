@@ -1,241 +1,258 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Swarm Schrödinger Bridge - Documentation Access</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        padding: 3rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        max-width: 800px;
+        width: 100%;
+        text-align: center;
+      }
+
+      h1 {
+        color: #2c3e50;
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .subtitle {
+        color: #666;
+        font-size: 1.2rem;
+        margin-bottom: 2rem;
+        line-height: 1.6;
+      }
+
+      .button-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        margin: 3rem 0;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 18px 36px;
+        font-size: 1.2rem;
+        font-weight: 600;
+        text-decoration: none;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(135deg, #768efa 0%, #865bb2 100%);
+      }
+
+      .btn-secondary {
+        background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+        color: white;
+      }
+
+      .btn-secondary:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(135deg, #5eddd4 0%, #54b09d 100%);
+      }
+
+      .features {
+        text-align: left;
+        margin: 2rem 0;
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+      }
+
+      .features h3 {
+        color: #2c3e50;
+        margin-bottom: 1rem;
+        text-align: center;
+      }
+
+      .features ul {
+        list-style: none;
+        padding-left: 0;
+      }
+
+      .features li {
+        padding: 0.5rem 0;
+        color: #555;
+        display: flex;
+        align-items: center;
+      }
+
+      .features li:before {
+        content: "✓";
+        color: #4ecdc4;
+        font-weight: bold;
+        margin-right: 10px;
+        font-size: 1.2rem;
+      }
+
+      .info-box {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 2rem 0;
+        text-align: left;
+      }
+
+      .info-box h4 {
+        color: #856404;
+        margin-bottom: 0.5rem;
+      }
+
+      .info-box p {
+        color: #856404;
+        margin-bottom: 0;
+      }
+
+      footer {
+        margin-top: 2rem;
+        color: #666;
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 768px) {
         .container {
-            background: white;
-            border-radius: 20px;
-            padding: 3rem;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 800px;
-            width: 100%;
-            text-align: center;
+          padding: 2rem;
         }
-        
+
         h1 {
-            color: #2c3e50;
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+          font-size: 2rem;
         }
-        
-        .subtitle {
-            color: #666;
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            line-height: 1.6;
-        }
-        
-        .button-container {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-            margin: 3rem 0;
-        }
-        
+
         .btn {
-            display: inline-block;
-            padding: 18px 36px;
-            font-size: 1.2rem;
-            font-weight: 600;
-            text-decoration: none;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+          padding: 15px 30px;
+          font-size: 1.1rem;
         }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-            background: linear-gradient(135deg, #768efa 0%, #865bb2 100%);
-        }
-        
-        .btn-secondary {
-            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-            background: linear-gradient(135deg, #5eddd4 0%, #54b09d 100%);
-        }
-        
-        .features {
-            text-align: left;
-            margin: 2rem 0;
-            padding: 1.5rem;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-        
-        .features h3 {
-            color: #2c3e50;
-            margin-bottom: 1rem;
-            text-align: center;
-        }
-        
-        .features ul {
-            list-style: none;
-            padding-left: 0;
-        }
-        
-        .features li {
-            padding: 0.5rem 0;
-            color: #555;
-            display: flex;
-            align-items: center;
-        }
-        
-        .features li:before {
-            content: "✓";
-            color: #4ecdc4;
-            font-weight: bold;
-            margin-right: 10px;
-            font-size: 1.2rem;
-        }
-        
-        .info-box {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 1rem;
-            border-radius: 5px;
-            margin: 2rem 0;
-            text-align: left;
-        }
-        
-        .info-box h4 {
-            color: #856404;
-            margin-bottom: 0.5rem;
-        }
-        
-        .info-box p {
-            color: #856404;
-            margin-bottom: 0;
-        }
-        
-        footer {
-            margin-top: 2rem;
-            color: #666;
-            font-size: 0.9rem;
-        }
-        
-        @media (max-width: 768px) {
-            .container {
-                padding: 2rem;
-            }
-            
-            h1 {
-                font-size: 2rem;
-            }
-            
-            .btn {
-                padding: 15px 30px;
-                font-size: 1.1rem;
-            }
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <h1>Swarm Schrödinger Bridge Training System</h1>
-        <p class="subtitle">A decentralized, self-organizing swarm training system for Schrödinger Bridge models using WebTorch and peer-to-peer networking.</p>
-        
-        <div class="button-container">
-            <a href="readme.html" class="btn btn-primary">
-                📖 Open Full Documentation (HTML)
-            </a>
-            <a href="README.md" class="btn btn-secondary">
-                📄 View Markdown README
-            </a>
-        </div>
-        
-        <div class="features">
-            <h3>Documentation Features</h3>
-            <ul>
-                <li>Complete mathematical formulations of Schrödinger Bridge problems</li>
-                <li>Three-phase training architecture (VAE, Drift, Both)</li>
-                <li>Swarm intelligence and evolutionary optimization algorithms</li>
-                <li>System architecture diagrams and component interactions</li>
-                <li>Network protocol stack and synchronization protocols</li>
-                <li>Performance metrics and convergence analysis</li>
-                <li>Implementation details and technical specifications</li>
-                <li>Getting started guide and usage examples</li>
-            </ul>
-        </div>
-        
-        <div class="info-box">
-            <h4>📋 Quick Access</h4>
-            <p>The HTML documentation includes interactive navigation, mathematical equations rendered with MathJax, syntax highlighting for code examples, and responsive design for all devices.</p>
-        </div>
-        
-        <footer>
-            <p>Last updated: April 2026 | Project: Swarm Schrödinger Bridge Training Prototype</p>
-            <p>Note: This is a prototype demonstrating decentralized swarm training concepts.</p>
-        </footer>
+      <h1>Swarm Schrödinger Bridge Training System</h1>
+      <p class="subtitle">
+        A decentralized, self-organizing swarm training system for Schrödinger
+        Bridge models using WebTorch and peer-to-peer networking.
+      </p>
+
+      <div class="button-container">
+        <a href="readme.html" class="btn btn-primary">
+          📖 Open Full Documentation (HTML)
+        </a>
+        <a href="README.md" class="btn btn-secondary">
+          📄 View Markdown README
+        </a>
+      </div>
+
+      <div class="features">
+        <h3>Documentation Features</h3>
+        <ul>
+          <li>
+            Complete mathematical formulations of Schrödinger Bridge problems
+          </li>
+          <li>Three-phase training architecture (VAE, Drift, Both)</li>
+          <li>Swarm intelligence and evolutionary optimization algorithms</li>
+          <li>System architecture diagrams and component interactions</li>
+          <li>Network protocol stack and synchronization protocols</li>
+          <li>Performance metrics and convergence analysis</li>
+          <li>Implementation details and technical specifications</li>
+          <li>Getting started guide and usage examples</li>
+        </ul>
+      </div>
+
+      <div class="info-box">
+        <h4>📋 Quick Access</h4>
+        <p>
+          The HTML documentation includes interactive navigation, mathematical
+          equations rendered with MathJax, syntax highlighting for code
+          examples, and responsive design for all devices.
+        </p>
+      </div>
+
+      <footer>
+        <p>
+          Last updated: April 2026 | Project: Swarm Schrödinger Bridge Training
+          Prototype
+        </p>
+        <p>
+          Note: This is a prototype demonstrating decentralized swarm training
+          concepts.
+        </p>
+      </footer>
     </div>
-    
+
     <script>
-        // Add smooth scrolling for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const targetId = this.getAttribute('href');
-                if (targetId !== '#') {
-                    const targetElement = document.querySelector(targetId);
-                    if (targetElement) {
-                        targetElement.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
-                    }
-                }
-            });
+      // Add smooth scrolling for anchor links
+      document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+        anchor.addEventListener("click", function (e) {
+          e.preventDefault();
+          const targetId = this.getAttribute("href");
+          if (targetId !== "#") {
+            const targetElement = document.querySelector(targetId);
+            if (targetElement) {
+              targetElement.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }
+          }
         });
-        
-        // Add animation to buttons on load
-        document.addEventListener('DOMContentLoaded', function() {
-            const buttons = document.querySelectorAll('.btn');
-            buttons.forEach((button, index) => {
-                button.style.opacity = '0';
-                button.style.transform = 'translateY(20px)';
-                
-                setTimeout(() => {
-                    button.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-                    button.style.opacity = '1';
-                    button.style.transform = 'translateY(0)';
-                }, index * 200);
-            });
+      });
+
+      // Add animation to buttons on load
+      document.addEventListener("DOMContentLoaded", function () {
+        const buttons = document.querySelectorAll(".btn");
+        buttons.forEach((button, index) => {
+          button.style.opacity = "0";
+          button.style.transform = "translateY(20px)";
+
+          setTimeout(() => {
+            button.style.transition = "opacity 0.5s ease, transform 0.5s ease";
+            button.style.opacity = "1";
+            button.style.transform = "translateY(0)";
+          }, index * 200);
         });
+      });
     </script>
-</body>
+  </body>
 </html>

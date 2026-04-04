@@ -1,513 +1,536 @@
-import { EnhancedSwarmTrainer } from './core/enhanced-trainer.js';
-import { UIManager } from './ui/manager.js';
-import { DataImporter } from './utils/data-importer.js';
-import { InferenceEngine } from './utils/inference.js';
+import { EnhancedSwarmTrainer } from "./core/enhanced-trainer.js";
+import { UIManager } from "./ui/manager.js";
+import { DataImporter } from "./utils/data-importer.js";
+import { InferenceEngine } from "./utils/inference.js";
 
 class EnhancedSwarmApp {
-    constructor() {
-        this.ui = new UIManager();
-        this.trainer = null;
-        this.dataImporter = new DataImporter();
-        this.inferenceEngine = null;
-        this.isInitialized = false;
-        
-        this.init();
-    }
-    
-    async init() {
-        console.log('🚀 Initializing Enhanced Swarm App...');
-        
-        // Initialize UI
-        this.ui.init();
-        this.ui.updateStatus('Initializing...');
-        
-        // Setup event listeners
-        this.setupEventListeners();
-        
-        // Update UI
-        this.ui.updateStatus('Ready to connect');
-        this.ui.enableButton('connect-btn');
-        
-        console.log('✅ Enhanced app initialized');
-        this.isInitialized = true;
-    }
-    
-    setupEventListeners() {
-        // Connect button
-        document.getElementById('connect-btn').addEventListener('click', () => this.connect());
-        
-        // Start training button
-        document.getElementById('start-btn').addEventListener('click', () => this.startTraining());
-        
-        // Stop training button
-        document.getElementById('stop-btn').addEventListener('click', () => this.stopTraining());
-        
-        // Phase buttons
-        document.querySelectorAll('.phase-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const phase = e.target.dataset.phase;
-                this.setTrainingPhase(phase);
-            });
+  constructor() {
+    this.ui = new UIManager();
+    this.trainer = null;
+    this.dataImporter = new DataImporter();
+    this.inferenceEngine = null;
+    this.isInitialized = false;
+
+    this.init();
+  }
+
+  async init() {
+    console.log("🚀 Initializing Enhanced Swarm App...");
+
+    // Initialize UI
+    this.ui.init();
+    this.ui.updateStatus("Initializing...");
+
+    // Setup event listeners
+    this.setupEventListeners();
+
+    // Update UI
+    this.ui.updateStatus("Ready to connect");
+    this.ui.enableButton("connect-btn");
+
+    console.log("✅ Enhanced app initialized");
+    this.isInitialized = true;
+  }
+
+  setupEventListeners() {
+    // Connect button
+    document
+      .getElementById("connect-btn")
+      .addEventListener("click", () => this.connect());
+
+    // Start training button
+    document
+      .getElementById("start-btn")
+      .addEventListener("click", () => this.startTraining());
+
+    // Stop training button
+    document
+      .getElementById("stop-btn")
+      .addEventListener("click", () => this.stopTraining());
+
+    // Phase buttons
+    document.querySelectorAll(".phase-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const phase = e.target.dataset.phase;
+        this.setTrainingPhase(phase);
+      });
+    });
+
+    // Generate samples button
+    document
+      .getElementById("generate-btn")
+      .addEventListener("click", () => this.generateSamples());
+
+    // Exploration slider
+    document
+      .getElementById("exploration-slider")
+      .addEventListener("input", (e) => {
+        const value = e.target.value;
+        document.getElementById("exploration-value").textContent = `${value}%`;
+        if (this.trainer) {
+          this.trainer.setExplorationRate(value / 100);
+        }
+      });
+
+    // Database export button
+    const exportBtn = document.createElement("button");
+    exportBtn.className = "btn";
+    exportBtn.textContent = "Export Database";
+    exportBtn.addEventListener("click", () => this.exportDatabase());
+    document.querySelector(".controls").appendChild(exportBtn);
+
+    // Database import button
+    const importBtn = document.createElement("button");
+    importBtn.className = "btn";
+    importBtn.textContent = "Import Database";
+    importBtn.addEventListener("click", () => this.importDatabase());
+    document.querySelector(".controls").appendChild(importBtn);
+
+    // Data import button
+    const dataImportBtn = document.createElement("button");
+    dataImportBtn.id = "data-import-btn";
+    dataImportBtn.className = "btn";
+    dataImportBtn.textContent = "Import Data";
+    dataImportBtn.addEventListener("click", () => this.importData());
+    document.querySelector(".controls").appendChild(dataImportBtn);
+
+    // Inference button
+    const inferenceBtn = document.createElement("button");
+    inferenceBtn.id = "inference-btn";
+    inferenceBtn.className = "btn";
+    inferenceBtn.textContent = "Run Inference";
+    inferenceBtn.addEventListener("click", () => this.runInference());
+    document.querySelector(".controls").appendChild(inferenceBtn);
+  }
+
+  async connect() {
+    if (!this.isInitialized) return;
+
+    this.ui.updateStatus("Connecting...");
+    this.ui.log("Initializing enhanced swarm trainer");
+
+    try {
+      // Create enhanced trainer with database and tunnel
+      this.trainer = new EnhancedSwarmTrainer({
+        useDatabase: true,
+        useTunnel: true,
+        tunnelConfig: {
+          tunnelUrl: "https://tunnel.swarm-training.com",
+          tunnelId: `trainer_${Date.now()}`,
+        },
+        explorationRate: 0.3,
+        syncInterval: 5,
+      });
+
+      // Setup trainer callbacks
+      this.trainer.onEpochComplete((epoch, loss, metrics) => {
+        this.ui.updateEpoch(epoch);
+        this.ui.updateLoss(loss);
+        this.ui.updatePhase(this.trainer.currentPhase);
+
+        // Update charts
+        this.ui.updateLossChart(epoch, loss);
+        this.ui.updateDiversityChart(epoch, metrics.diversity || 0.5);
+
+        // Update metrics
+        this.ui.updateMetrics({
+          modelsEvaluated: this.trainer.metrics.modelsReceived,
+          syncCount: this.trainer.metrics.syncEvents,
         });
-        
-        // Generate samples button
-        document.getElementById('generate-btn').addEventListener('click', () => this.generateSamples());
-        
-        // Exploration slider
-        document.getElementById('exploration-slider').addEventListener('input', (e) => {
-            const value = e.target.value;
-            document.getElementById('exploration-value').textContent = `${value}%`;
-            if (this.trainer) {
-                this.trainer.setExplorationRate(value / 100);
+
+        // Log progress
+        this.ui.log(
+          `Epoch ${epoch}: loss=${loss.toFixed(4)}, phase=${this.trainer.currentPhase}`,
+        );
+      });
+
+      this.trainer.onNeighborUpdate((event, peerId, metadata) => {
+        if (event === "connected") {
+          this.ui.log(`👋 Neighbor connected: ${peerId}`);
+          this.ui.updatePeerCount(this.trainer.getNeighborCount());
+        } else if (event === "disconnected") {
+          this.ui.log(`👋 Neighbor disconnected: ${peerId}`);
+          this.ui.updatePeerCount(this.trainer.getNeighborCount());
+        }
+      });
+
+      this.trainer.onModelShared((result) => {
+        this.ui.log(
+          `📤 Shared model with neighbors (loss: ${result.loss.toFixed(4)})`,
+        );
+      });
+
+      this.trainer.onModelReceived((peerId, model) => {
+        this.ui.log(`📥 Received model from ${peerId}`);
+        this.ui.incrementModelsEvaluated();
+      });
+
+      this.trainer.onSyncEvent((peerId, epoch) => {
+        this.ui.log(`🔄 Synchronized with ${peerId} at epoch ${epoch}`);
+        this.ui.incrementSyncCount();
+      });
+
+      this.trainer.onDatabaseUpdate((stats) => {
+        this.ui.log(
+          `📊 Database: ${stats.neighbors.count} neighbors, ${stats.results.count} results`,
+        );
+      });
+
+      // Initialize trainer
+      await this.trainer.initialize();
+
+      // Update UI
+      this.ui.updateStatus("Connected to swarm");
+      this.ui.updatePeerCount(this.trainer.getNeighborCount());
+      this.ui.log("✅ Enhanced trainer initialized with database and tunnel");
+
+      // Enable training button
+      this.ui.enableButton("start-btn");
+      this.ui.disableButton("connect-btn");
+    } catch (error) {
+      console.error("Connection failed:", error);
+      this.ui.log(`❌ Connection failed: ${error.message}`);
+      this.ui.updateStatus("Connection failed");
+    }
+  }
+
+  async startTraining() {
+    if (!this.trainer) {
+      this.ui.log("❌ Trainer not initialized. Connect first.");
+      return;
+    }
+
+    this.ui.updateStatus("Starting training...");
+    this.ui.log("Starting enhanced swarm training");
+
+    try {
+      await this.trainer.startTraining();
+
+      this.ui.enableButton("stop-btn");
+      this.ui.disableButton("start-btn");
+      this.ui.updateStatus("Training in progress");
+      this.ui.log("✅ Training started with database persistence");
+    } catch (error) {
+      console.error("Training start failed:", error);
+      this.ui.log(`❌ Training failed to start: ${error.message}`);
+      this.ui.updateStatus("Training failed");
+    }
+  }
+
+  async stopTraining() {
+    if (!this.trainer) return;
+
+    this.ui.updateStatus("Stopping training...");
+    this.ui.log("Stopping trainer and saving state");
+
+    try {
+      await this.trainer.stopTraining();
+
+      this.ui.enableButton("start-btn");
+      this.ui.disableButton("stop-btn");
+      this.ui.updateStatus("Training stopped");
+      this.ui.log("✅ Training stopped. State saved to database.");
+    } catch (error) {
+      console.error("Stop failed:", error);
+      this.ui.log(`❌ Stop failed: ${error.message}`);
+    }
+  }
+
+  setTrainingPhase(phase) {
+    if (!this.trainer) return;
+
+    this.trainer.setPhase(phase);
+    this.ui.updatePhase(phase);
+    this.ui.log(`Phase changed to: ${phase}`);
+
+    // Update button states
+    document.querySelectorAll(".phase-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.phase === phase);
+    });
+  }
+
+  async generateSamples() {
+    if (!this.trainer) {
+      this.ui.log("❌ No trainer available. Start training first.");
+      return;
+    }
+
+    this.ui.log("Generating samples...");
+
+    try {
+      // For now, generate simulated samples
+      const samples = await this.generateSimulatedSamples(4);
+      this.ui.displaySamples(samples);
+      this.ui.log("✅ Samples generated");
+    } catch (error) {
+      console.error("Sample generation failed:", error);
+      this.ui.log(`❌ Sample generation failed: ${error.message}`);
+    }
+  }
+
+  async generateSimulatedSamples(count = 4) {
+    const samples = [];
+    for (let i = 0; i < count; i++) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 64;
+      canvas.height = 64;
+      const ctx = canvas.getContext("2d");
+
+      // Generate random color
+      const hue = Math.random() * 360;
+      ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
+      ctx.fillRect(0, 0, 64, 64);
+
+      // Add some random shapes
+      ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      for (let j = 0; j < 5; j++) {
+        const x = Math.random() * 64;
+        const y = Math.random() * 64;
+        const size = 5 + Math.random() * 15;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      samples.push(canvas.toDataURL());
+    }
+
+    return samples;
+  }
+
+  async exportDatabase() {
+    if (!this.trainer || !this.trainer.database) {
+      this.ui.log("❌ Database not available");
+      return;
+    }
+
+    try {
+      const exportData = await this.trainer.database.exportData();
+
+      // Create download link
+      const blob = new Blob([exportData], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `swarm-training-backup-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      this.ui.log("✅ Database exported successfully");
+    } catch (error) {
+      console.error("Export failed:", error);
+      this.ui.log(`❌ Export failed: ${error.message}`);
+    }
+  }
+
+  async importDatabase() {
+    if (!this.trainer || !this.trainer.database) {
+      this.ui.log("❌ Database not available");
+      return;
+    }
+
+    // Create file input
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        await this.trainer.database.importData(text);
+
+        this.ui.log(`✅ Database imported from ${file.name}`);
+
+        // Refresh UI
+        const stats = await this.trainer.database.getStatistics();
+        this.ui.updatePeerCount(stats.neighbors.count);
+        this.ui.log(
+          `Loaded: ${stats.neighbors.count} neighbors, ${stats.results.count} results`,
+        );
+      } catch (error) {
+        console.error("Import failed:", error);
+        this.ui.log(`❌ Import failed: ${error.message}`);
+      }
+    };
+
+    input.click();
+  }
+
+  async importData() {
+    this.ui.log("📁 Opening file picker for data import...");
+
+    // Create file input element
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.multiple = true;
+    fileInput.accept = "image/*,.txt,.json,.csv";
+
+    fileInput.addEventListener("change", async (event) => {
+      const files = Array.from(event.target.files);
+      if (files.length === 0) return;
+
+      this.ui.log(`📁 Importing ${files.length} file(s)...`);
+      this.ui.updateStatus("Importing data...");
+
+      try {
+        // Separate images and text files
+        const imageFiles = files.filter((file) =>
+          file.type.startsWith("image/"),
+        );
+        const textFiles = files.filter(
+          (file) =>
+            file.type.startsWith("text/") ||
+            file.name.endsWith(".txt") ||
+            file.name.endsWith(".json") ||
+            file.name.endsWith(".csv"),
+        );
+
+        let importedCount = 0;
+
+        // Import images
+        if (imageFiles.length > 0) {
+          this.ui.log(`🖼️ Processing ${imageFiles.length} image(s)...`);
+          const images = await this.dataImporter.importImages(imageFiles);
+
+          // Store images in database if trainer is available
+          if (this.trainer && this.trainer.database) {
+            for (const image of images) {
+              await this.trainer.database.saveTrainingData({
+                type: "image",
+                data: image.data,
+                metadata: image.metadata,
+                timestamp: Date.now(),
+              });
             }
-        });
-        
-        // Database export button
-        const exportBtn = document.createElement('button');
-        exportBtn.className = 'btn';
-        exportBtn.textContent = 'Export Database';
-        exportBtn.addEventListener('click', () => this.exportDatabase());
-        document.querySelector('.controls').appendChild(exportBtn);
-        
-        // Database import button
-        const importBtn = document.createElement('button');
-        importBtn.className = 'btn';
-        importBtn.textContent = 'Import Database';
-        importBtn.addEventListener('click', () => this.importDatabase());
-        document.querySelector('.controls').appendChild(importBtn);
-        
-        // Data import button
-        const dataImportBtn = document.createElement('button');
-        dataImportBtn.id = 'data-import-btn';
-        dataImportBtn.className = 'btn';
-        dataImportBtn.textContent = 'Import Data';
-        dataImportBtn.addEventListener('click', () => this.importData());
-        document.querySelector('.controls').appendChild(dataImportBtn);
-        
-        // Inference button
-        const inferenceBtn = document.createElement('button');
-        inferenceBtn.id = 'inference-btn';
-        inferenceBtn.className = 'btn';
-        inferenceBtn.textContent = 'Run Inference';
-        inferenceBtn.addEventListener('click', () => this.runInference());
-        document.querySelector('.controls').appendChild(inferenceBtn);
-    }
-    
-    async connect() {
-        if (!this.isInitialized) return;
-        
-        this.ui.updateStatus('Connecting...');
-        this.ui.log('Initializing enhanced swarm trainer');
-        
-        try {
-            // Create enhanced trainer with database and tunnel
-            this.trainer = new EnhancedSwarmTrainer({
-                useDatabase: true,
-                useTunnel: true,
-                tunnelConfig: {
-                    tunnelUrl: 'https://tunnel.swarm-training.com',
-                    tunnelId: `trainer_${Date.now()}`
-                },
-                explorationRate: 0.3,
-                syncInterval: 5
-            });
-            
-            // Setup trainer callbacks
-            this.trainer.onEpochComplete((epoch, loss, metrics) => {
-                this.ui.updateEpoch(epoch);
-                this.ui.updateLoss(loss);
-                this.ui.updatePhase(this.trainer.currentPhase);
-                
-                // Update charts
-                this.ui.updateLossChart(epoch, loss);
-                this.ui.updateDiversityChart(epoch, metrics.diversity || 0.5);
-                
-                // Update metrics
-                this.ui.updateMetrics({
-                    modelsEvaluated: this.trainer.metrics.modelsReceived,
-                    syncCount: this.trainer.metrics.syncEvents
-                });
-                
-                // Log progress
-                this.ui.log(`Epoch ${epoch}: loss=${loss.toFixed(4)}, phase=${this.trainer.currentPhase}`);
-            });
-            
-            this.trainer.onNeighborUpdate((event, peerId, metadata) => {
-                if (event === 'connected') {
-                    this.ui.log(`👋 Neighbor connected: ${peerId}`);
-                    this.ui.updatePeerCount(this.trainer.getNeighborCount());
-                } else if (event === 'disconnected') {
-                    this.ui.log(`👋 Neighbor disconnected: ${peerId}`);
-                    this.ui.updatePeerCount(this.trainer.getNeighborCount());
-                }
-            });
-            
-            this.trainer.onModelShared((result) => {
-                this.ui.log(`📤 Shared model with neighbors (loss: ${result.loss.toFixed(4)})`);
-            });
-            
-            this.trainer.onModelReceived((peerId, model) => {
-                this.ui.log(`📥 Received model from ${peerId}`);
-                this.ui.incrementModelsEvaluated();
-            });
-            
-            this.trainer.onSyncEvent((peerId, epoch) => {
-                this.ui.log(`🔄 Synchronized with ${peerId} at epoch ${epoch}`);
-                this.ui.incrementSyncCount();
-            });
-            
-            this.trainer.onDatabaseUpdate((stats) => {
-                this.ui.log(`📊 Database: ${stats.neighbors.count} neighbors, ${stats.results.count} results`);
-            });
-            
-            // Initialize trainer
-            await this.trainer.initialize();
-            
-            // Update UI
-            this.ui.updateStatus('Connected to swarm');
-            this.ui.updatePeerCount(this.trainer.getNeighborCount());
-            this.ui.log('✅ Enhanced trainer initialized with database and tunnel');
-            
-            // Enable training button
-            this.ui.enableButton('start-btn');
-            this.ui.disableButton('connect-btn');
-            
-        } catch (error) {
-            console.error('Connection failed:', error);
-            this.ui.log(`❌ Connection failed: ${error.message}`);
-            this.ui.updateStatus('Connection failed');
+          }
+
+          importedCount += images.length;
+          this.ui.log(`✅ Imported ${images.length} image(s)`);
         }
-    }
-    
-    async startTraining() {
-        if (!this.trainer) {
-            this.ui.log('❌ Trainer not initialized. Connect first.');
-            return;
-        }
-        
-        this.ui.updateStatus('Starting training...');
-        this.ui.log('Starting enhanced swarm training');
-        
-        try {
-            await this.trainer.startTraining();
-            
-            this.ui.enableButton('stop-btn');
-            this.ui.disableButton('start-btn');
-            this.ui.updateStatus('Training in progress');
-            this.ui.log('✅ Training started with database persistence');
-            
-        } catch (error) {
-            console.error('Training start failed:', error);
-            this.ui.log(`❌ Training failed to start: ${error.message}`);
-            this.ui.updateStatus('Training failed');
-        }
-    }
-    
-    async stopTraining() {
-        if (!this.trainer) return;
-        
-        this.ui.updateStatus('Stopping training...');
-        this.ui.log('Stopping trainer and saving state');
-        
-        try {
-            await this.trainer.stopTraining();
-            
-            this.ui.enableButton('start-btn');
-            this.ui.disableButton('stop-btn');
-            this.ui.updateStatus('Training stopped');
-            this.ui.log('✅ Training stopped. State saved to database.');
-            
-        } catch (error) {
-            console.error('Stop failed:', error);
-            this.ui.log(`❌ Stop failed: ${error.message}`);
-        }
-    }
-    
-    setTrainingPhase(phase) {
-        if (!this.trainer) return;
-        
-        this.trainer.setPhase(phase);
-        this.ui.updatePhase(phase);
-        this.ui.log(`Phase changed to: ${phase}`);
-        
-        // Update button states
-        document.querySelectorAll('.phase-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.phase === phase);
-        });
-    }
-    
-    async generateSamples() {
-        if (!this.trainer) {
-            this.ui.log('❌ No trainer available. Start training first.');
-            return;
-        }
-        
-        this.ui.log('Generating samples...');
-        
-        try {
-            // For now, generate simulated samples
-            const samples = await this.generateSimulatedSamples(4);
-            this.ui.displaySamples(samples);
-            this.ui.log('✅ Samples generated');
-            
-        } catch (error) {
-            console.error('Sample generation failed:', error);
-            this.ui.log(`❌ Sample generation failed: ${error.message}`);
-        }
-    }
-    
-    async generateSimulatedSamples(count = 4) {
-        const samples = [];
-        for (let i = 0; i < count; i++) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 64;
-            canvas.height = 64;
-            const ctx = canvas.getContext('2d');
-            
-            // Generate random color
-            const hue = Math.random() * 360;
-            ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
-            ctx.fillRect(0, 0, 64, 64);
-            
-            // Add some random shapes
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            for (let j = 0; j < 5; j++) {
-                const x = Math.random() * 64;
-                const y = Math.random() * 64;
-                const size = 5 + Math.random() * 15;
-                ctx.beginPath();
-                ctx.arc(x, y, size, 0, Math.PI * 2);
-                ctx.fill();
+
+        // Import text
+        if (textFiles.length > 0) {
+          this.ui.log(`📝 Processing ${textFiles.length} text file(s)...`);
+          const texts = await this.dataImporter.importText(textFiles);
+
+          // Store text in database if trainer is available
+          if (this.trainer && this.trainer.database) {
+            for (const text of texts) {
+              await this.trainer.database.saveTrainingData({
+                type: "text",
+                data: text.content,
+                metadata: text.metadata,
+                timestamp: Date.now(),
+              });
             }
-            
-            samples.push(canvas.toDataURL());
+          }
+
+          importedCount += texts.length;
+          this.ui.log(`✅ Imported ${texts.length} text file(s)`);
         }
-        
-        return samples;
+
+        this.ui.updateStatus(`Imported ${importedCount} items`);
+        this.ui.log(`🎉 Successfully imported ${importedCount} total item(s)`);
+
+        // If trainer is running, notify about new data
+        if (this.trainer && this.trainer.isTraining) {
+          this.ui.log("📢 New data available for training");
+        }
+      } catch (error) {
+        console.error("Data import failed:", error);
+        this.ui.log(`❌ Import failed: ${error.message}`);
+        this.ui.updateStatus("Import failed");
+      }
+    });
+
+    // Trigger file picker
+    fileInput.click();
+  }
+
+  async runInference() {
+    if (!this.trainer) {
+      this.ui.log("❌ Trainer not initialized. Connect first.");
+      return;
     }
-    
-    async exportDatabase() {
-        if (!this.trainer || !this.trainer.database) {
-            this.ui.log('❌ Database not available');
-            return;
-        }
-        
-        try {
-            const exportData = await this.trainer.database.exportData();
-            
-            // Create download link
-            const blob = new Blob([exportData], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `swarm-training-backup-${Date.now()}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            this.ui.log('✅ Database exported successfully');
-            
-        } catch (error) {
-            console.error('Export failed:', error);
-            this.ui.log(`❌ Export failed: ${error.message}`);
-        }
+
+    // Initialize inference engine if not already done
+    if (!this.inferenceEngine) {
+      this.ui.log("🔮 Initializing inference engine...");
+      this.inferenceEngine = new InferenceEngine(this.trainer.modelManager);
+      await this.inferenceEngine.initialize();
+      this.ui.log("✅ Inference engine ready");
     }
-    
-    async importDatabase() {
-        if (!this.trainer || !this.trainer.database) {
-            this.ui.log('❌ Database not available');
-            return;
-        }
-        
-        // Create file input
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        
-        input.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            try {
-                const text = await file.text();
-                await this.trainer.database.importData(text);
-                
-                this.ui.log(`✅ Database imported from ${file.name}`);
-                
-                // Refresh UI
-                const stats = await this.trainer.database.getStatistics();
-                this.ui.updatePeerCount(stats.neighbors.count);
-                this.ui.log(`Loaded: ${stats.neighbors.count} neighbors, ${stats.results.count} results`);
-                
-            } catch (error) {
-                console.error('Import failed:', error);
-                this.ui.log(`❌ Import failed: ${error.message}`);
-            }
-        };
-        
-        input.click();
+
+    this.ui.log("🎨 Running inference...");
+    this.ui.updateStatus("Generating samples");
+
+    try {
+      // Create inference options dialog
+      const label = prompt(
+        "Enter label (0-9) for conditioned generation, or leave empty for unconditional:",
+        "",
+      );
+      const promptText = prompt(
+        "Enter text prompt for text-conditioned generation, or leave empty:",
+        "",
+      );
+
+      const options = {
+        sampleCount: 4,
+        steps: 50,
+        temperature: 0.7,
+        cfgScale: 1.0,
+      };
+
+      if (label !== null && label !== "") {
+        options.label = parseInt(label);
+        this.ui.log(`🔢 Generating with label: ${options.label}`);
+      } else if (promptText !== null && promptText !== "") {
+        options.prompt = promptText;
+        this.ui.log(`📝 Generating with prompt: "${options.prompt}"`);
+      } else {
+        this.ui.log("🎲 Generating unconditional samples");
+      }
+
+      // Run inference
+      const result = await this.inferenceEngine.generateSamples(options);
+
+      // Display samples
+      const sampleImages = result.samples.map((sample) => sample.image);
+      this.ui.displaySamples(sampleImages);
+
+      // Show inference stats
+      this.ui.log(
+        `✅ Generated ${result.samples.length} samples in ${result.inference.duration}ms`,
+      );
+      this.ui.updateStatus("Inference complete");
+
+      // Update inference history
+      const stats = this.inferenceEngine.getInferenceStats();
+      if (stats) {
+        this.ui.log(
+          `📊 Inference stats: ${stats.totalInferences} runs, ${stats.totalSamples} total samples`,
+        );
+      }
+    } catch (error) {
+      console.error("Inference failed:", error);
+      this.ui.log(`❌ Inference failed: ${error.message}`);
+      this.ui.updateStatus("Inference failed");
     }
-    
-    async importData() {
-        this.ui.log('📁 Opening file picker for data import...');
-        
-        // Create file input element
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.multiple = true;
-        fileInput.accept = 'image/*,.txt,.json,.csv';
-        
-        fileInput.addEventListener('change', async (event) => {
-            const files = Array.from(event.target.files);
-            if (files.length === 0) return;
-            
-            this.ui.log(`📁 Importing ${files.length} file(s)...`);
-            this.ui.updateStatus('Importing data...');
-            
-            try {
-                // Separate images and text files
-                const imageFiles = files.filter(file => file.type.startsWith('image/'));
-                const textFiles = files.filter(file =>
-                    file.type.startsWith('text/') ||
-                    file.name.endsWith('.txt') ||
-                    file.name.endsWith('.json') ||
-                    file.name.endsWith('.csv')
-                );
-                
-                let importedCount = 0;
-                
-                // Import images
-                if (imageFiles.length > 0) {
-                    this.ui.log(`🖼️ Processing ${imageFiles.length} image(s)...`);
-                    const images = await this.dataImporter.importImages(imageFiles);
-                    
-                    // Store images in database if trainer is available
-                    if (this.trainer && this.trainer.database) {
-                        for (const image of images) {
-                            await this.trainer.database.saveTrainingData({
-                                type: 'image',
-                                data: image.data,
-                                metadata: image.metadata,
-                                timestamp: Date.now()
-                            });
-                        }
-                    }
-                    
-                    importedCount += images.length;
-                    this.ui.log(`✅ Imported ${images.length} image(s)`);
-                }
-                
-                // Import text
-                if (textFiles.length > 0) {
-                    this.ui.log(`📝 Processing ${textFiles.length} text file(s)...`);
-                    const texts = await this.dataImporter.importText(textFiles);
-                    
-                    // Store text in database if trainer is available
-                    if (this.trainer && this.trainer.database) {
-                        for (const text of texts) {
-                            await this.trainer.database.saveTrainingData({
-                                type: 'text',
-                                data: text.content,
-                                metadata: text.metadata,
-                                timestamp: Date.now()
-                            });
-                        }
-                    }
-                    
-                    importedCount += texts.length;
-                    this.ui.log(`✅ Imported ${texts.length} text file(s)`);
-                }
-                
-                this.ui.updateStatus(`Imported ${importedCount} items`);
-                this.ui.log(`🎉 Successfully imported ${importedCount} total item(s)`);
-                
-                // If trainer is running, notify about new data
-                if (this.trainer && this.trainer.isTraining) {
-                    this.ui.log('📢 New data available for training');
-                }
-                
-            } catch (error) {
-                console.error('Data import failed:', error);
-                this.ui.log(`❌ Import failed: ${error.message}`);
-                this.ui.updateStatus('Import failed');
-            }
-        });
-        
-        // Trigger file picker
-        fileInput.click();
-    }
-    
-    async runInference() {
-        if (!this.trainer) {
-            this.ui.log('❌ Trainer not initialized. Connect first.');
-            return;
-        }
-        
-        // Initialize inference engine if not already done
-        if (!this.inferenceEngine) {
-            this.ui.log('🔮 Initializing inference engine...');
-            this.inferenceEngine = new InferenceEngine(this.trainer.modelManager);
-            await this.inferenceEngine.initialize();
-            this.ui.log('✅ Inference engine ready');
-        }
-        
-        this.ui.log('🎨 Running inference...');
-        this.ui.updateStatus('Generating samples');
-        
-        try {
-            // Create inference options dialog
-            const label = prompt('Enter label (0-9) for conditioned generation, or leave empty for unconditional:', '');
-            const promptText = prompt('Enter text prompt for text-conditioned generation, or leave empty:', '');
-            
-            const options = {
-                sampleCount: 4,
-                steps: 50,
-                temperature: 0.7,
-                cfgScale: 1.0
-            };
-            
-            if (label !== null && label !== '') {
-                options.label = parseInt(label);
-                this.ui.log(`🔢 Generating with label: ${options.label}`);
-            } else if (promptText !== null && promptText !== '') {
-                options.prompt = promptText;
-                this.ui.log(`📝 Generating with prompt: "${options.prompt}"`);
-            } else {
-                this.ui.log('🎲 Generating unconditional samples');
-            }
-            
-            // Run inference
-            const result = await this.inferenceEngine.generateSamples(options);
-            
-            // Display samples
-            const sampleImages = result.samples.map(sample => sample.image);
-            this.ui.displaySamples(sampleImages);
-            
-            // Show inference stats
-            this.ui.log(`✅ Generated ${result.samples.length} samples in ${result.inference.duration}ms`);
-            this.ui.updateStatus('Inference complete');
-            
-            // Update inference history
-            const stats = this.inferenceEngine.getInferenceStats();
-            if (stats) {
-                this.ui.log(`📊 Inference stats: ${stats.totalInferences} runs, ${stats.totalSamples} total samples`);
-            }
-            
-        } catch (error) {
-            console.error('Inference failed:', error);
-            this.ui.log(`❌ Inference failed: ${error.message}`);
-            this.ui.updateStatus('Inference failed');
-        }
-    }
-    
-    async showDatabaseStats() {
-        if (!this.trainer || !this.trainer.database) return;
-        
-        try {
-            const stats = await this.trainer.database.getStatistics();
-            
-            const statsText = `
+  }
+
+  async showDatabaseStats() {
+    if (!this.trainer || !this.trainer.database) return;
+
+    try {
+      const stats = await this.trainer.database.getStatistics();
+
+      const statsText = `
 📊 Database Statistics:
   Neighbors: ${stats.neighbors.count} (${stats.neighbors.active} active)
   Results: ${stats.results.count}
@@ -518,52 +541,54 @@ class EnhancedSwarmApp {
   Training: Epoch ${stats.training.latestEpoch}
   Database size: ${Math.round(stats.database.size / 1024)} KB
             `.trim();
-            
-            this.ui.log(statsText);
-            
-        } catch (error) {
-            console.error('Failed to get stats:', error);
-        }
+
+      this.ui.log(statsText);
+    } catch (error) {
+      console.error("Failed to get stats:", error);
     }
-    
-    async cleanupDatabase() {
-        if (!this.trainer || !this.trainer.database) return;
-        
-        if (confirm('Clear all database data? This cannot be undone.')) {
-            try {
-                await this.trainer.database.clearDatabase();
-                this.ui.log('✅ Database cleared');
-                
-                // Reset UI
-                this.ui.updatePeerCount(0);
-                this.ui.updateEpoch(0);
-                this.ui.updateLoss('-');
-                
-            } catch (error) {
-                console.error('Cleanup failed:', error);
-                this.ui.log(`❌ Cleanup failed: ${error.message}`);
-            }
-        }
+  }
+
+  async cleanupDatabase() {
+    if (!this.trainer || !this.trainer.database) return;
+
+    if (confirm("Clear all database data? This cannot be undone.")) {
+      try {
+        await this.trainer.database.clearDatabase();
+        this.ui.log("✅ Database cleared");
+
+        // Reset UI
+        this.ui.updatePeerCount(0);
+        this.ui.updateEpoch(0);
+        this.ui.updateLoss("-");
+      } catch (error) {
+        console.error("Cleanup failed:", error);
+        this.ui.log(`❌ Cleanup failed: ${error.message}`);
+      }
     }
+  }
 }
 
 // Start the app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.enhancedApp = new EnhancedSwarmApp();
-    
-    // Add database stats button
-    const statsBtn = document.createElement('button');
-    statsBtn.className = 'btn';
-    statsBtn.textContent = 'Database Stats';
-    statsBtn.addEventListener('click', () => window.enhancedApp.showDatabaseStats());
-    document.querySelector('.controls').appendChild(statsBtn);
-    
-    // Add cleanup button
-    const cleanupBtn = document.createElement('button');
-    cleanupBtn.className = 'btn btn-danger';
-    cleanupBtn.textContent = 'Clear Database';
-    cleanupBtn.addEventListener('click', () => window.enhancedApp.cleanupDatabase());
-    document.querySelector('.controls').appendChild(cleanupBtn);
+document.addEventListener("DOMContentLoaded", () => {
+  window.enhancedApp = new EnhancedSwarmApp();
+
+  // Add database stats button
+  const statsBtn = document.createElement("button");
+  statsBtn.className = "btn";
+  statsBtn.textContent = "Database Stats";
+  statsBtn.addEventListener("click", () =>
+    window.enhancedApp.showDatabaseStats(),
+  );
+  document.querySelector(".controls").appendChild(statsBtn);
+
+  // Add cleanup button
+  const cleanupBtn = document.createElement("button");
+  cleanupBtn.className = "btn btn-danger";
+  cleanupBtn.textContent = "Clear Database";
+  cleanupBtn.addEventListener("click", () =>
+    window.enhancedApp.cleanupDatabase(),
+  );
+  document.querySelector(".controls").appendChild(cleanupBtn);
 });
 
 export { EnhancedSwarmApp };

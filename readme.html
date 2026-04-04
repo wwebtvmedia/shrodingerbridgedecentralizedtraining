@@ -1,455 +1,528 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Swarm Schrödinger Bridge Training System - Documentation</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css"
+    />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-        }
-        
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          sans-serif;
+        line-height: 1.6;
+        color: #333;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      header {
+        background: linear-gradient(135deg, #2c3e50 0%, #4a6fa5 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .subtitle {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        margin-bottom: 1rem;
+      }
+
+      .button-container {
+        display: flex;
+        gap: 1rem;
+        margin: 2rem 0;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(135deg, #5a7fb5 0%, #3c4e60 100%);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+      }
+
+      .btn-secondary {
+        background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+      }
+
+      .content {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+      }
+
+      h2 {
+        color: #2c3e50;
+        margin: 2rem 0 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #4a6fa5;
+      }
+
+      h3 {
+        color: #4a6fa5;
+        margin: 1.5rem 0 0.5rem;
+      }
+
+      h4 {
+        color: #666;
+        margin: 1rem 0 0.5rem;
+      }
+
+      p {
+        margin-bottom: 1rem;
+      }
+
+      ul,
+      ol {
+        margin-left: 1.5rem;
+        margin-bottom: 1rem;
+      }
+
+      li {
+        margin-bottom: 0.5rem;
+      }
+
+      code {
+        background: #f5f5f5;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: "Courier New", monospace;
+        font-size: 0.9em;
+      }
+
+      pre {
+        background: #2c3e50;
+        color: #ecf0f1;
+        padding: 1rem;
+        border-radius: 5px;
+        overflow-x: auto;
+        margin: 1rem 0;
+      }
+
+      .math {
+        font-size: 1.1em;
+        margin: 1rem 0;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-left: 4px solid #4ecdc4;
+        border-radius: 3px;
+      }
+
+      .diagram {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+        font-family: monospace;
+        white-space: pre;
+        overflow-x: auto;
+        border: 1px solid #e0e0e0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+      }
+
+      th,
+      td {
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      th {
+        background: #f5f7fa;
+        font-weight: 600;
+      }
+
+      tr:hover {
+        background: #f8f9fa;
+      }
+
+      .section {
+        margin-bottom: 3rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid #e0e0e0;
+      }
+
+      .section:last-child {
+        border-bottom: none;
+      }
+
+      .emoji {
+        font-size: 1.2em;
+        margin-right: 0.5rem;
+      }
+
+      .architecture-diagram {
+        max-width: 100%;
+        overflow-x: auto;
+        margin: 1rem 0;
+      }
+
+      footer {
+        text-align: center;
+        padding: 2rem;
+        color: #666;
+        font-size: 0.9rem;
+        border-top: 1px solid #e0e0e0;
+        margin-top: 2rem;
+      }
+
+      @media (max-width: 768px) {
         .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+          padding: 10px;
         }
-        
+
         header {
-            background: linear-gradient(135deg, #2c3e50 0%, #4a6fa5 100%);
-            color: white;
-            padding: 2rem;
-            border-radius: 10px;
-            margin-bottom: 2rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          padding: 1.5rem;
         }
-        
+
         h1 {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+          font-size: 2rem;
         }
-        
-        .subtitle {
-            font-size: 1.2rem;
-            opacity: 0.9;
-            margin-bottom: 1rem;
-        }
-        
-        .button-container {
-            display: flex;
-            gap: 1rem;
-            margin: 2rem 0;
-            flex-wrap: wrap;
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            background: linear-gradient(135deg, #4a6fa5 0%, #2c3e50 100%);
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            background: linear-gradient(135deg, #5a7fb5 0%, #3c4e60 100%);
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
-        }
-        
-        .btn-secondary {
-            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
-        }
-        
+
         .content {
-            background: white;
-            border-radius: 10px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
+          padding: 1rem;
         }
-        
-        h2 {
-            color: #2c3e50;
-            margin: 2rem 0 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid #4a6fa5;
+
+        .button-container {
+          flex-direction: column;
         }
-        
-        h3 {
-            color: #4a6fa5;
-            margin: 1.5rem 0 0.5rem;
+
+        .btn {
+          width: 100%;
+          text-align: center;
         }
-        
-        h4 {
-            color: #666;
-            margin: 1rem 0 0.5rem;
-        }
-        
-        p {
-            margin-bottom: 1rem;
-        }
-        
-        ul, ol {
-            margin-left: 1.5rem;
-            margin-bottom: 1rem;
-        }
-        
-        li {
-            margin-bottom: 0.5rem;
-        }
-        
-        code {
-            background: #f5f5f5;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-        }
-        
-        pre {
-            background: #2c3e50;
-            color: #ecf0f1;
-            padding: 1rem;
-            border-radius: 5px;
-            overflow-x: auto;
-            margin: 1rem 0;
-        }
-        
-        .math {
-            font-size: 1.1em;
-            margin: 1rem 0;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-left: 4px solid #4ecdc4;
-            border-radius: 3px;
-        }
-        
-        .diagram {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 5px;
-            margin: 1rem 0;
-            font-family: monospace;
-            white-space: pre;
-            overflow-x: auto;
-            border: 1px solid #e0e0e0;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-        }
-        
-        th, td {
-            padding: 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        th {
-            background: #f5f7fa;
-            font-weight: 600;
-        }
-        
-        tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .section {
-            margin-bottom: 3rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .section:last-child {
-            border-bottom: none;
-        }
-        
-        .emoji {
-            font-size: 1.2em;
-            margin-right: 0.5rem;
-        }
-        
-        .architecture-diagram {
-            max-width: 100%;
-            overflow-x: auto;
-            margin: 1rem 0;
-        }
-        
-        footer {
-            text-align: center;
-            padding: 2rem;
-            color: #666;
-            font-size: 0.9rem;
-            border-top: 1px solid #e0e0e0;
-            margin-top: 2rem;
-        }
-        
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-            
-            header {
-                padding: 1.5rem;
-            }
-            
-            h1 {
-                font-size: 2rem;
-            }
-            
-            .content {
-                padding: 1rem;
-            }
-            
-            .button-container {
-                flex-direction: column;
-            }
-            
-            .btn {
-                width: 100%;
-                text-align: center;
-            }
-        }
-        
-        .toc {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-radius: 5px;
-            margin: 1rem 0 2rem;
-            border-left: 4px solid #4a6fa5;
-        }
-        
-        .toc h3 {
-            margin-top: 0;
-        }
-        
-        .toc ul {
-            columns: 2;
-            list-style: none;
-            margin-left: 0;
-        }
-        
-        .toc li {
-            margin-bottom: 0.5rem;
-        }
-        
-        .toc a {
-            color: #4a6fa5;
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-        
-        .toc a:hover {
-            color: #ff6b6b;
-            text-decoration: underline;
-        }
-        
-        .highlight {
-            background: linear-gradient(120deg, rgba(255, 107, 107, 0.1) 0%, rgba(78, 205, 196, 0.1) 100%);
-            padding: 1rem;
-            border-radius: 5px;
-            margin: 1rem 0;
-            border-left: 4px solid #ff6b6b;
-        }
-        
-        .note {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 1rem;
-            border-radius: 5px;
-            margin: 1rem 0;
-        }
-        
-        .warning {
-            background: #f8d7da;
-            border-left: 4px solid #dc3545;
-            padding: 1rem;
-            border-radius: 5px;
-            margin: 1rem 0;
-        }
-        
-        .access-button {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 5px;
-            text-decoration: none;
-            font-weight: 600;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s ease;
-        }
-        
-        .access-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
-        }
+      }
+
+      .toc {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 5px;
+        margin: 1rem 0 2rem;
+        border-left: 4px solid #4a6fa5;
+      }
+
+      .toc h3 {
+        margin-top: 0;
+      }
+
+      .toc ul {
+        columns: 2;
+        list-style: none;
+        margin-left: 0;
+      }
+
+      .toc li {
+        margin-bottom: 0.5rem;
+      }
+
+      .toc a {
+        color: #4a6fa5;
+        text-decoration: none;
+        transition: color 0.3s ease;
+      }
+
+      .toc a:hover {
+        color: #ff6b6b;
+        text-decoration: underline;
+      }
+
+      .highlight {
+        background: linear-gradient(
+          120deg,
+          rgba(255, 107, 107, 0.1) 0%,
+          rgba(78, 205, 196, 0.1) 100%
+        );
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+        border-left: 4px solid #ff6b6b;
+      }
+
+      .note {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+      }
+
+      .warning {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+      }
+
+      .access-button {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 5px;
+        text-decoration: none;
+        font-weight: 600;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s ease;
+      }
+
+      .access-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <a href="readme.html" class="access-button">📖 Open HTML Documentation</a>
-    
+
     <div class="container">
-        <header>
-            <h1>Swarm Schrödinger Bridge Training System</h1>
-            <p class="subtitle">Decentralized, self-organizing swarm training for Schrödinger Bridge models using WebTorch and peer-to-peer networking</p>
-            <div class="button-container">
-                <a href="#abstract" class="btn">📖 Abstract</a>
-                <a href="#mathematics" class="btn">🧮 Mathematics</a>
-                <a href="#architecture" class="btn">🏗️ Architecture</a>
-                <a href="#algorithm" class="btn">🔬 Algorithms</a>
-                <a href="#implementation" class="btn">🚀 Implementation</a>
-                <a href="#getting-started" class="btn">📚 Getting Started</a>
-            </div>
-        </header>
-        
-        <div class="content">
-            <div class="toc">
-                <h3>📋 Table of Contents</h3>
-                <ul>
-                    <li><a href="#abstract">Abstract</a></li>
-                    <li><a href="#mathematics">Mathematical Foundations</a></li>
-                    <li><a href="#architecture">System Architecture</a></li>
-                    <li><a href="#algorithm">Training Algorithms</a></li>
-                    <li><a href="#metrics">Performance Metrics</a></li>
-                    <li><a href="#implementation">Implementation Details</a></li>
-                    <li><a href="#results">Experimental Results</a></li>
-                    <li><a href="#future">Future Research</a></li>
-                    <li><a href="#specs">Technical Specifications</a></li>
-                    <li><a href="#getting-started">Getting Started</a></li>
-                    <li><a href="#references">References</a></li>
-                </ul>
-            </div>
-            
-            <div class="section" id="abstract">
-                <h2><span class="emoji">📖</span> Abstract</h2>
-                <p>A decentralized, self-organizing swarm training system for Schrödinger Bridge models using WebTorch and peer-to-peer networking. This system implements a novel evolutionary optimization approach where multiple browser clients collaboratively train generative models without any central coordinator, using gossip protocols for model synchronization and adaptive phase management.</p>
-            </div>
-            
-            <div class="section" id="mathematics">
-                <h2><span class="emoji">🧮</span> Mathematical Foundations</h2>
-                
-                <h3>Schrödinger Bridge Formulation</h3>
-                <p>The Schrödinger Bridge problem seeks the most likely stochastic process connecting two probability distributions \( p_0 \) and \( p_1 \) over a time interval \([0, T]\). Given:</p>
-                <ul>
-                    <li><strong>Source distribution</strong>: \( p_0(x) \) (e.g., Gaussian noise)</li>
-                    <li><strong>Target distribution</strong>: \( p_1(x) \) (e.g., data distribution)</li>
-                    <li><strong>Reference process</strong>: \( dX_t = f(X_t, t)dt + \sigma(t)dW_t \)</li>
-                </ul>
-                <div class="math">
-                    \[
-                    \mathbb{E}\left[\int_0^T \frac{1}{2} \|u(X_t, t)\|^2 dt\right]
-                    \]
-                </div>
-                <p>subject to \( X_0 \sim p_0 \) and \( X_T \sim p_1 \).</p>
-                
-                <h3>Three-Phase Training Architecture</h3>
-                
-                <h4>Phase 1: Variational Autoencoder (VAE) Training</h4>
-                <p><strong>Objective</strong>: Learn latent representations and reconstruction capabilities</p>
-                <div class="math">
-                    \[
-                    \mathcal{L}_{\text{VAE}} = \mathbb{E}_{q(z|x)}[\log p(x|z)] - \beta \cdot D_{KL}(q(z|x) \| p(z))
-                    \]
-                </div>
-                <p>where:</p>
-                <ul>
-                    <li>\( q(z|x) \): Encoder network (approximate posterior)</li>
-                    <li>\( p(x|z) \): Decoder network (likelihood)</li>
-                    <li>\( p(z) \): Prior distribution (typically \( \mathcal{N}(0, I) \))</li>
-                    <li>\( \beta \): KL divergence weight (controlled annealing)</li>
-                </ul>
-                
-                <h4>Phase 2: Drift Network Training</h4>
-                <p><strong>Objective</strong>: Learn the optimal drift function \( u(x, t) \)</p>
-                <div class="math">
-                    \[
-                    \mathcal{L}_{\text{drift}} = \mathbb{E}_{t \sim U(0,T), x_t \sim p_t} \left[ \|u(x_t, t) - u_{\text{target}}(x_t, t)\|^2 \right]
-                    \]
-                </div>
-                <p>where \( u_{\text{target}} \) is computed via:</p>
-                <div class="math">
-                    \[
-                    u_{\text{target}}(x_t, t) = \mathbb{E}_{x_T \sim p_1} \left[ \frac{x_T - x_t}{T - t} \middle| x_t \right]
-                    \]
-                </div>
-                
-                <h4>Phase 3: Joint Training (Both)</h4>
-                <p><strong>Objective</strong>: Combined loss with adaptive weighting</p>
-                <div class="math">
-                    \[
-                    \mathcal{L}_{\text{both}} = \alpha(t) \cdot \mathcal{L}_{\text{VAE}} + (1 - \alpha(t)) \cdot \mathcal{L}_{\text{drift}} + \lambda \cdot \mathcal{L}_{\text{consistency}}
-                    \]
-                </div>
-                <p>where \( \alpha(t) \) decays from 1 to 0.5 over training, and consistency loss ensures:</p>
-                <div class="math">
-                    \[
-                    \mathcal{L}_{\text{consistency}} = \mathbb{E} \left[ \| \text{VAE}(\text{Drift}(x_t, t)) - x_t \|^2 \right]
-                    \]
-                </div>
-                
-                <h3>Swarm Intelligence Formulation</h3>
-                
-                <h4>Evolutionary Optimization</h4>
-                <p>Each client \( i \) maintains a model \( M_i \) with loss \( L_i \). The swarm evolves through:</p>
-                <ol>
-                    <li><strong>Local Training</strong>: Gradient descent updates
-                        <div class="math">
-                            \[
-                            \theta_i^{(t+1)} = \theta_i^{(t)} - \eta \nabla L_i(\theta_i^{(t)})
-                            \]
-                        </div>
-                    </li>
-                    <li><strong>Model Synchronization</strong>: With probability \( p_{\text{sync}} = 0.5 \), client \( i \) adopts model \( M_j \) if:
-                        <div class="math">
-                            \[
-                            L_j < L_i \cdot (1 - \epsilon) \quad \text{where } \epsilon = 0.1
-                            \]
-                        </div>
-                    </li>
-                    <li><strong>Epoch Jumping</strong>: After synchronization, client jumps to random epoch:
-                        <div class="math">
-                            \[
-                            \text{epoch}_{\text{new}} \sim U(0, \text{epoch}_{\text{best}})
-                            \]
-                        </div>
-                    </li>
-                </ol>
-                
-                <h4>Gossip Protocol</h4>
-                <p>Information propagates through the network via epidemic-style gossip:</p>
-                <ul>
-                    <li><strong>Fanout</strong>: Each message forwarded to \( k = 3 \) random peers</li>
-                    <li
+      <header>
+        <h1>Swarm Schrödinger Bridge Training System</h1>
+        <p class="subtitle">
+          Decentralized, self-organizing swarm training for Schrödinger Bridge
+          models using WebTorch and peer-to-peer networking
+        </p>
+        <div class="button-container">
+          <a href="#abstract" class="btn">📖 Abstract</a>
+          <a href="#mathematics" class="btn">🧮 Mathematics</a>
+          <a href="#architecture" class="btn">🏗️ Architecture</a>
+          <a href="#algorithm" class="btn">🔬 Algorithms</a>
+          <a href="#implementation" class="btn">🚀 Implementation</a>
+          <a href="#getting-started" class="btn">📚 Getting Started</a>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="toc">
+          <h3>📋 Table of Contents</h3>
+          <ul>
+            <li><a href="#abstract">Abstract</a></li>
+            <li><a href="#mathematics">Mathematical Foundations</a></li>
+            <li><a href="#architecture">System Architecture</a></li>
+            <li><a href="#algorithm">Training Algorithms</a></li>
+            <li><a href="#metrics">Performance Metrics</a></li>
+            <li><a href="#implementation">Implementation Details</a></li>
+            <li><a href="#results">Experimental Results</a></li>
+            <li><a href="#future">Future Research</a></li>
+            <li><a href="#specs">Technical Specifications</a></li>
+            <li><a href="#getting-started">Getting Started</a></li>
+            <li><a href="#references">References</a></li>
+          </ul>
+        </div>
+
+        <div class="section" id="abstract">
+          <h2><span class="emoji">📖</span> Abstract</h2>
+          <p>
+            A decentralized, self-organizing swarm training system for
+            Schrödinger Bridge models using WebTorch and peer-to-peer
+            networking. This system implements a novel evolutionary optimization
+            approach where multiple browser clients collaboratively train
+            generative models without any central coordinator, using gossip
+            protocols for model synchronization and adaptive phase management.
+          </p>
+        </div>
+
+        <div class="section" id="mathematics">
+          <h2><span class="emoji">🧮</span> Mathematical Foundations</h2>
+
+          <h3>Schrödinger Bridge Formulation</h3>
+          <p>
+            The Schrödinger Bridge problem seeks the most likely stochastic
+            process connecting two probability distributions \( p_0 \) and \(
+            p_1 \) over a time interval \([0, T]\). Given:
+          </p>
+          <ul>
+            <li>
+              <strong>Source distribution</strong>: \( p_0(x) \) (e.g., Gaussian
+              noise)
+            </li>
+            <li>
+              <strong>Target distribution</strong>: \( p_1(x) \) (e.g., data
+              distribution)
+            </li>
+            <li>
+              <strong>Reference process</strong>: \( dX_t = f(X_t, t)dt +
+              \sigma(t)dW_t \)
+            </li>
+          </ul>
+          <div class="math">
+            \[ \mathbb{E}\left[\int_0^T \frac{1}{2} \|u(X_t, t)\|^2 dt\right] \]
+          </div>
+          <p>subject to \( X_0 \sim p_0 \) and \( X_T \sim p_1 \).</p>
+
+          <h3>Three-Phase Training Architecture</h3>
+
+          <h4>Phase 1: Variational Autoencoder (VAE) Training</h4>
+          <p>
+            <strong>Objective</strong>: Learn latent representations and
+            reconstruction capabilities
+          </p>
+          <div class="math">
+            \[ \mathcal{L}_{\text{VAE}} = \mathbb{E}_{q(z|x)}[\log p(x|z)] -
+            \beta \cdot D_{KL}(q(z|x) \| p(z)) \]
+          </div>
+          <p>where:</p>
+          <ul>
+            <li>\( q(z|x) \): Encoder network (approximate posterior)</li>
+            <li>\( p(x|z) \): Decoder network (likelihood)</li>
+            <li>
+              \( p(z) \): Prior distribution (typically \( \mathcal{N}(0, I) \))
+            </li>
+            <li>\( \beta \): KL divergence weight (controlled annealing)</li>
+          </ul>
+
+          <h4>Phase 2: Drift Network Training</h4>
+          <p>
+            <strong>Objective</strong>: Learn the optimal drift function \( u(x,
+            t) \)
+          </p>
+          <div class="math">
+            \[ \mathcal{L}_{\text{drift}} = \mathbb{E}_{t \sim U(0,T), x_t \sim
+            p_t} \left[ \|u(x_t, t) - u_{\text{target}}(x_t, t)\|^2 \right] \]
+          </div>
+          <p>where \( u_{\text{target}} \) is computed via:</p>
+          <div class="math">
+            \[ u_{\text{target}}(x_t, t) = \mathbb{E}_{x_T \sim p_1} \left[
+            \frac{x_T - x_t}{T - t} \middle| x_t \right] \]
+          </div>
+
+          <h4>Phase 3: Joint Training (Both)</h4>
+          <p>
+            <strong>Objective</strong>: Combined loss with adaptive weighting
+          </p>
+          <div class="math">
+            \[ \mathcal{L}_{\text{both}} = \alpha(t) \cdot
+            \mathcal{L}_{\text{VAE}} + (1 - \alpha(t)) \cdot
+            \mathcal{L}_{\text{drift}} + \lambda \cdot
+            \mathcal{L}_{\text{consistency}} \]
+          </div>
+          <p>
+            where \( \alpha(t) \) decays from 1 to 0.5 over training, and
+            consistency loss ensures:
+          </p>
+          <div class="math">
+            \[ \mathcal{L}_{\text{consistency}} = \mathbb{E} \left[ \|
+            \text{VAE}(\text{Drift}(x_t, t)) - x_t \|^2 \right] \]
+          </div>
+
+          <h3>Swarm Intelligence Formulation</h3>
+
+          <h4>Evolutionary Optimization</h4>
+          <p>
+            Each client \( i \) maintains a model \( M_i \) with loss \( L_i \).
+            The swarm evolves through:
+          </p>
+          <ol>
+            <li>
+              <strong>Local Training</strong>: Gradient descent updates
+              <div class="math">
+                \[ \theta_i^{(t+1)} = \theta_i^{(t)} - \eta \nabla
+                L_i(\theta_i^{(t)}) \]
+              </div>
+            </li>
+            <li>
+              <strong>Model Synchronization</strong>: With probability \(
+              p_{\text{sync}} = 0.5 \), client \( i \) adopts model \( M_j \)
+              if:
+              <div class="math">
+                \[ L_j < L_i \cdot (1 - \epsilon) \quad \text{where } \epsilon =
+                0.1 \]
+              </div>
+            </li>
+            <li>
+              <strong>Epoch Jumping</strong>: After synchronization, client
+              jumps to random epoch:
+              <div class="math">
+                \[ \text{epoch}_{\text{new}} \sim U(0,
+                \text{epoch}_{\text{best}}) \]
+              </div>
+            </li>
+          </ol>
+
+          <h4>Gossip Protocol</h4>
+          <p>
+            Information propagates through the network via epidemic-style
+            gossip:
+          </p>
+          <ul>
+            <li>
+              <strong>TTL</strong>: Messages expire after \( h = 5 \) hops
+            </li>
+            <li>
+              <strong>Convergence</strong>: Expected coverage after \( O(\log N)
+              \) rounds
+            </li>
+          </ul>
+
+          <h4>Composite Scoring Function</h4>
+          <p>Models are evaluated using a multi-objective scoring function:</p>
+          <div class="math">
+            \[ S(M) = w_1 \cdot (1 - L_{\text{norm}}) + w_2 \cdot D + w_3 \cdot
+            (1 - \text{KL}_{\text{norm}}) \]
+          </div>
+        </div>
+      </div>
+
+      <footer>
+        <p>Last updated: April 2026 | Swarm Schrödinger Bridge Project</p>
+      </footer>
+    </div>
+  </body>
+</html>
