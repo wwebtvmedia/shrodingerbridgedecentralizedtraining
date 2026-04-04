@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "epoch": 504,
+    "step": 45480,
+    "phase": 1,
+    "best_loss": Infinity,
+    "best_composite_score": -Infinity
+  },
+  "config": {
+    "DATASET_NAME": "STL10",
+    "IMG_SIZE": 96,
+    "GEN_SIZE": 96
+  },
+  "note": "This is a simplified version of the PyTorch checkpoint for web usage. Actual weights are not included in this prototype."
+}

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Inference & Data Import</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4fc3f7;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+        }
+        .btn {
+            background: #4fc3f7;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #3ab4e8;
+        }
+        .btn-danger {
+            background: #f44336;
+        }
+        .btn-success {
+            background: #4caf50;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .samples {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .sample {
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 5px;
+            background: #333;
+        }
+        .sample img {
+            width: 100%;
+            height: auto;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Inference & Data Import</h1>
+        
+        <div class="test-section">
+            <h2>🔮 Inference Engine Test</h2>
+            <p>Test the inference engine functionality:</p>
+            <button class="btn" onclick="testInference()">Test Inference Engine</button>
+            <button class="btn" onclick="testLabelConditioned()">Test Label-Conditioned</button>
+            <button class="btn" onclick="testTextConditioned()">Test Text-Conditioned</button>
+            <button class="btn" onclick="testUnconditional()">Test Unconditional</button>
+            
+            <div id="inference-samples" class="samples"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📁 Data Importer Test</h2>
+            <p>Test data import functionality:</p>
+            <button class="btn" onclick="testImageImport()">Test Image Import</button>
+            <button class="btn" onclick="testTextImport()">Test Text Import</button>
+            <input type="file" id="file-input" multiple style="display: none;" accept="image/*,.txt,.json,.csv">
+            
+            <div id="imported-data" class="samples"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 Database Test</h2>
+            <p>Test database functionality:</p>
+            <button class="btn" onclick="testDatabase()">Test Database Connection</button>
+            <button class="btn" onclick="testSaveTrainingData()">Test Save Training Data</button>
+            <button class="btn" onclick="testGetTrainingData()">Test Get Training Data</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>📝 Test Log</h2>
+            <div id="test-log" class="log"></div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { InferenceEngine } from './src/utils/inference.js';
+        import { DataImporter } from './src/utils/data-importer.js';
+        import { LocalDatabase } from './src/storage/database.js';
+        
+        window.inferenceEngine = null;
+        window.dataImporter = new DataImporter();
+        window.database = null;
+        
+        const log = document.getElementById('test-log');
+        
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            log.innerHTML += `[${timestamp}] ${message}<br>`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        async function testInference() {
+            addLog('🔮 Initializing inference engine...');
+            
+            // Create a mock model manager
+            const mockModelManager = {
+                isInitialized: true,
+                initialize: async () => {}
+            };
+            
+            window.inferenceEngine = new InferenceEngine(mockModelManager);
+            await window.inferenceEngine.initialize();
+            
+            addLog('✅ Inference engine initialized');
+            
+            // Test generation
+            const result = await window.inferenceEngine.generateSamples({
+                sampleCount: 4,
+                steps: 20,
+                temperature: 0.7
+            });
+            
+            addLog(`✅ Generated ${result.samples.length} samples in ${result.inference.duration}ms`);
+            
+            // Display samples
+            const samplesContainer = document.getElementById('inference-samples');
+            samplesContainer.innerHTML = '';
+            
+            result.samples.forEach(sample => {
+                const div = document.createElement('div');
+                div.className = 'sample';
+                div.innerHTML = `<img src="${sample.image}" alt="Sample">`;
+                samplesContainer.appendChild(div);
+            });
+        }
+        
+        async function testLabelConditioned() {
+            if (!window.inferenceEngine) {
+                addLog('❌ Inference engine not initialized');
+                return;
+            }
+            
+            addLog('🔢 Testing label-conditioned generation (label: 3)...');
+            const result = await window.inferenceEngine.generateWithLabel(3, {
+                sampleCount: 2,
+                steps: 15
+            });
+            
+            addLog(`✅ Generated ${result.samples.length} label-conditioned samples`);
+        }
+        
+        async function testTextConditioned() {
+            if (!window.inferenceEngine) {
+                addLog('❌ Inference engine not initialized');
+                return;
+            }
+            
+            addLog('📝 Testing text-conditioned generation (prompt: "red circle blue square")...');
+            const result = await window.inferenceEngine.generateWithPrompt('red circle blue square', {
+                sampleCount: 2,
+                steps: 15
+            });
+            
+            addLog(`✅ Generated ${result.samples.length} text-conditioned samples`);
+        }
+        
+        async function testUnconditional() {
+            if (!window.inferenceEngine) {
+                addLog('❌ Inference engine not initialized');
+                return;
+            }
+            
+            addLog('🎲 Testing unconditional generation...');
+            const result = await window.inferenceEngine.generateUnconditional({
+                sampleCount: 2,
+                steps: 15
+            });
+            
+            addLog(`✅ Generated ${result.samples.length} unconditional samples`);
+        }
+        
+        async function testImageImport() {
+            addLog('🖼️ Testing image import...');
+            
+            // Create a mock file input
+            const fileInput = document.getElementById('file-input');
+            fileInput.onchange = async (event) => {
+                const files = Array.from(event.target.files);
+                addLog(`📁 Selected ${files.length} file(s)`);
+                
+                const images = await window.dataImporter.importImages(files);
+                addLog(`✅ Imported ${images.length} image(s)`);
+                
+                // Display imported images
+                const container = document.getElementById('imported-data');
+                container.innerHTML = '';
+                
+                images.forEach(image => {
+                    const div = document.createElement('div');
+                    div.className = 'sample';
+                    div.innerHTML = `<img src="${image.data}" alt="Imported image">`;
+                    container.appendChild(div);
+                });
+            };
+            
+            fileInput.click();
+        }
+        
+        async function testTextImport() {
+            addLog('📝 Testing text import...');
+            
+            // Create a mock file input
+            const fileInput = document.getElementById('file-input');
+            fileInput.onchange = async (event) => {
+                const files = Array.from(event.target.files);
+                addLog(`📁 Selected ${files.length} file(s)`);
+                
+                const texts = await window.dataImporter.importText(files);
+                addLog(`✅ Imported ${texts.length} text file(s)`);
+                
+                // Display imported text
+                const container = document.getElementById('imported-data');
+                container.innerHTML = '';
+                
+                texts.forEach(text => {
+                    const div = document.createElement('div');
+                    div.className = 'sample';
+                    div.innerHTML = `<pre>${text.content.substring(0, 100)}...</pre>`;
+                    container.appendChild(div);
+                });
+            };
+            
+            fileInput.click();
+        }
+        
+        async function testDatabase() {
+            addLog('💾 Testing database connection...');
+            
+            window.database = new LocalDatabase('test_db');
+            await window.database.init();
+            
+            addLog('✅ Database initialized');
+        }
+        
+        async function testSaveTrainingData() {
+            if (!window.database) {
+                addLog('❌ Database not initialized');
+                return;
+            }
+            
+            addLog('💾 Saving test training data...');
+            
+            const imageData = {
+                type: 'image',
+                data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                metadata: { width: 96, height: 96, format: 'png' },
+                format: 'image/png'
+            };
+            
+            const textData = {
+                type: 'text',
+                data: 'This is a test training text for the swarm training system.',
+                metadata: { length: 56, language: 'en' },
+                format: 'text/plain'
+            };
+            
+            const imageId = await window.database.saveTrainingData(imageData);
+            const textId = await window.database.saveTrainingData(textData);
+            
+            addLog(`✅ Saved training data: ${imageId}, ${textId}`);
+        }
+        
+        async function testGetTrainingData() {
+            if (!window.database) {
+                addLog('❌ Database not initialized');
+                return;
+            }
+            
+            addLog('💾 Retrieving training data...');
+            
+            const data = await window.database.getTrainingData(10);
+            addLog(`✅ Retrieved ${data.length} training data items`);
+            
+            data.forEach(item => {
+                addLog(`  - ${item.type}: ${item.id} (${new Date(item.timestamp).toLocaleTimeString()})`);
+            });
+        }
+        
+        // Make functions available globally
+        window.testInference = testInference;
+        window.testLabelConditioned = testLabelConditioned;
+        window.testTextConditioned = testTextConditioned;
+        window.testUnconditional = testUnconditional;
+        window.testImageImport = testImageImport;
+        window.testTextImport = testTextImport;
+        window.testDatabase = testDatabase;
+        window.testSaveTrainingData = testSaveTrainingData;
+        window.testGetTrainingData = testGetTrainingData;
+        
+        addLog('🚀 Test page loaded. Click buttons to test functionality.');
+    </script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Swarm Schrödinger Bridge Training</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@web/torch@0.4.0/dist/torch.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .header-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .btn-nav {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .btn-nav:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(135deg, #768efa 0%, #865bb2 100%);
+        }
+        .database-panel {
+            grid-column: span 2;
+        }
+        .database-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .db-stat {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+        .db-stat .label {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+        .db-stat .value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+        .tunnel-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #f44336;
+        }
+        .status-indicator.connected {
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-nav">
+                <h1>🧠 Enhanced Swarm Training</h1>
+                <div class="nav-buttons">
+                    <a href="/" class="btn btn-nav">
+                        ← Return to Main Menu
+                    </a>
+                </div>
+            </div>
+            <p class="subtitle">Database + Cloudflare Tunnel + Evolutionary Optimization</p>
+        </header>
+
+        <div class="dashboard">
+            <div class="panel network-panel">
+                <h2>🌐 Network & Tunnel</h2>
+                <div class="tunnel-status">
+                    <div class="status-indicator" id="tunnel-status"></div>
+                    <span id="tunnel-status-text">Disconnected</span>
+                </div>
+                <div class="stats">
+                    <div class="stat">
+                        <span class="label">Connected Peers:</span>
+                        <span id="peer-count" class="value">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Tunnel ID:</span>
+                        <span id="tunnel-id" class="value">-</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Messages Sent:</span>
+                        <span id="messages-sent" class="value">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Messages Received:</span>
+                        <span id="messages-received" class="value">0</span>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button id="connect-btn" class="btn btn-primary">Connect to Enhanced Swarm</button>
+                    <button id="start-btn" class="btn btn-success" disabled>Start Training</button>
+                    <button id="stop-btn" class="btn btn-danger" disabled>Stop Training</button>
+                </div>
+            </div>
+
+            <div class="panel training-panel">
+                <h2>📈 Training Metrics</h2>
+                <div class="charts">
+                    <canvas id="loss-chart" width="400" height="200"></canvas>
+                    <canvas id="diversity-chart" width="400" height="200"></canvas>
+                </div>
+                <div class="phase-controls">
+                    <h3>Phase Management</h3>
+                    <div class="phase-buttons">
+                        <button class="phase-btn" data-phase="vae">VAE Only</button>
+                        <button class="phase-btn" data-phase="drift">Drift Only</button>
+                        <button class="phase-btn" data-phase="both">Both</button>
+                        <button class="phase-btn" data-phase="auto">Auto</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel database-panel">
+                <h2>💾 Local Database</h2>
+                <div class="database-stats">
+                    <div class="db-stat">
+                        <div class="label">Neighbors</div>
+                        <div id="db-neighbors" class="value">0</div>
+                    </div>
+                    <div class="db-stat">
+                        <div class="label">Results</div>
+                        <div id="db-results" class="value">0</div>
+                    </div>
+                    <div class="db-stat">
+                        <div class="label">Models</div>
+                        <div id="db-models" class="value">0</div>
+                    </div>
+                    <div class="db-stat">
+                        <div class="label">Checkpoints</div>
+                        <div id="db-checkpoints" class="value">0</div>
+                    </div>
+                    <div class="db-stat">
+                        <div class="label">DB Size</div>
+                        <div id="db-size" class="value">0 KB</div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button id="export-btn" class="btn">Export DB</button>
+                    <button id="import-btn" class="btn">Import DB</button>
+                    <button id="stats-btn" class="btn">Show Stats</button>
+                    <button id="cleanup-btn" class="btn btn-danger">Clear DB</button>
+                </div>
+            </div>
+
+            <div class="panel swarm-panel">
+                <h2>🐝 Swarm Intelligence</h2>
+                <div class="swarm-stats">
+                    <div class="stat">
+                        <span class="label">Current Epoch:</span>
+                        <span id="current-epoch" class="value">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Training Phase:</span>
+                        <span id="training-phase" class="value">Initializing</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Best Loss:</span>
+                        <span id="best-loss" class="value">-</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Models Evaluated:</span>
+                        <span id="models-evaluated" class="value">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Synchronizations:</span>
+                        <span id="sync-count" class="value">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Exploration Rate:</span>
+                        <input type="range" id="exploration-slider" min="0" max="100" value="30">
+                        <span id="exploration-value">30%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel visualization-panel">
+                <h2>🖼️ Generated Samples</h2>
+                <div class="sample-grid" id="sample-grid">
+                    <!-- Generated samples will appear here -->
+                </div>
+                <div class="generation-controls">
+                    <button id="generate-btn" class="btn">Generate Samples</button>
+                    <button id="refresh-btn" class="btn">Refresh Stats</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-panel">
+            <h2>📝 Enhanced Training Log</h2>
+            <div class="log-container">
+                <pre id="training-log"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/enhanced-app.js"></script>
+    <script>
+        // Update database stats periodically
+        setInterval(() => {
+            if (window.enhancedApp && window.enhancedApp.trainer && window.enhancedApp.trainer.database) {
+                window.enhancedApp.showDatabaseStats().catch(() => {});
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+✅ Loaded initial model: /home/pc/sby/prototype/latest.pt (564333012 bytes)
+🚀 Model Consolidation Server running on port 3001
+🌐 Web interface: http://localhost:3001
+📡 WebSocket: ws://localhost:3001
+📊 API: http://localhost:3001/api/health

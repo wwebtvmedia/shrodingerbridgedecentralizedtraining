@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swarm Training Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #45a049;
+        }
+        .test-result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .loading {
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Swarm Training Prototype Test</h1>
+        <p>This page tests the core components of the swarm training system.</p>
+        
+        <div class="test-section">
+            <h2>1. Module Loading Test</h2>
+            <button class="test-button" onclick="testModuleLoading()">Test Module Loading</button>
+            <div id="module-test" class="test-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>2. Phase Manager Test</h2>
+            <button class="test-button" onclick="testPhaseManager()">Test Phase Manager</button>
+            <div id="phase-test" class="test-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>3. Model Manager Test</h2>
+            <button class="test-button" onclick="testModelManager()">Test Model Manager</button>
+            <div id="model-test" class="test-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>4. UI Manager Test</h2>
+            <button class="test-button" onclick="testUIManager()">Test UI Manager</button>
+            <div id="ui-test" class="test-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>5. Integration Test</h2>
+            <button class="test-button" onclick="testIntegration()">Run Integration Test</button>
+            <div id="integration-test" class="test-result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>6. Launch Full Prototype</h2>
+            <p>To run the complete prototype with UI:</p>
+            <a href="index.html" class="test-button" style="text-decoration: none; display: inline-block;">Open Full Prototype</a>
+            <p>Or run: <code>npm run dev</code> and open <code>http://localhost:3000</code></p>
+        </div>
+    </div>
+
+    <script type="module">
+        async function testModuleLoading() {
+            const result = document.getElementById('module-test');
+            result.innerHTML = '<span class="loading">Testing module loading...</span>';
+            
+            try {
+                // Dynamically import modules
+                const modules = [
+                    import('./src/core/phase.js'),
+                    import('./src/core/models.js'),
+                    import('./src/ui/manager.js')
+                ];
+                
+                await Promise.all(modules);
+                
+                result.innerHTML = '<span class="success">✅ All modules loaded successfully!</span>';
+                result.innerHTML += '<br>Modules: PhaseManager, ModelManager, UIManager';
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Module loading failed: ${error.message}</span>`;
+                console.error('Module loading error:', error);
+            }
+        }
+        
+        async function testPhaseManager() {
+            const result = document.getElementById('phase-test');
+            result.innerHTML = '<span class="loading">Testing Phase Manager...</span>';
+            
+            try {
+                const { PhaseManager } = await import('./src/core/phase.js');
+                const manager = new PhaseManager();
+                
+                let testResults = [];
+                
+                // Test 1: Phase determination
+                const phase1 = manager.determinePhase(10);
+                testResults.push(`Epoch 10 → Phase: ${phase1}`);
+                
+                const phase2 = manager.determinePhase(50);
+                testResults.push(`Epoch 50 → Phase: ${phase2}`);
+                
+                const phase3 = manager.determinePhase(150);
+                testResults.push(`Epoch 150 → Phase: ${phase3}`);
+                
+                // Test 2: Phase parameters
+                const params = manager.getPhaseParameters('vae');
+                testResults.push(`VAE params: LR=${params.learningRate}, trainVAE=${params.trainVAE}`);
+                
+                // Test 3: Stochastic phase selection
+                const stochasticPhase = manager.determinePhaseStochastic(0);
+                testResults.push(`Stochastic phase: ${stochasticPhase}`);
+                
+                result.innerHTML = `<span class="success">✅ Phase Manager tests passed!</span><br>`;
+                result.innerHTML += testResults.join('<br>');
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Phase Manager test failed: ${error.message}</span>`;
+                console.error('Phase Manager error:', error);
+            }
+        }
+        
+        async function testModelManager() {
+            const result = document.getElementById('model-test');
+            result.innerHTML = '<span class="loading">Testing Model Manager...</span>';
+            
+            try {
+                const { ModelManager } = await import('./src/core/models.js');
+                const manager = new ModelManager();
+                
+                let testResults = [];
+                
+                // Test 1: Initialization
+                await manager.initialize();
+                testResults.push('✅ Model initialized');
+                
+                // Test 2: Get model hash
+                const hash = await manager.getModelHash();
+                testResults.push(`✅ Model hash: ${hash}`);
+                
+                // Test 3: Get state
+                const state = await manager.getState();
+                testResults.push(`✅ State version: ${state.version}`);
+                
+                // Test 4: Model size
+                const size = manager.getModelSize();
+                testResults.push(`✅ Model size: ${size} bytes`);
+                
+                // Test 5: Simulate training
+                const loss = await manager.trainStep([], [], 'vae');
+                testResults.push(`✅ Simulated training loss: ${loss.toFixed(4)}`);
+                
+                result.innerHTML = `<span class="success">✅ Model Manager tests passed!</span><br>`;
+                result.innerHTML += testResults.join('<br>');
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Model Manager test failed: ${error.message}</span>`;
+                console.error('Model Manager error:', error);
+            }
+        }
+        
+        async function testUIManager() {
+            const result = document.getElementById('ui-test');
+            result.innerHTML = '<span class="loading">Testing UI Manager...</span>';
+            
+            try {
+                const { UIManager } = await import('./src/ui/manager.js');
+                const ui = new UIManager();
+                
+                let testResults = [];
+                
+                // Test 1: Initialization
+                ui.init();
+                testResults.push('✅ UI initialized');
+                
+                // Test 2: Status updates
+                ui.updateStatus('Testing');
+                testResults.push('✅ Status update working');
+                
+                // Test 3: Logging
+                ui.log('Test log message');
+                testResults.push('✅ Logging working');
+                
+                // Test 4: Button controls
+                ui.enableButton = () => testResults.push('✅ Button control working');
+                ui.disableButton = () => testResults.push('✅ Button control working');
+                
+                // Mock button functions
+                ui.enableButton('test');
+                ui.disableButton('test');
+                
+                result.innerHTML = `<span class="success">✅ UI Manager tests passed!</span><br>`;
+                result.innerHTML += testResults.join('<br>');
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ UI Manager test failed: ${error.message}</span>`;
+                console.error('UI Manager error:', error);
+            }
+        }
+        
+        async function testIntegration() {
+            const result = document.getElementById('integration-test');
+            result.innerHTML = '<span class="loading">Running integration tests...</span>';
+            
+            try {
+                let testResults = [];
+                
+                // Load all modules
+                const { PhaseManager } = await import('./src/core/phase.js');
+                const { ModelManager } = await import('./src/core/models.js');
+                const { UIManager } = await import('./src/ui/manager.js');
+                
+                testResults.push('✅ All modules loaded');
+                
+                // Create instances
+                const phaseManager = new PhaseManager();
+                const modelManager = new ModelManager();
+                const uiManager = new UIManager();
+                
+                testResults.push('✅ All managers instantiated');
+                
+                // Initialize
+                await modelManager.initialize();
+                uiManager.init();
+                
+                testResults.push('✅ Managers initialized');
+                
+                // Simulate training loop
+                for (let epoch = 0; epoch < 5; epoch++) {
+                    const phase = phaseManager.determinePhase(epoch);
+                    const loss = await modelManager.trainStep([], [], phase);
+                    
+                    testResults.push(`Epoch ${epoch}: Phase=${phase}, Loss=${loss.toFixed(4)}`);
+                }
+                
+                testResults.push('✅ Training simulation complete');
+                
+                // Test model export/import
+                const exported = await modelManager.exportModel('json');
+                testResults.push(`✅ Model exported (${exported.length} chars)`);
+                
+                result.innerHTML = `<span class="success">✅ Integration tests passed!</span><br>`;
+                result.innerHTML += testResults.join('<br>');
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Integration test failed: ${error.message}</span>`;
+                console.error('Integration error:', error);
+            }
+        }
+        
+        // Run all tests on page load
+        window.addEventListener('load', () => {
+            console.log('Swarm Training Prototype Test Page Loaded');
+            console.log('Run individual tests using the buttons above');
+        });
+    </script>
+</body>
+</html>

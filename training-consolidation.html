@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Consolidation Server</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --secondary-color: #166088;
+            --success-color: #4caf50;
+            --warning-color: #ff9800;
+            --danger-color: #f44336;
+            --light-bg: #f5f7fa;
+            --dark-text: #333;
+            --light-text: #666;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--dark-text);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        header .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        
+        .server-status {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .status-card {
+            background: rgba(255,255,255,0.1);
+            padding: 15px 25px;
+            border-radius: 12px;
+            min-width: 200px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .status-card .label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .status-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        
+        .status-card.online .value {
+            color: var(--success-color);
+        }
+        
+        .status-card.offline .value {
+            color: var(--danger-color);
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            padding: 30px;
+        }
+        
+        .panel {
+            background: var(--light-bg);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .panel h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(74, 111, 165, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .panel h2::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--primary-color);
+            border-radius: 50%;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 111, 165, 0.4);
+        }
+        
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+        }
+        
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: var(--warning-color);
+            color: white;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .model-info {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .model-info h3 {
+            margin-bottom: 15px;
+            color: var(--secondary-color);
+        }
+        
+        .model-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            background: rgba(74, 111, 165, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-item .label {
+            font-size: 0.85rem;
+            color: var(--light-text);
+            margin-bottom: 5px;
+        }
+        
+        .stat-item .value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .clients-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .client-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            border-left: 4px solid var(--success-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .client-item.inactive {
+            border-left-color: var(--light-text);
+            opacity: 0.7;
+        }
+        
+        .client-info {
+            flex: 1;
+        }
+        
+        .client-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .client-metrics {
+            font-size: 0.85rem;
+            color: var(--light-text);
+        }
+        
+        .chart-container {
+            height: 250px;
+            margin-top: 20px;
+            position: relative;
+        }
+        
+        .log-panel {
+            grid-column: 1 / -1;
+            margin-top: 20px;
+        }
+        
+        .log-container {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 3px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .log-entry.info { color: #4fc3f7; }
+        .log-entry.success { color: #4caf50; }
+        .log-entry.warning { color: #ff9800; }
+        .log-entry.error { color: #f44336; }
+        
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .connection-status.connected {
+            background: rgba(76, 175, 80, 0.1);
+            color: var(--success-color);
+        }
+        
+        .connection-status.disconnected {
+            background: rgba(244, 67, 54, 0.1);
+            color: var(--danger-color);
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .connected .status-indicator {
+            background: var(--success-color);
+            animation: pulse 2s infinite;
+        }
+        
+        .disconnected .status-indicator {
+            background: var(--danger-color);
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--light-text);
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            margin-top: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                padding: 15px;
+            }
+            
+            header {
+                padding: 20px;
+            }
+            
+            header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏆 Training Consolidation Server</h1>
+            <p class="subtitle">Centralized model consolidation point for distributed Schrödinger Bridge training. Clients connect to submit models, and the server selects the best model for broadcast to all clients.</p>
+            
+            <div class="server-status">
+                <div class="status-card online">
+                    <span class="label">Server Status</span>
+                    <span class="value" id="server-status">Online</span>
+                </div>
+                <div class="status-card">
+                    <span class="label">Connected Clients</span>
+                    <span class="value" id="connected-clients">0</span>
+                </div>
+                <div class="status-card">
+                    <span class="label">Best Model Loss</span>
+                    <span class="value" id="best-model-loss">-</span>
+                </div>
+                <div class="status-card">
+                    <span class="label">Model Updates</span>
+                    <span class="value" id="model-updates">0</span>
+                </div>
+            </div>
+        </header>
+        
+        <div class="dashboard">
+            <div class="panel">
+                <h2>🔗 Server Connection</h2>
+                <div class="connection-status disconnected" id="connection-status">
+                    <span class="status-indicator"></span>
+                    <span>Disconnected</span>
+                </div>
+                
+                <div class="controls">
+                    <button id="connect-btn" class="btn btn-primary">
+                        <span>🔌 Connect to Server</span>
+                    </button>
+                    <button id="disconnect-btn" class="btn btn-danger" disabled>
+                        <span>❌ Disconnect</span>
+                    </button>
+                    <button id="register-btn" class="btn btn-success" disabled>
+                        <span>🏋️ Register as Trainer</span>
+                    </button>
+                </div>
+                
+                <div class="model-info">
+                    <h3>Current Best Model</h3>
+                    <div id="current-model-info">
+                        <p>No model available. Connect to server to see current best model.</p>
+                    </div>
+                    <div class="model-stats" id="model-stats">
+                        <!-- Model stats will be populated here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2>📈 Training Control</h2>
+                <p>Simulate training and model submission to test the consolidation server.</p>
+                
+                <div class="controls">
+                    <button id="start-training-btn" class="btn btn-success" disabled>
+                        <span>▶️ Start Training Simulation</span>
+                    </button>
+                    <button id="stop-training-btn" class="btn btn-danger" disabled>
+                        <span>⏹️ Stop Training</span>
+                    </button>
+                    <button id="submit-model-btn" class="btn btn-primary" disabled>
+                        <span>📤 Submit Current Model</span>
+                    </button>
+                </div>
+                
+                <div class="model-info">
+                    <h3>Local Training Status</h3>
+                    <div class="model-stats">
+                        <div class="stat-item">
+                            <div class="label">Current Loss</div>
+                            <div class="value" id="local-loss">-</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="label">Epoch</div>
+                            <div class="value" id="local-epoch">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="label">Training Phase</div>
+                            <div class="value" id="local-phase">Idle</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="label">Models Submitted</div>
+                            <div class="value" id="models-submitted">0</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="training-chart"></canvas>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2>👥 Connected Clients</h2>
+                <p>Active training clients connected to the consolidation server.</p>
+                
+                <div class="clients-list" id="clients-list">
+                    <div class="client-item">
+                        <div class="client-info">
+                            <div class="client-name">No clients connected</div>
+                            <div class="client-metrics">Waiting for connections...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="controls" style="margin-top: 20px;">
+                    <button id="refresh-clients-btn" class="btn">
+                        <span>🔄 Refresh Clients</span>
+                    </button>
+                    <button id="broadcast-test-btn" class="btn btn-warning">
+                        <span>📢 Test Broadcast</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="panel log-panel">
+                <h2>📝 Server Log</h2>
+                <p>Real-time events and messages from the consolidation server.</p>
+                
+                <div class="log-container" id="log-container">
+                    <div class="log-entry info">[System] Training consolidation server interface loaded</div>
+                    <div class="log-entry info">[System] Ready to connect to server</div>
+                </div>
+                
+                <div class="controls" style="margin-top: 15px;">
+                    <button id="clear-log-btn" class="btn">
+                        <span>🗑️ Clear Log</span>
+                    </button>
+                    <button id="download-model-btn" class="btn btn-primary">
+                        <span>💾 Download Best Model</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Training Consolidation Server v0.2.0 | Designed for Raspberry Pi deployment | Model: Schrödinger Bridge</p>
+            <p>Server: <span id="server-url">ws://localhost:3001</span> | API: <span id="api-url">http://localhost:3001/api</span></p>
+        </footer>
+    </div>
+    
+    <script type="module" src="/src/consolidation-client.js"></script>
+</body>
+</html>

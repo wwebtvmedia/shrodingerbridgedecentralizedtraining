@@ -1,0 +1,43 @@
+{
+  "name": "swarm-schrodinger-bridge",
+  "version": "0.2.0",
+  "description": "Decentralized swarm training for Schrödinger Bridge models with centralized consolidation server",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node test.js",
+    "format": "prettier --write .",
+    "server": "node server/index.js",
+    "server:dev": "nodemon server/index.js",
+    "start": "node server/index.js",
+    "dev:full": "concurrently \"npm run server\" \"npm run dev\""
+  },
+  "dependencies": {
+    "chart.js": "^4.4.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "js-pytorch": "^0.7.2",
+    "uuid": "^9.0.0",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.1",
+    "prettier": "^3.0.0",
+    "vite": "^4.4.0"
+  },
+  "keywords": [
+    "webtorch",
+    "schrodinger-bridge",
+    "swarm-learning",
+    "p2p",
+    "generative-models",
+    "model-consolidation",
+    "federated-learning"
+  ],
+  "author": "Swarm Training Prototype",
+  "license": "MIT"
+}
