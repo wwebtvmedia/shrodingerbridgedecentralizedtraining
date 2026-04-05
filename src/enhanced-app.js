@@ -73,34 +73,34 @@ class EnhancedSwarmApp {
       });
 
     // Database export button
-    const exportBtn = document.createElement("button");
-    exportBtn.className = "btn";
-    exportBtn.textContent = "Export Database";
-    exportBtn.addEventListener("click", () => this.exportDatabase());
-    document.querySelector(".controls").appendChild(exportBtn);
+    document
+      .getElementById("export-btn")
+      .addEventListener("click", () => this.exportDatabase());
 
     // Database import button
-    const importBtn = document.createElement("button");
-    importBtn.className = "btn";
-    importBtn.textContent = "Import Database";
-    importBtn.addEventListener("click", () => this.importDatabase());
-    document.querySelector(".controls").appendChild(importBtn);
+    document
+      .getElementById("import-btn")
+      .addEventListener("click", () => this.importDatabase());
 
     // Data import button
-    const dataImportBtn = document.createElement("button");
-    dataImportBtn.id = "data-import-btn";
-    dataImportBtn.className = "btn";
-    dataImportBtn.textContent = "Import Data";
-    dataImportBtn.addEventListener("click", () => this.importData());
-    document.querySelector(".controls").appendChild(dataImportBtn);
+    document
+      .getElementById("data-import-btn")
+      .addEventListener("click", () => this.importData());
 
     // Inference button
-    const inferenceBtn = document.createElement("button");
-    inferenceBtn.id = "inference-btn";
-    inferenceBtn.className = "btn";
-    inferenceBtn.textContent = "Run Inference";
-    inferenceBtn.addEventListener("click", () => this.runInference());
-    document.querySelector(".controls").appendChild(inferenceBtn);
+    document
+      .getElementById("inference-btn")
+      .addEventListener("click", () => this.runInference());
+
+    // Stats button
+    document
+      .getElementById("stats-btn")
+      .addEventListener("click", () => this.showDatabaseStats());
+
+    // Cleanup button
+    document
+      .getElementById("cleanup-btn")
+      .addEventListener("click", () => this.cleanupDatabase());
   }
 
   async connect() {
@@ -571,24 +571,6 @@ class EnhancedSwarmApp {
 // Start the app when DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
   window.enhancedApp = new EnhancedSwarmApp();
-
-  // Add database stats button
-  const statsBtn = document.createElement("button");
-  statsBtn.className = "btn";
-  statsBtn.textContent = "Database Stats";
-  statsBtn.addEventListener("click", () =>
-    window.enhancedApp.showDatabaseStats(),
-  );
-  document.querySelector(".controls").appendChild(statsBtn);
-
-  // Add cleanup button
-  const cleanupBtn = document.createElement("button");
-  cleanupBtn.className = "btn btn-danger";
-  cleanupBtn.textContent = "Clear Database";
-  cleanupBtn.addEventListener("click", () =>
-    window.enhancedApp.cleanupDatabase(),
-  );
-  document.querySelector(".controls").appendChild(cleanupBtn);
 });
 
 export { EnhancedSwarmApp };

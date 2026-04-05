@@ -129,7 +129,7 @@
               <span id="messages-received" class="value">0</span>
             </div>
           </div>
-          <div class="controls">
+          <div class="controls" id="network-controls">
             <button id="connect-btn" class="btn btn-primary">
               Connect to Enhanced Swarm
             </button>
@@ -183,10 +183,13 @@
               <div id="db-size" class="value">0 KB</div>
             </div>
           </div>
-          <div class="controls">
+          <div class="controls" id="database-controls">
             <button id="export-btn" class="btn">Export DB</button>
             <button id="import-btn" class="btn">Import DB</button>
-            <button id="stats-btn" class="btn">Show Stats</button>
+            <button id="stats-btn" class="btn">Database Stats</button>
+            <button id="data-import-btn" class="btn btn-primary">
+              Import Data
+            </button>
             <button id="cleanup-btn" class="btn btn-danger">Clear DB</button>
           </div>
         </div>
@@ -235,6 +238,9 @@
           </div>
           <div class="generation-controls">
             <button id="generate-btn" class="btn">Generate Samples</button>
+            <button id="inference-btn" class="btn btn-primary">
+              Run Inference
+            </button>
             <button id="refresh-btn" class="btn">Refresh Stats</button>
           </div>
         </div>
