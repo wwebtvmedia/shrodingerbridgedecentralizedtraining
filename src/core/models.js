@@ -1,4 +1,4 @@
-import { torchJSTrainer } from "../torchjs/integration.js";
+import { tfjsTrainer } from "../torchjs/integration.js";
 import { CONFIG } from "../config.js";
 
 class ModelManager {
@@ -14,35 +14,31 @@ class ModelManager {
     this.state = {
       parameters: null,
       hash: null,
-      version: "2.0.0", // Updated for torch-js integration
-      torchjs_initialized: false,
+      version: "3.0.0", // Updated for tfjs integration
+      tfjs_initialized: false,
     };
-
-    // Note: The 'latest.pt' file in the project root is a PyTorch checkpoint from the
-    // enhanced optimal transport training (see ../enhancedoptimaltransport/read_ptrfile.py).
-    // We now have torch-js integration to implement real training.
   }
 
   async initialize() {
     if (this.isInitialized) return;
 
-    console.log("🧠 Initializing model manager with torch-js...");
+    console.log("🧠 Initializing model manager with TensorFlow.js...");
 
     try {
-      // Initialize torch-js trainer
-      await torchJSTrainer.initialize();
+      // Initialize tfjs trainer
+      await tfjsTrainer.initialize();
 
-      // Update model structure to use torch-js
+      // Update model structure to use tfjs
       this.model = {
-        vae: torchJSTrainer.vae,
-        drift: torchJSTrainer.drift,
+        vae: tfjsTrainer.vae,
+        drift: tfjsTrainer.drift,
       };
 
-      this.optimizer = torchJSTrainer.optimizers;
+      this.optimizer = tfjsTrainer.optimizers;
 
       this.isInitialized = true;
-      this.state.torchjs_initialized = true;
-      console.log("✅ Model manager initialized with torch-js");
+      this.state.tfjs_initialized = true;
+      console.log("✅ Model manager initialized with TensorFlow.js");
     } catch (error) {
       console.error("❌ Model initialization failed:", error);
       // Fall back to prototype model
@@ -126,9 +122,9 @@ class ModelManager {
 
     console.log(`Training step - Phase: ${phase}, Batch size: ${batch.length}`);
 
-    // Use torch-js trainer if available
-    if (this.state.torchjs_initialized && torchJSTrainer.isInitialized) {
-      // Convert phase string to number for torch-js
+    // Use tfjs trainer if available
+    if (this.state.tfjs_initialized && tfjsTrainer.isInitialized) {
+      // Convert phase string to number for tfjs
       let phaseNum;
       switch (phase) {
         case "vae":
@@ -144,11 +140,11 @@ class ModelManager {
           phaseNum = 1;
       }
 
-      // Set phase in torch-js trainer
-      torchJSTrainer.setPhase(phaseNum);
+      // Set phase in tfjs trainer
+      tfjsTrainer.setPhase(phaseNum);
 
-      // Train step with torch-js
-      const result = await torchJSTrainer.trainStep(batch, labels);
+      // Train step with tfjs
+      const result = await tfjsTrainer.trainStep(batch, labels);
 
       // Update model hash
       await this.updateModelHash();
@@ -158,12 +154,12 @@ class ModelManager {
         metrics: {
           ...result.metrics,
           phase: phase,
-          torchjs: true,
+          tfjs: true,
         },
       };
     } else {
       // Fall back to simulation
-      console.log("🔄 Using simulated training (torch-js not available)");
+      console.log("🔄 Using simulated training (tfjs not available)");
       const loss = this.simulateLoss(batch, labels, phase);
       await this.simulateParameterUpdate(loss);
       await this.updateModelHash();

@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Enhanced Swarm Schrödinger Bridge Training</title>
     <link rel="stylesheet" href="/css/styles.css" />
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/js-pytorch/0.7.2/js-pytorch-browser.js"
-      integrity="sha512-l22t7GnqXvHBMCBvPUBdFO2TEYxnb1ziCGcDQcpTB2un16IPA4FE5SIZ8bUR+RwoDZGikQkWisO+fhnakXt9rg=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
       .header-nav {
@@ -305,15 +300,15 @@
         const check = setInterval(() => {
           attempts++;
 
-          // Check if js-pytorch (global torch) is available
-          if (typeof torch !== "undefined" || window.torch) {
+          // Check if TensorFlow.js (global tf) is available
+          if (typeof tf !== "undefined" || window.tf) {
             clearInterval(check);
             statusText.textContent = "AI Engine Ready!";
             setTimeout(() => {
               loader.style.opacity = "0";
               setTimeout(() => (loader.style.display = "none"), 500);
             }, 500);
-            console.log("✅ js-pytorch (torch) loaded successfully");
+            console.log("✅ TensorFlow.js (tf) loaded successfully");
           } else {
             statusText.textContent = `Downloading AI Engine (Attempt ${attempts}/20)...`;
           }

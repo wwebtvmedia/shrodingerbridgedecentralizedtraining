@@ -1,618 +1,275 @@
-// Torch-js implementation of Schrödinger Bridge models
-// Based on ../enhancedoptimaltransport/models.py
+// TensorFlow.js implementation of Schrödinger Bridge models
+// Ported from js-pytorch version for GPU (WebGL/WebGPU) acceleration
 
+import * as tf from '@tensorflow/tfjs';
 import { CONFIG } from "../config.js";
 
-// Check if torch is available
-let torch;
-try {
-  torch = await import("js-pytorch");
-} catch (error) {
-  console.warn("js-pytorch not available, using mock implementation");
-  torch = null;
-}
-
-// Helper function to create layers
-function createLayer(type, device, ...args) {
-  if (!torch) {
-    return { type, args };
-  }
-
-  const options = { device: device || "cpu" };
-
-  switch (type) {
-    case "Linear":
-      return new torch.nn.Linear(...args, options);
-    case "Conv2d":
-      return new torch.nn.Conv2d(...args, options);
-    case "ConvTranspose2d":
-      return new torch.nn.ConvTranspose2d(...args, options);
-    case "BatchNorm2d":
-      return new torch.nn.BatchNorm2d(...args, options);
-    case "SiLU":
-      return new torch.nn.SiLU();
-    case "ReLU":
-      return new torch.nn.ReLU();
-    case "Embedding":
-      return new torch.nn.Embedding(...args, options);
-    case "Sequential":
-      return new torch.nn.Sequential(...args);
-    case "Upsample":
-      return new torch.nn.Upsample(...args);
-    default:
-      throw new Error(`Unknown layer type: ${type}`);
-  }
-}
-
-// Residual Block
+/**
+ * Residual Block for TF.js using tf.layers for proper variable tracking
+ */
 class ResidualBlock {
-  constructor(in_channels, out_channels, stride = 1, device = "cpu") {
-    this.device = device;
-    this.conv1 = createLayer(
-      "Conv2d",
-      device,
-      in_channels,
-      out_channels,
-      3,
-      stride,
-      1,
-    );
-    this.bn1 = createLayer("BatchNorm2d", device, out_channels);
-    this.act1 = createLayer("SiLU", device);
-    this.conv2 = createLayer(
-      "Conv2d",
-      device,
-      out_channels,
-      out_channels,
-      3,
-      1,
-      1,
-    );
-    this.bn2 = createLayer("BatchNorm2d", device, out_channels);
+  constructor(in_channels, out_channels, stride = 1) {
+    this.stride = stride;
+    
+    this.conv1 = tf.layers.conv2d({
+      filters: out_channels,
+      kernelSize: 3,
+      strides: stride,
+      padding: 'same',
+      useBias: false,
+      kernelInitializer: 'heNormal'
+    });
+    this.bn1 = tf.layers.batchNormalization();
+    
+    this.conv2 = tf.layers.conv2d({
+      filters: out_channels,
+      kernelSize: 3,
+      strides: 1,
+      padding: 'same',
+      useBias: false,
+      kernelInitializer: 'heNormal'
+    });
+    this.bn2 = tf.layers.batchNormalization();
 
     if (in_channels !== out_channels || stride !== 1) {
-      this.shortcut = createLayer(
-        "Conv2d",
-        device,
-        in_channels,
-        out_channels,
-        1,
-        stride,
-        0,
-      );
+      this.shortcut = tf.layers.conv2d({
+        filters: out_channels,
+        kernelSize: 1,
+        strides: stride,
+        padding: 'same',
+        useBias: false
+      });
+      this.bn_shortcut = tf.layers.batchNormalization();
     } else {
       this.shortcut = null;
     }
   }
 
-  forward(x) {
+  apply(x) {
     let identity = x;
     if (this.shortcut) {
-      identity = this.shortcut.forward(x);
+      identity = this.bn_shortcut.apply(this.shortcut.apply(x));
     }
 
-    let out = this.conv1.forward(x);
-    out = this.bn1.forward(out);
-    out = this.act1.forward(out);
-    out = this.conv2.forward(out);
-    out = this.bn2.forward(out);
+    let out = this.conv1.apply(x);
+    out = this.bn1.apply(out);
+    out = tf.leakyRelu(out, 0.2);
 
-    return out.add(identity);
+    out = this.conv2.apply(out);
+    out = this.bn2.apply(out);
+
+    return tf.add(out, identity);
   }
 }
 
-// Self Attention
-class SelfAttention {
-  constructor(in_channels, device = "cpu") {
-    this.device = device;
-    this.query = createLayer(
-      "Conv2d",
-      device,
-      in_channels,
-      Math.floor(in_channels / 8),
-      1,
-    );
-    this.key = createLayer(
-      "Conv2d",
-      device,
-      in_channels,
-      Math.floor(in_channels / 8),
-      1,
-    );
-    this.value = createLayer("Conv2d", device, in_channels, in_channels, 1);
-    this.gamma = torch
-      ? new torch.nn.Parameter(torch.zeros(1, { device }))
-      : { data: 0 };
-  }
-
-  forward(x) {
-    const batch_size = x.shape[0];
-    const channels = x.shape[1];
-    const height = x.shape[2];
-    const width = x.shape[3];
-
-    // Flatten spatial dimensions
-    const flat_x = x.reshape([batch_size, channels, height * width]);
-
-    // Compute queries, keys, values
-    const q = this.query
-      .forward(x)
-      .reshape([batch_size, Math.floor(channels / 8), height * width]);
-    const k = this.key
-      .forward(x)
-      .reshape([batch_size, Math.floor(channels / 8), height * width]);
-    const v = this.value
-      .forward(x)
-      .reshape([batch_size, channels, height * width]);
-
-    // Attention
-    const attn = q
-      .transpose(1, 2)
-      .matmul(k)
-      .div(Math.sqrt(Math.floor(channels / 8)));
-    const attn_softmax = attn.softmax(2);
-
-    // Apply attention to values
-    const out = v.matmul(attn_softmax.transpose(1, 2));
-    const out_reshaped = out.reshape([batch_size, channels, height, width]);
-
-    return x.add(out_reshaped.mul(this.gamma));
-  }
-}
-
-// Label Conditioned Block
+/**
+ * Label Conditioned Block for TF.js
+ */
 class LabelConditionedBlock {
-  constructor(
-    c_in,
-    c_out,
-    label_dim = CONFIG.LABEL_EMB_DIM,
-    use_spectral_norm = false,
-    device = "cpu",
-  ) {
-    this.device = device;
-    this.conv1 = createLayer("Conv2d", device, c_in, c_out, 3, 1, 1);
-    this.bn1 = createLayer("BatchNorm2d", device, c_out);
-    this.act1 = createLayer("SiLU", device);
-    this.conv2 = createLayer("Conv2d", device, c_out, c_out, 3, 1, 1);
-    this.bn2 = createLayer("BatchNorm2d", device, c_out);
+  constructor(c_in, c_out, label_dim = CONFIG.LABEL_EMB_DIM) {
+    this.conv1 = tf.layers.conv2d({
+      filters: c_out,
+      kernelSize: 3,
+      padding: 'same',
+      useBias: false
+    });
+    this.bn1 = tf.layers.batchNormalization();
+    
+    this.conv2 = tf.layers.conv2d({
+      filters: c_out,
+      kernelSize: 3,
+      padding: 'same',
+      useBias: false
+    });
+    this.bn2 = tf.layers.batchNormalization();
 
-    // Label conditioning
-    this.label_proj = createLayer("Linear", device, label_dim, c_out * 2);
+    this.label_proj = tf.layers.dense({ units: c_out * 2 });
 
     if (c_in !== c_out) {
-      this.shortcut = createLayer("Conv2d", device, c_in, c_out, 1, 1, 0);
+      this.shortcut = tf.layers.conv2d({ filters: c_out, kernelSize: 1, padding: 'same' });
     } else {
       this.shortcut = null;
     }
   }
 
-  forward(x, labels = null) {
+  apply(x, label_emb = null) {
     let identity = x;
     if (this.shortcut) {
-      identity = this.shortcut.forward(x);
+      identity = this.shortcut.apply(x);
     }
 
-    let out = this.conv1.forward(x);
-    out = this.bn1.forward(out);
+    let out = this.conv1.apply(x);
+    out = this.bn1.apply(out);
 
-    // Apply label conditioning if provided
-    if (labels !== null) {
-      const label_emb = this.label_proj.forward(labels);
-      const scale = label_emb.slice([0, 0, out.shape[2]]);
-      const shift = label_emb.slice([0, out.shape[2], out.shape[2] * 2]);
-      out = out
-        .mul(scale.reshape([-1, out.shape[1], 1, 1]))
-        .add(shift.reshape([-1, out.shape[1], 1, 1]));
+    if (label_emb) {
+      const cond = this.label_proj.apply(label_emb);
+      const cond_reshaped = tf.reshape(cond, [-1, 1, 1, cond.shape[1]]);
+      const scale = tf.slice(cond_reshaped, [0, 0, 0, 0], [-1, -1, -1, out.shape[3]]);
+      const shift = tf.slice(cond_reshaped, [0, 0, 0, out.shape[3]], [-1, -1, -1, -1]);
+      
+      out = tf.add(tf.mul(out, tf.add(1, scale)), shift);
     }
 
-    out = this.act1.forward(out);
-    out = this.conv2.forward(out);
-    out = this.bn2.forward(out);
+    out = tf.leakyRelu(out, 0.2);
+    out = this.conv2.apply(out);
+    out = this.bn2.apply(out);
 
-    return out.add(identity);
+    return tf.add(out, identity);
   }
 }
 
-// Label Conditioned VAE
+/**
+ * Label Conditioned VAE Model
+ */
 export class LabelConditionedVAE {
-  constructor(free_bits = CONFIG.FREE_BITS, device = "cpu") {
-    this.free_bits = free_bits;
-    this.device = device;
+  constructor() {
+    // Model architecture using Layers API
+    this.label_emb = tf.layers.embedding({
+      inputDim: CONFIG.NUM_CLASSES,
+      outputDim: CONFIG.LABEL_EMB_DIM
+    });
 
-    // Label embedding
-    this.label_emb = createLayer(
-      "Embedding",
-      device,
-      CONFIG.NUM_CLASSES,
-      CONFIG.LABEL_EMB_DIM,
-    );
+    this.enc_in = tf.layers.conv2d({ filters: 64, kernelSize: 3, padding: 'same' });
+    this.enc_block1 = new LabelConditionedBlock(64, 128);
+    this.enc_block2 = new LabelConditionedBlock(128, 256);
+    
+    this.z_mean = tf.layers.conv2d({ filters: CONFIG.LATENT_CHANNELS, kernelSize: 1 });
+    this.z_logvar = tf.layers.conv2d({ filters: CONFIG.LATENT_CHANNELS, kernelSize: 1 });
 
-    // Context embedding (if enabled)
-    if (CONFIG.USE_CONTEXT) {
-      this.source_emb = createLayer(
-        "Embedding",
-        device,
-        CONFIG.NUM_SOURCES,
-        CONFIG.CONTEXT_DIM,
-      );
-      this.cond_proj = createLayer(
-        "Linear",
-        device,
-        CONFIG.LABEL_EMB_DIM + CONFIG.CONTEXT_DIM,
-        CONFIG.LABEL_EMB_DIM,
-      );
-    }
+    this.dec_in = tf.layers.conv2d({ filters: 256, kernelSize: 1 });
+    this.dec_block1 = new LabelConditionedBlock(256, 128);
+    this.dec_block2 = new LabelConditionedBlock(128, 64);
+    this.dec_out = tf.layers.conv2d({ filters: 3, kernelSize: 3, padding: 'same', activation: 'tanh' });
 
-    // Encoder
-    this.enc_in = createLayer("Conv2d", device, 3, 64, 3, 1, 1);
-    this.enc_blocks = [
-      new LabelConditionedBlock(64, 128, CONFIG.LABEL_EMB_DIM, false, device),
-      new LabelConditionedBlock(128, 256, CONFIG.LABEL_EMB_DIM, false, device),
-      new LabelConditionedBlock(256, 512, CONFIG.LABEL_EMB_DIM, false, device),
-      new LabelConditionedBlock(512, 512, CONFIG.LABEL_EMB_DIM, false, device),
+    // Build layers with dummy inputs to initialize weights
+    this.initializeWeights();
+  }
+
+  initializeWeights() {
+    tf.tidy(() => {
+      const dummyX = tf.zeros([1, 64, 64, 3]);
+      const dummyLabels = tf.zeros([1], 'int32');
+      const dummyZ = tf.zeros([1, 8, 8, CONFIG.LATENT_CHANNELS]);
+      
+      this.forward(dummyX, dummyLabels);
+      this.decode(dummyZ, dummyLabels);
+    });
+  }
+
+  getWeights() {
+    const weights = [];
+    const layers = [
+      this.label_emb, this.enc_in, 
+      this.enc_block1.conv1, this.enc_block1.bn1, this.enc_block1.conv2, this.enc_block1.bn2, this.enc_block1.label_proj,
+      this.enc_block2.conv1, this.enc_block2.bn1, this.enc_block2.conv2, this.enc_block2.bn2, this.enc_block2.label_proj,
+      this.z_mean, this.z_logvar, this.dec_in,
+      this.dec_block1.conv1, this.dec_block1.bn1, this.dec_block1.conv2, this.dec_block1.bn2, this.dec_block1.label_proj,
+      this.dec_block2.conv1, this.dec_block2.bn1, this.dec_block2.conv2, this.dec_block2.bn2, this.dec_block2.label_proj,
+      this.dec_out
     ];
-
-    // Latent projection
-    this.z_mean = createLayer("Conv2d", device, 512, CONFIG.LATENT_CHANNELS, 1);
-    this.z_logvar = createLayer(
-      "Conv2d",
-      device,
-      512,
-      CONFIG.LATENT_CHANNELS,
-      1,
-    );
-
-    // Decoder
-    this.dec_in = createLayer("Conv2d", device, CONFIG.LATENT_CHANNELS, 512, 1);
-    this.dec_blocks = [
-      new LabelConditionedBlock(512, 512, CONFIG.LABEL_EMB_DIM, false, device),
-      new LabelConditionedBlock(512, 256, CONFIG.LABEL_EMB_DIM, false, device),
-      new LabelConditionedBlock(256, 128, CONFIG.LABEL_EMB_DIM, false, device),
-      new LabelConditionedBlock(128, 64, CONFIG.LABEL_EMB_DIM, false, device),
-    ];
-    this.dec_out = createLayer("Conv2d", device, 64, 3, 3, 1, 1);
-
-    // Diversity loss tracking
-    this.diversity_loss = null;
-    this.mu_noise_scale = CONFIG.MU_NOISE_SCALE;
+    
+    for (const layer of layers) {
+      if (layer && layer.weights) {
+        weights.push(...layer.weights.map(w => w.val));
+      }
+    }
+    return weights;
   }
 
-  _channel_diversity_loss(mu) {
-    // Compute channel-wise diversity loss
-    const channel_means = mu.mean([0, 2, 3]);
-    const channel_stds = mu.std([0, 2, 3]);
-
-    const target_std = CONFIG.DIVERSITY_TARGET_STD;
-    const max_std = CONFIG.DIVERSITY_MAX_STD;
-
-    // Penalize channels with too low or too high std
-    const low_mask = channel_stds.lt(target_std);
-    const high_mask = channel_stds.gt(max_std);
-
-    const low_penalty = channel_stds
-      .sub(target_std)
-      .abs()
-      .mul(CONFIG.DIVERSITY_LOW_PENALTY)
-      .mul(low_mask);
-    const high_penalty = channel_stds
-      .sub(max_std)
-      .mul(CONFIG.DIVERSITY_HIGH_PENALTY)
-      .mul(high_mask);
-
-    return low_penalty
-      .add(high_penalty)
-      .mean()
-      .mul(CONFIG.DIVERSITY_BALANCE_WEIGHT);
-  }
-
-  encode(x, labels, source_id = null) {
-    // Label embedding
-    let label_emb = this.label_emb.forward(labels);
-
-    // Add context if enabled
-    if (CONFIG.USE_CONTEXT && source_id !== null) {
-      const s_emb = this.source_emb.forward(source_id);
-      label_emb = this.cond_proj.forward(torch.cat([label_emb, s_emb], -1));
-    }
-
-    // Encoder forward pass
-    let h = this.enc_in.forward(x);
-    for (const block of this.enc_blocks) {
-      h = block.forward(h, label_emb);
-    }
-
-    // Latent parameters
-    let mu = this.z_mean.forward(h).mul(CONFIG.LATENT_SCALE);
-
-    // Add noise during training
-    if (this.training && this.mu_noise_scale > 0) {
-      mu = mu.add(torch.randn_like(mu).mul(this.mu_noise_scale));
-    }
-
-    // Channel dropout
-    if (this.training && Math.random() < CONFIG.CHANNEL_DROPOUT_PROB) {
-      const channel_mask = torch.bernoulli(
-        torch.full(
-          [mu.shape[0], mu.shape[1], 1, 1],
-          CONFIG.CHANNEL_DROPOUT_SURVIVAL,
-        ),
-      );
-      mu = mu.mul(channel_mask).div(CONFIG.CHANNEL_DROPOUT_SURVIVAL);
-    }
-
-    let logvar = this.z_logvar.forward(h);
-    logvar = logvar.clamp(CONFIG.LOGVAR_CLAMP_MIN, CONFIG.LOGVAR_CLAMP_MAX);
-
-    // Compute diversity loss during training
-    if (this.training) {
-      this.diversity_loss = this._channel_diversity_loss(mu);
-    }
-
-    return [mu, logvar];
-  }
-
-  decode(z, labels, source_id = null) {
-    // Label embedding
-    let label_emb = this.label_emb.forward(labels);
-
-    // Add context if enabled
-    if (CONFIG.USE_CONTEXT && source_id !== null) {
-      const s_emb = this.source_emb.forward(source_id);
-      label_emb = this.cond_proj.forward(torch.cat([label_emb, s_emb], -1));
-    }
-
-    // Decoder forward pass
-    let h = this.dec_in.forward(z);
-    for (const block of this.dec_blocks) {
-      h = block.forward(h, label_emb);
-    }
-    h = this.dec_out.forward(h);
-
-    // Final upsampling if needed
-    if (h.shape[2] !== CONFIG.IMG_SIZE || h.shape[3] !== CONFIG.IMG_SIZE) {
-      h = torch.nn.functional.interpolate(
-        h,
-        [CONFIG.IMG_SIZE, CONFIG.IMG_SIZE],
-        "bilinear",
-      );
-    }
-
-    return h.tanh();
-  }
-
-  forward(x, labels, source_id = null) {
-    const [mu, logvar] = this.encode(x, labels, source_id);
-
-    // Reparameterization
-    let z;
-    if (this.training) {
-      const std = logvar.mul(0.5).exp();
-      z = mu.add(std.mul(torch.randn_like(std)));
-    } else {
-      z = mu;
-    }
-
-    const recon = this.decode(z, labels, source_id);
-    return [recon, mu, logvar];
+  encode(x, labels) {
+    const l_emb = this.label_emb.apply(labels);
+    let h = this.enc_in.apply(x);
+    h = this.enc_block1.apply(h, l_emb);
+    h = this.enc_block2.apply(h, l_emb);
+    return [this.z_mean.apply(h), this.z_logvar.apply(h)];
   }
 
   reparameterize(mu, logvar) {
-    if (this.training) {
-      const std = logvar.mul(0.5).exp();
-      const eps = torch.randn_like(std);
-      return mu.add(eps.mul(std));
-    } else {
-      return mu;
-    }
+    const std = tf.exp(tf.mul(0.5, logvar));
+    const eps = tf.randomNormal(mu.shape);
+    return tf.add(mu, tf.mul(eps, std));
+  }
+
+  decode(z, labels) {
+    const l_emb = this.label_emb.apply(labels);
+    let h = this.dec_in.apply(z);
+    h = this.dec_block1.apply(h, l_emb);
+    h = this.dec_block2.apply(h, l_emb);
+    return this.dec_out.apply(h);
+  }
+
+  forward(x, labels) {
+    const [mu, logvar] = this.encode(x, labels);
+    const z = this.reparameterize(mu, logvar);
+    return [this.decode(z, labels), mu, logvar];
   }
 }
 
-// Fourier Time Embedding
-export class FourierTimeEmbed {
-  constructor(dim = 128, max_freq = 64, device = "cpu") {
-    this.dim = dim;
-    this.device = device;
-    this.freqs = torch.linspace(1, max_freq, Math.floor(dim / 2), { device });
-  }
-
-  forward(t) {
-    // t: (B, 1) in range [0, 1]
-    const t_scaled = t.mul(2 * Math.PI);
-    const sin_emb = this.freqs.mul(t_scaled).sin();
-    const cos_emb = this.freqs.mul(t_scaled).cos();
-    return torch.cat([sin_emb, cos_emb], -1);
-  }
-}
-
-// Label Conditioned Drift Network
+/**
+ * Label Conditioned Drift Network
+ */
 export class LabelConditionedDrift {
-  constructor(device = "cpu") {
-    this.device = device;
+  constructor() {
+    this.time_mlp_dense1 = tf.layers.dense({ units: 128, activation: 'relu' });
+    this.time_mlp_dense2 = tf.layers.dense({ units: 256, activation: 'relu' });
 
-    // Time embedding
-    this.time_mlp = createLayer(
-      "Sequential",
-      device,
-      new FourierTimeEmbed(128, 64, device),
-      createLayer("Linear", device, 128, 256),
-      createLayer("SiLU", device),
-      createLayer("Linear", device, 256, 256),
-    );
+    this.label_emb = tf.layers.embedding({
+      inputDim: CONFIG.NUM_CLASSES,
+      outputDim: CONFIG.LABEL_EMB_DIM
+    });
 
-    // Label conditioning
-    this.label_emb = createLayer(
-      "Embedding",
-      device,
-      CONFIG.NUM_CLASSES,
-      CONFIG.LABEL_EMB_DIM,
-    );
+    this.head = tf.layers.conv2d({ filters: 64, kernelSize: 3, padding: 'same' });
+    this.down1 = new LabelConditionedBlock(64, 128);
+    this.down2 = tf.layers.conv2d({ filters: 256, kernelSize: 4, strides: 2, padding: 'same' });
+    this.mid = new LabelConditionedBlock(256, 256);
+    this.up_conv = tf.layers.conv2dTranspose({ filters: 128, kernelSize: 4, strides: 2, padding: 'same' });
+    this.up_block = new LabelConditionedBlock(128, 64);
+    this.tail = tf.layers.conv2d({ filters: CONFIG.LATENT_CHANNELS, kernelSize: 3, padding: 'same' });
 
-    // Context embedding
-    if (CONFIG.USE_CONTEXT) {
-      this.source_emb = createLayer(
-        "Embedding",
-        device,
-        CONFIG.NUM_SOURCES,
-        CONFIG.CONTEXT_DIM,
-      );
-      this.cond_proj = createLayer(
-        "Linear",
-        device,
-        256 + CONFIG.LABEL_EMB_DIM + CONFIG.CONTEXT_DIM,
-        128,
-      );
-    } else {
-      this.cond_proj = createLayer(
-        "Linear",
-        device,
-        256 + CONFIG.LABEL_EMB_DIM,
-        128,
-      );
-    }
-
-    // Time-adaptive scaling
-    this.time_weight_net = createLayer(
-      "Sequential",
-      device,
-      createLayer("Linear", device, 1, 32),
-      createLayer("SiLU", device),
-      createLayer("Linear", device, 32, 1),
-      createLayer("Sigmoid", device),
-    );
-
-    // U-Net architecture
-    this.head = createLayer(
-      "Conv2d",
-      device,
-      CONFIG.LATENT_CHANNELS,
-      64,
-      3,
-      1,
-      1,
-    );
-    this.down1 = new LabelConditionedBlock(64, 128, 128, true, device);
-    this.down2_conv = createLayer("Conv2d", device, 128, 256, 4, 2, 1);
-    this.down2_block = new LabelConditionedBlock(256, 256, 128, true, device);
-
-    this.mid1 = new LabelConditionedBlock(256, 256, 128, true, device);
-    this.mid_attn = new SelfAttention(256, device);
-    this.mid2 = new LabelConditionedBlock(256, 256, 128, true, device);
-
-    this.up2_conv = createLayer(
-      "Sequential",
-      device,
-      createLayer("Upsample", device, 2, "nearest"),
-      createLayer("Conv2d", device, 256, 128, 3, 1, 1),
-    );
-    this.up2_block = new LabelConditionedBlock(128, 128, 128, true, device);
-    this.up1 = new LabelConditionedBlock(128, 64, 128, true, device);
-
-    this.tail = createLayer(
-      "Conv2d",
-      device,
-      64,
-      CONFIG.LATENT_CHANNELS,
-      3,
-      1,
-      1,
-    );
-
-    // Learnable scaling
-    this.output_scale = torch
-      ? new torch.nn.Parameter(torch.tensor(0.1, { device }))
-      : { data: 0.1 };
-    this.time_scales = torch
-      ? new torch.nn.Parameter(torch.ones(4, { device }).mul(0.1))
-      : { data: [0.1, 0.1, 0.1, 0.1] };
-
-    // Running statistics
-    this.drift_mean = torch ? torch.zeros(1, { device }) : 0;
-    this.drift_std = torch ? torch.ones(1, { device }) : 1;
-    this.n_samples = torch ? torch.zeros(1, { device }) : 0;
-    this.momentum = 0.99;
+    // Initialize weights
+    this.initializeWeights();
   }
 
-  forward(z, t, labels, cfg_scale = 1.0, source_id = null) {
-    // Time embedding
-    if (t.dim() === 1) {
-      t = t.unsqueeze(-1);
-    }
-    const t_emb = this.time_mlp.forward(t);
-
-    // Classifier-Free Guidance during inference
-    if (cfg_scale !== 1.0 && !this.training) {
-      const cond_drift = this._forward_internal(z, t, labels, t_emb, source_id);
-      const uncond_labels = torch.zeros_like(labels);
-      const uncond_drift = this._forward_internal(
-        z,
-        t,
-        uncond_labels,
-        t_emb,
-        source_id,
-      );
-
-      return uncond_drift.add(cond_drift.sub(uncond_drift).mul(cfg_scale));
-    }
-
-    return this._forward_internal(z, t, labels, t_emb, source_id);
+  initializeWeights() {
+    tf.tidy(() => {
+      const dummyZ = tf.zeros([1, 8, 8, CONFIG.LATENT_CHANNELS]);
+      const dummyT = tf.zeros([1, 1]);
+      const dummyLabels = tf.zeros([1], 'int32');
+      this.forward(dummyZ, dummyT, dummyLabels);
+    });
   }
 
-  _forward_internal(z, t, labels, t_emb, source_id = null) {
-    // Label embedding
-    const label_emb = this.label_emb.forward(labels);
-
-    // Combine embeddings with optional context
-    let cond;
-    if (CONFIG.USE_CONTEXT && source_id !== null) {
-      const s_emb = this.source_emb.forward(source_id);
-      cond = torch.cat([t_emb, label_emb, s_emb], -1);
-    } else {
-      cond = torch.cat([t_emb, label_emb], -1);
+  getWeights() {
+    const weights = [];
+    const layers = [
+      this.time_mlp_dense1, this.time_mlp_dense2, this.label_emb, this.head,
+      this.down1.conv1, this.down1.bn1, this.down1.conv2, this.down1.bn2, this.down1.label_proj,
+      this.down2,
+      this.mid.conv1, this.mid.bn1, this.mid.conv2, this.mid.bn2, this.mid.label_proj,
+      this.up_conv,
+      this.up_block.conv1, this.up_block.bn1, this.up_block.conv2, this.up_block.bn2, this.up_block.label_proj,
+      this.tail
+    ];
+    
+    for (const layer of layers) {
+      if (layer && layer.weights) {
+        weights.push(...layer.weights.map(w => w.val));
+      }
     }
+    return weights;
+  }
 
-    cond = this.cond_proj.forward(cond);
+  forward(z, t, labels) {
+    const t_emb = this.time_mlp_dense2.apply(this.time_mlp_dense1.apply(t));
+    const l_emb = this.label_emb.apply(labels);
+    const cond = tf.concat([t_emb, l_emb], -1);
 
-    // Time-adaptive scaling
-    const time_weight = this.time_weight_net.forward(t);
-
-    // U-Net forward pass
-    let h = this.head.forward(z);
-    const d1 = this.down1.forward(h, cond);
-    let d2 = this.down2_conv.forward(d1);
-    d2 = this.down2_block.forward(d2, cond);
-    let m = this.mid1.forward(d2, cond);
-    m = this.mid_attn.forward(m);
-    m = this.mid2.forward(m, cond);
-    let u2 = this.up2_conv.forward(m);
-    u2 = this.up2_block.forward(u2, cond);
-
-    // Skip connection
-    if (u2.shape[2] !== d1.shape[2] || u2.shape[3] !== d1.shape[3]) {
-      u2 = torch.nn.functional.interpolate(
-        u2,
-        [d1.shape[2], d1.shape[3]],
-        "nearest",
-      );
-    }
-
-    const u1 = this.up1.forward(u2.add(d1), cond);
-    let out = this.tail.forward(u1);
-
-    // Scale output
-    out = out
-      .mul(this.output_scale)
-      .mul(time_weight.reshape([-1, 1, 1, 1]).add(1));
-
-    return out;
+    let h = this.head.apply(z);
+    const d1 = this.down1.apply(h, cond);
+    let d2 = this.down2.apply(d1);
+    let m = this.mid.apply(d2, cond);
+    let u = this.up_conv.apply(m);
+    u = this.up_block.apply(u, cond);
+    return this.tail.apply(u);
   }
 }
-
-// Export all models
-export default {
-  LabelConditionedVAE,
-  LabelConditionedDrift,
-  ResidualBlock,
-  SelfAttention,
-  LabelConditionedBlock,
-  FourierTimeEmbed,
-};
