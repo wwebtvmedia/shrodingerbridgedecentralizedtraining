@@ -466,7 +466,7 @@ class ModelConsolidationServer {
   }
 
   start(port = 8080) {
-    this.server.listen(port, () => {
+    this.server.listen(port, "0.0.0.0", () => {
       console.log(`🚀 Model Consolidation Server running on port ${port}`);
       console.log(`🌐 Web interface: http://localhost:${port}`);
       console.log(`📡 WebSocket: ws://localhost:${port}`);
