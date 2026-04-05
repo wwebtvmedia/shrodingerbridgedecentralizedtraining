@@ -91,6 +91,13 @@
     </style>
   </head>
   <body>
+    <!-- Loading Overlay -->
+    <div id="dependency-loader" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 12, 41, 0.9); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(10px);">
+      <div class="loading" style="width: 50px; height: 50px; border-width: 5px; margin-bottom: 20px;"></div>
+      <h2 style="color: white; margin-bottom: 10px;">Initializing AI Engine...</h2>
+      <p id="loader-status" style="color: #4fc3f7; opacity: 0.8;">Downloading js-pytorch from CDN</p>
+    </div>
+
     <div class="container">
       <header>
         <div class="header-nav">
@@ -256,6 +263,36 @@
 
     <script type="module" src="/src/enhanced-app.js"></script>
     <script>
+      // Dependency Checker
+      (function checkDependencies() {
+        const loader = document.getElementById('dependency-loader');
+        const statusText = document.getElementById('loader-status');
+        let attempts = 0;
+
+        const check = setInterval(() => {
+          attempts++;
+          
+          // Check if js-pytorch (global torch) is available
+          if (typeof torch !== 'undefined' || window.torch) {
+            clearInterval(check);
+            statusText.textContent = "AI Engine Ready!";
+            setTimeout(() => {
+              loader.style.opacity = '0';
+              setTimeout(() => loader.style.display = 'none', 500);
+            }, 500);
+            console.log("✅ js-pytorch (torch) loaded successfully");
+          } else {
+            statusText.textContent = `Downloading AI Engine (Attempt ${attempts}/20)...`;
+          }
+
+          if (attempts >= 20) {
+            clearInterval(check);
+            statusText.style.color = "#f44336";
+            statusText.textContent = "Error: Failed to load AI Engine. Please check your internet connection.";
+          }
+        }, 1000);
+      })();
+
       // Update database stats periodically
       setInterval(() => {
         if (
