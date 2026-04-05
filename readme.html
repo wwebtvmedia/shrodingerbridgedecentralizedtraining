@@ -518,11 +518,139 @@
             (1 - \text{KL}_{\text{norm}}) \]
           </div>
         </div>
+
+        <div class="section" id="architecture">
+          <h2><span class="emoji">🏗️</span> System Architecture</h2>
+          <p>
+            The system follows a decentralized architecture where each browser
+            node operates independently but communicates via WebRTC.
+          </p>
+          <div class="diagram">
+            ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ │ Training │ │ Phase
+            │ │ Model │ │ Loop │────▶│ Manager │────▶│ Manager │ └─────────────┘
+            └─────────────┘ └─────────────┘ │ │ │ ▼ ▼ ▼ ┌─────────────┐
+            ┌─────────────┐ ┌─────────────┐ │ Metrics │ │ Phase Weights│ │ Model
+            State │ │ Collection │◀────│ Adjustment │◀────│ Update │
+            └─────────────┘ └─────────────┘ └─────────────┘
+          </div>
+        </div>
+
+        <div class="section" id="algorithm">
+          <h2><span class="emoji">🔬</span> Training Algorithms</h2>
+          <h3>Swarm Training Loop</h3>
+          <p>
+            The core training loop balances local gradient descent with global
+            model synchronization.
+          </p>
+          <div class="highlight">
+            <pre><code>Input: Initial model M, exploration rate ε, sync probability p
+Output: Trained model M*
+
+1: Initialize local model M_i ← M
+2: for epoch = 1 to E_max do
+3:   phase ← PhaseManager.determinePhase(epoch, metrics)
+4:   loss, metrics ← trainEpoch(M_i, phase)
+5:   broadcastToRandomPeers({epoch, loss, metrics, hash(M_i)})
+...</code></pre>
+          </div>
+        </div>
+
+        <div class="section" id="metrics">
+          <h2><span class="emoji">📊</span> Performance Metrics</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Phase</th>
+                <th>Target Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Reconstruction Loss</td>
+                <td>VAE</td>
+                <td>&lt; 0.15</td>
+              </tr>
+              <tr>
+                <td>Drift Matching</td>
+                <td>Drift</td>
+                <td>&lt; 0.30</td>
+              </tr>
+              <tr>
+                <td>Diversity Score</td>
+                <td>Both</td>
+                <td>&gt; 0.60</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section" id="implementation">
+          <h2><span class="emoji">🚀</span> Implementation Details</h2>
+          <p>
+            The system is implemented using Vanilla JavaScript and WebTorch for
+            browser-based neural network execution.
+          </p>
+          <ul>
+            <li>
+              <strong>WebRTC</strong>: For peer-to-peer data synchronization.
+            </li>
+            <li>
+              <strong>IndexedDB</strong>: For local model persistence and
+              checkpointing.
+            </li>
+            <li>
+              <strong>Chart.js</strong>: For real-time visualization of training
+              progress.
+            </li>
+          </ul>
+        </div>
+
+        <div class="section" id="getting-started">
+          <h2><span class="emoji">📚</span> Getting Started</h2>
+          <p>To join the swarm training network:</p>
+          <ol>
+            <li>
+              Open the <strong>Launch Training Dashboard</strong> from the main
+              menu.
+            </li>
+            <li>
+              Click <strong>Connect to Swarm</strong> to initialize your P2P
+              connection.
+            </li>
+            <li>
+              Click <strong>Start Training</strong> to begin contributing to the
+              global model.
+            </li>
+          </ol>
+        </div>
       </div>
 
       <footer>
         <p>Last updated: April 2026 | Swarm Schrödinger Bridge Project</p>
       </footer>
     </div>
+
+    <script>
+      // Add smooth scrolling for anchor links
+      document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+        anchor.addEventListener("click", function (e) {
+          e.preventDefault();
+          const targetId = this.getAttribute("href");
+          const targetElement = document.querySelector(targetId);
+          if (targetElement) {
+            targetElement.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+            // Update URL hash without jumping
+            history.pushState(null, null, targetId);
+          }
+        });
+      });
+
+      // Initialize code highlighting
+      hljs.highlightAll();
+    </script>
   </body>
 </html>
