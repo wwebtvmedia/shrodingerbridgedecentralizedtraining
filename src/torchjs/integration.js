@@ -11,6 +11,7 @@ export class TorchJSTrainer {
     this.phase = 1;
     this.epoch = 0;
     this.isInitialized = false;
+    this.device = "cpu"; // Default to CPU
 
     // Check if torch is available
     this.torchAvailable = false;
@@ -23,7 +24,17 @@ export class TorchJSTrainer {
       const torchModule = await import("js-pytorch");
       this.torch = torchModule;
       this.torchAvailable = true;
-      console.log("✅ js-pytorch available");
+
+      // Detect GPU availability (standard js-pytorch pattern)
+      if (this.torch && this.torch.has_gpu && (await this.torch.has_gpu())) {
+        this.device = "gpu";
+        console.log("🚀 GPU Acceleration Enabled");
+      } else {
+        this.device = "cpu";
+        console.log("💻 Using CPU for computation");
+      }
+
+      console.log(`✅ js-pytorch available (${this.device})`);
     } catch (error) {
       console.warn("⚠️ js-pytorch not available, using mock mode");
       this.torchAvailable = false;
@@ -33,12 +44,12 @@ export class TorchJSTrainer {
   async initialize() {
     if (this.isInitialized) return;
 
-    console.log("🧠 Initializing TorchJS Trainer...");
+    console.log(`🧠 Initializing TorchJS Trainer on ${this.device}...`);
 
     try {
-      // Initialize models
-      this.vae = new LabelConditionedVAE();
-      this.drift = new LabelConditionedDrift();
+      // Initialize models with device
+      this.vae = new LabelConditionedVAE(CONFIG.FREE_BITS, this.device);
+      this.drift = new LabelConditionedDrift(this.device);
 
       // Set training mode
       this.vae.training = true;
@@ -59,7 +70,7 @@ export class TorchJSTrainer {
       };
 
       this.isInitialized = true;
-      console.log("✅ TorchJS Trainer initialized");
+      console.log(`✅ TorchJS Trainer initialized on ${this.device}`);
     } catch (error) {
       console.error("❌ TorchJS Trainer initialization failed:", error);
       throw error;
@@ -114,16 +125,29 @@ export class TorchJSTrainer {
       await this.initialize();
     }
 
+    // Convert batch/labels to tensors on the correct device if needed
+    let batchTensor = batch;
+    let labelsTensor = labels;
+
+    if (this.torchAvailable && this.torch) {
+      if (!(batch instanceof this.torch.Tensor)) {
+        batchTensor = this.torch.tensor(batch, { device: this.device });
+      }
+      if (!(labels instanceof this.torch.Tensor)) {
+        labelsTensor = this.torch.tensor(labels, { device: this.device });
+      }
+    }
+
     // Simulate training step based on phase
     let loss = 0;
     let metrics = {};
 
     if (this.phase === 1) {
       // VAE training
-      const [recon, mu, logvar] = this.vae.forward(batch, labels);
+      const [recon, mu, logvar] = this.vae.forward(batchTensor, labelsTensor);
 
       // Compute losses
-      const recon_loss = this.computeReconstructionLoss(batch, recon);
+      const recon_loss = this.computeReconstructionLoss(batchTensor, recon);
       const kl_loss = this.computeKLLoss(mu, logvar);
 
       loss = recon_loss + kl_loss * CONFIG.KL_WEIGHT;
@@ -136,21 +160,36 @@ export class TorchJSTrainer {
     } else if (this.phase === 2 || this.phase === 3) {
       // Drift training
       // Get latent representation
-      const [mu, logvar] = this.vae.encode(batch, labels);
+      const [mu, logvar] = this.vae.encode(batchTensor, labelsTensor);
 
       // Sample time
-      const t = Math.random();
+      const t_val = Math.random();
+      const t = this.torchAvailable
+        ? this.torch.tensor([[t_val]], { device: this.device })
+        : t_val;
 
       // Sample z0 and z1
       const z0 = this.sampleNoise(mu.shape);
-      const z1 = mu; // Simplified
+      const z1 = mu;
 
       // Interpolate
-      const zt = z0 * (1 - t) + z1 * t;
+      let zt;
+      if (this.torchAvailable) {
+        zt = z0.mul(1 - t_val).add(z1.mul(t_val));
+      } else {
+        zt = z0 * (1 - t_val) + z1 * t_val;
+      }
 
       // Predict drift
-      const pred_drift = this.drift.forward(zt, t, labels);
-      const target_drift = z1 - z0;
+      const pred_drift = this.drift.forward(zt, t, labelsTensor);
+
+      // Target drift
+      let target_drift;
+      if (this.torchAvailable) {
+        target_drift = z1.sub(z0);
+      } else {
+        target_drift = z1 - z0;
+      }
 
       // Compute drift loss
       const drift_loss = this.computeDriftLoss(pred_drift, target_drift);
@@ -164,8 +203,8 @@ export class TorchJSTrainer {
 
       if (this.phase === 3) {
         // Also compute reconstruction loss
-        const recon = this.vae.decode(mu, labels);
-        const recon_loss = this.computeReconstructionLoss(batch, recon);
+        const recon = this.vae.decode(mu, labelsTensor);
+        const recon_loss = this.computeReconstructionLoss(batchTensor, recon);
         loss += recon_loss * CONFIG.RECON_WEIGHT * CONFIG.PHASE3_RECON_SCALE;
         metrics.recon_loss = recon_loss;
       }
@@ -192,7 +231,12 @@ export class TorchJSTrainer {
   computeKLLoss(mu, logvar) {
     // KL divergence
     if (this.torchAvailable && this.torch) {
-      const kl = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp());
+      const kl = logvar
+        .mul(-1)
+        .add(1)
+        .add(logvar.exp())
+        .add(mu.pow(2))
+        .mul(-0.5);
       return kl.mean().data[0];
     }
     // Mock implementation
@@ -214,7 +258,7 @@ export class TorchJSTrainer {
   sampleNoise(shape) {
     // Sample Gaussian noise
     if (this.torchAvailable && this.torch) {
-      return this.torch.randn(shape);
+      return this.torch.randn(shape, { device: this.device });
     }
     // Mock implementation
     return Array.from(

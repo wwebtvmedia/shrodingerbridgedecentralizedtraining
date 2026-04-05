@@ -13,28 +13,32 @@ try {
 }
 
 // Helper function to create layers
-function createLayer(type, ...args) {
+function createLayer(type, device, ...args) {
   if (!torch) {
     return { type, args };
   }
 
+  const options = { device: device || "cpu" };
+
   switch (type) {
     case "Linear":
-      return new torch.nn.Linear(...args);
+      return new torch.nn.Linear(...args, options);
     case "Conv2d":
-      return new torch.nn.Conv2d(...args);
+      return new torch.nn.Conv2d(...args, options);
     case "ConvTranspose2d":
-      return new torch.nn.ConvTranspose2d(...args);
+      return new torch.nn.ConvTranspose2d(...args, options);
     case "BatchNorm2d":
-      return new torch.nn.BatchNorm2d(...args);
+      return new torch.nn.BatchNorm2d(...args, options);
     case "SiLU":
       return new torch.nn.SiLU();
     case "ReLU":
       return new torch.nn.ReLU();
     case "Embedding":
-      return new torch.nn.Embedding(...args);
+      return new torch.nn.Embedding(...args, options);
     case "Sequential":
       return new torch.nn.Sequential(...args);
+    case "Upsample":
+      return new torch.nn.Upsample(...args);
     default:
       throw new Error(`Unknown layer type: ${type}`);
   }
@@ -42,16 +46,34 @@ function createLayer(type, ...args) {
 
 // Residual Block
 class ResidualBlock {
-  constructor(in_channels, out_channels, stride = 1) {
-    this.conv1 = createLayer("Conv2d", in_channels, out_channels, 3, stride, 1);
-    this.bn1 = createLayer("BatchNorm2d", out_channels);
-    this.act1 = createLayer("SiLU");
-    this.conv2 = createLayer("Conv2d", out_channels, out_channels, 3, 1, 1);
-    this.bn2 = createLayer("BatchNorm2d", out_channels);
+  constructor(in_channels, out_channels, stride = 1, device = "cpu") {
+    this.device = device;
+    this.conv1 = createLayer(
+      "Conv2d",
+      device,
+      in_channels,
+      out_channels,
+      3,
+      stride,
+      1,
+    );
+    this.bn1 = createLayer("BatchNorm2d", device, out_channels);
+    this.act1 = createLayer("SiLU", device);
+    this.conv2 = createLayer(
+      "Conv2d",
+      device,
+      out_channels,
+      out_channels,
+      3,
+      1,
+      1,
+    );
+    this.bn2 = createLayer("BatchNorm2d", device, out_channels);
 
     if (in_channels !== out_channels || stride !== 1) {
       this.shortcut = createLayer(
         "Conv2d",
+        device,
         in_channels,
         out_channels,
         1,
@@ -81,21 +103,26 @@ class ResidualBlock {
 
 // Self Attention
 class SelfAttention {
-  constructor(in_channels) {
+  constructor(in_channels, device = "cpu") {
+    this.device = device;
     this.query = createLayer(
       "Conv2d",
+      device,
       in_channels,
       Math.floor(in_channels / 8),
       1,
     );
     this.key = createLayer(
       "Conv2d",
+      device,
       in_channels,
       Math.floor(in_channels / 8),
       1,
     );
-    this.value = createLayer("Conv2d", in_channels, in_channels, 1);
-    this.gamma = torch ? new torch.nn.Parameter(torch.zeros(1)) : { data: 0 };
+    this.value = createLayer("Conv2d", device, in_channels, in_channels, 1);
+    this.gamma = torch
+      ? new torch.nn.Parameter(torch.zeros(1, { device }))
+      : { data: 0 };
   }
 
   forward(x) {
@@ -140,18 +167,20 @@ class LabelConditionedBlock {
     c_out,
     label_dim = CONFIG.LABEL_EMB_DIM,
     use_spectral_norm = false,
+    device = "cpu",
   ) {
-    this.conv1 = createLayer("Conv2d", c_in, c_out, 3, 1, 1);
-    this.bn1 = createLayer("BatchNorm2d", c_out);
-    this.act1 = createLayer("SiLU");
-    this.conv2 = createLayer("Conv2d", c_out, c_out, 3, 1, 1);
-    this.bn2 = createLayer("BatchNorm2d", c_out);
+    this.device = device;
+    this.conv1 = createLayer("Conv2d", device, c_in, c_out, 3, 1, 1);
+    this.bn1 = createLayer("BatchNorm2d", device, c_out);
+    this.act1 = createLayer("SiLU", device);
+    this.conv2 = createLayer("Conv2d", device, c_out, c_out, 3, 1, 1);
+    this.bn2 = createLayer("BatchNorm2d", device, c_out);
 
     // Label conditioning
-    this.label_proj = createLayer("Linear", label_dim, c_out * 2);
+    this.label_proj = createLayer("Linear", device, label_dim, c_out * 2);
 
     if (c_in !== c_out) {
-      this.shortcut = createLayer("Conv2d", c_in, c_out, 1, 1, 0);
+      this.shortcut = createLayer("Conv2d", device, c_in, c_out, 1, 1, 0);
     } else {
       this.shortcut = null;
     }
@@ -186,12 +215,14 @@ class LabelConditionedBlock {
 
 // Label Conditioned VAE
 export class LabelConditionedVAE {
-  constructor(free_bits = CONFIG.FREE_BITS) {
+  constructor(free_bits = CONFIG.FREE_BITS, device = "cpu") {
     this.free_bits = free_bits;
+    this.device = device;
 
     // Label embedding
     this.label_emb = createLayer(
       "Embedding",
+      device,
       CONFIG.NUM_CLASSES,
       CONFIG.LABEL_EMB_DIM,
     );
@@ -200,38 +231,46 @@ export class LabelConditionedVAE {
     if (CONFIG.USE_CONTEXT) {
       this.source_emb = createLayer(
         "Embedding",
+        device,
         CONFIG.NUM_SOURCES,
         CONFIG.CONTEXT_DIM,
       );
       this.cond_proj = createLayer(
         "Linear",
+        device,
         CONFIG.LABEL_EMB_DIM + CONFIG.CONTEXT_DIM,
         CONFIG.LABEL_EMB_DIM,
       );
     }
 
     // Encoder
-    this.enc_in = createLayer("Conv2d", 3, 64, 3, 1, 1);
+    this.enc_in = createLayer("Conv2d", device, 3, 64, 3, 1, 1);
     this.enc_blocks = [
-      new LabelConditionedBlock(64, 128),
-      new LabelConditionedBlock(128, 256),
-      new LabelConditionedBlock(256, 512),
-      new LabelConditionedBlock(512, 512),
+      new LabelConditionedBlock(64, 128, CONFIG.LABEL_EMB_DIM, false, device),
+      new LabelConditionedBlock(128, 256, CONFIG.LABEL_EMB_DIM, false, device),
+      new LabelConditionedBlock(256, 512, CONFIG.LABEL_EMB_DIM, false, device),
+      new LabelConditionedBlock(512, 512, CONFIG.LABEL_EMB_DIM, false, device),
     ];
 
     // Latent projection
-    this.z_mean = createLayer("Conv2d", 512, CONFIG.LATENT_CHANNELS, 1);
-    this.z_logvar = createLayer("Conv2d", 512, CONFIG.LATENT_CHANNELS, 1);
+    this.z_mean = createLayer("Conv2d", device, 512, CONFIG.LATENT_CHANNELS, 1);
+    this.z_logvar = createLayer(
+      "Conv2d",
+      device,
+      512,
+      CONFIG.LATENT_CHANNELS,
+      1,
+    );
 
     // Decoder
-    this.dec_in = createLayer("Conv2d", CONFIG.LATENT_CHANNELS, 512, 1);
+    this.dec_in = createLayer("Conv2d", device, CONFIG.LATENT_CHANNELS, 512, 1);
     this.dec_blocks = [
-      new LabelConditionedBlock(512, 512),
-      new LabelConditionedBlock(512, 256),
-      new LabelConditionedBlock(256, 128),
-      new LabelConditionedBlock(128, 64),
+      new LabelConditionedBlock(512, 512, CONFIG.LABEL_EMB_DIM, false, device),
+      new LabelConditionedBlock(512, 256, CONFIG.LABEL_EMB_DIM, false, device),
+      new LabelConditionedBlock(256, 128, CONFIG.LABEL_EMB_DIM, false, device),
+      new LabelConditionedBlock(128, 64, CONFIG.LABEL_EMB_DIM, false, device),
     ];
-    this.dec_out = createLayer("Conv2d", 64, 3, 3, 1, 1);
+    this.dec_out = createLayer("Conv2d", device, 64, 3, 3, 1, 1);
 
     // Diversity loss tracking
     this.diversity_loss = null;
@@ -370,9 +409,10 @@ export class LabelConditionedVAE {
 
 // Fourier Time Embedding
 export class FourierTimeEmbed {
-  constructor(dim = 128, max_freq = 64) {
+  constructor(dim = 128, max_freq = 64, device = "cpu") {
     this.dim = dim;
-    this.freqs = torch.linspace(1, max_freq, Math.floor(dim / 2));
+    this.device = device;
+    this.freqs = torch.linspace(1, max_freq, Math.floor(dim / 2), { device });
   }
 
   forward(t) {
@@ -386,19 +426,23 @@ export class FourierTimeEmbed {
 
 // Label Conditioned Drift Network
 export class LabelConditionedDrift {
-  constructor() {
+  constructor(device = "cpu") {
+    this.device = device;
+
     // Time embedding
     this.time_mlp = createLayer(
       "Sequential",
-      new FourierTimeEmbed(128),
-      createLayer("Linear", 128, 256),
-      createLayer("SiLU"),
-      createLayer("Linear", 256, 256),
+      device,
+      new FourierTimeEmbed(128, 64, device),
+      createLayer("Linear", device, 128, 256),
+      createLayer("SiLU", device),
+      createLayer("Linear", device, 256, 256),
     );
 
     // Label conditioning
     this.label_emb = createLayer(
       "Embedding",
+      device,
       CONFIG.NUM_CLASSES,
       CONFIG.LABEL_EMB_DIM,
     );
@@ -407,59 +451,84 @@ export class LabelConditionedDrift {
     if (CONFIG.USE_CONTEXT) {
       this.source_emb = createLayer(
         "Embedding",
+        device,
         CONFIG.NUM_SOURCES,
         CONFIG.CONTEXT_DIM,
       );
       this.cond_proj = createLayer(
         "Linear",
+        device,
         256 + CONFIG.LABEL_EMB_DIM + CONFIG.CONTEXT_DIM,
         128,
       );
     } else {
-      this.cond_proj = createLayer("Linear", 256 + CONFIG.LABEL_EMB_DIM, 128);
+      this.cond_proj = createLayer(
+        "Linear",
+        device,
+        256 + CONFIG.LABEL_EMB_DIM,
+        128,
+      );
     }
 
     // Time-adaptive scaling
     this.time_weight_net = createLayer(
       "Sequential",
-      createLayer("Linear", 1, 32),
-      createLayer("SiLU"),
-      createLayer("Linear", 32, 1),
-      createLayer("Sigmoid"),
+      device,
+      createLayer("Linear", device, 1, 32),
+      createLayer("SiLU", device),
+      createLayer("Linear", device, 32, 1),
+      createLayer("Sigmoid", device),
     );
 
     // U-Net architecture
-    this.head = createLayer("Conv2d", CONFIG.LATENT_CHANNELS, 64, 3, 1, 1);
-    this.down1 = new LabelConditionedBlock(64, 128, 128, true);
-    this.down2_conv = createLayer("Conv2d", 128, 256, 4, 2, 1);
-    this.down2_block = new LabelConditionedBlock(256, 256, 128, true);
+    this.head = createLayer(
+      "Conv2d",
+      device,
+      CONFIG.LATENT_CHANNELS,
+      64,
+      3,
+      1,
+      1,
+    );
+    this.down1 = new LabelConditionedBlock(64, 128, 128, true, device);
+    this.down2_conv = createLayer("Conv2d", device, 128, 256, 4, 2, 1);
+    this.down2_block = new LabelConditionedBlock(256, 256, 128, true, device);
 
-    this.mid1 = new LabelConditionedBlock(256, 256, 128, true);
-    this.mid_attn = new SelfAttention(256);
-    this.mid2 = new LabelConditionedBlock(256, 256, 128, true);
+    this.mid1 = new LabelConditionedBlock(256, 256, 128, true, device);
+    this.mid_attn = new SelfAttention(256, device);
+    this.mid2 = new LabelConditionedBlock(256, 256, 128, true, device);
 
     this.up2_conv = createLayer(
       "Sequential",
-      createLayer("Upsample", 2, "nearest"),
-      createLayer("Conv2d", 256, 128, 3, 1, 1),
+      device,
+      createLayer("Upsample", device, 2, "nearest"),
+      createLayer("Conv2d", device, 256, 128, 3, 1, 1),
     );
-    this.up2_block = new LabelConditionedBlock(128, 128, 128, true);
-    this.up1 = new LabelConditionedBlock(128, 64, 128, true);
+    this.up2_block = new LabelConditionedBlock(128, 128, 128, true, device);
+    this.up1 = new LabelConditionedBlock(128, 64, 128, true, device);
 
-    this.tail = createLayer("Conv2d", 64, CONFIG.LATENT_CHANNELS, 3, 1, 1);
+    this.tail = createLayer(
+      "Conv2d",
+      device,
+      64,
+      CONFIG.LATENT_CHANNELS,
+      3,
+      1,
+      1,
+    );
 
     // Learnable scaling
     this.output_scale = torch
-      ? new torch.nn.Parameter(torch.tensor(0.1))
+      ? new torch.nn.Parameter(torch.tensor(0.1, { device }))
       : { data: 0.1 };
     this.time_scales = torch
-      ? new torch.nn.Parameter(torch.ones(4).mul(0.1))
+      ? new torch.nn.Parameter(torch.ones(4, { device }).mul(0.1))
       : { data: [0.1, 0.1, 0.1, 0.1] };
 
     // Running statistics
-    this.drift_mean = torch ? torch.zeros(1) : 0;
-    this.drift_std = torch ? torch.ones(1) : 1;
-    this.n_samples = torch ? torch.zeros(1) : 0;
+    this.drift_mean = torch ? torch.zeros(1, { device }) : 0;
+    this.drift_std = torch ? torch.ones(1, { device }) : 1;
+    this.n_samples = torch ? torch.zeros(1, { device }) : 0;
     this.momentum = 0.99;
   }
 
