@@ -35,7 +35,7 @@ if [ ! -f .env ]; then
     cp .env.template .env
     # Update the URL in .env (handling different possible key names)
     sed -i 's|TUNNEL_URL=.*|TUNNEL_URL=https://www.tree4five.com|g' .env
-    sed -i 's|PORT=.*|PORT=3001|g' .env
+    sed -i 's|PORT=.*|PORT=8080|g' .env
     echo "✅ Created .env from template"
 else
     echo "ℹ️ .env already exists, skipping creation"

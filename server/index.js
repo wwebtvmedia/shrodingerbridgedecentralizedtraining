@@ -465,7 +465,7 @@ class ModelConsolidationServer {
     }, 10000); // Check every 10 seconds
   }
 
-  start(port = 3001) {
+  start(port = 8080) {
     this.server.listen(port, () => {
       console.log(`🚀 Model Consolidation Server running on port ${port}`);
       console.log(`🌐 Web interface: http://localhost:${port}`);
@@ -478,7 +478,7 @@ class ModelConsolidationServer {
 // Start server if this file is run directly
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const server = new ModelConsolidationServer();
-  server.start(process.env.PORT || 3001);
+  server.start(process.env.PORT || 8080);
 }
 
 export { ModelConsolidationServer };
