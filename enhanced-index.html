@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Enhanced Swarm Schrödinger Bridge Training</title>
     <link rel="stylesheet" href="/css/styles.css" />
-    <script src="/js/torch.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-pytorch/0.7.2/js-pytorch-browser.js"
+        integrity="sha512-l22t7GnqXvHBMCBvPUBdFO2TEYxnb1ziCGcDQcpTB2un16IPA4FE5SIZ8bUR+RwoDZGikQkWisO+fhnakXt9rg=="
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
       .header-nav {
@@ -95,7 +98,7 @@
     <div id="dependency-loader" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 12, 41, 0.9); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(10px);">
       <div class="loading" style="width: 50px; height: 50px; border-width: 5px; margin-bottom: 20px;"></div>
       <h2 style="color: white; margin-bottom: 10px;">Initializing AI Engine...</h2>
-      <p id="loader-status" style="color: #4fc3f7; opacity: 0.8;">Downloading Engine from local server</p>
+      <p id="loader-status" style="color: #4fc3f7; opacity: 0.8;">Downloading Engine from cdnjs</p>
     </div>
 
     <div class="container">
