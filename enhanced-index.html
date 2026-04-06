@@ -162,6 +162,10 @@
               <span class="label">Messages Received:</span>
               <span id="messages-received" class="value">0</span>
             </div>
+            <div class="stat">
+              <span class="label">Acceleration:</span>
+              <span id="acceleration-type" class="value">Detecting...</span>
+            </div>
           </div>
           <div class="controls" id="network-controls">
             <button id="connect-btn" class="btn btn-primary">
@@ -302,14 +306,17 @@
           // Check if App is initialized
           if (window.enhancedApp && window.enhancedApp.isInitialized) {
             clearInterval(check);
-            statusText.textContent = "AI Engine Ready!";
+            const device = window.enhancedApp.trainer?.modelManager?.state?.tfjs_initialized ? 
+                           (window.tfjsTrainer?.device || "Accelerated") : "Ready";
+            statusText.textContent = `AI Engine Ready! [${device.toUpperCase()}]`;
             setTimeout(() => {
               loader.style.opacity = "0";
               setTimeout(() => (loader.style.display = "none"), 500);
-            }, 500);
+            }, 800);
             console.log("✅ Swarm AI App initialized successfully");
           } else {
-            statusText.textContent = `Initializing AI Engine (Attempt ${attempts}/300)...`;
+            const deviceNote = window.tfjsTrainer?.device ? ` [${window.tfjsTrainer.device.toUpperCase()}]` : "";
+            statusText.textContent = `Initializing AI Engine${deviceNote} (Attempt ${attempts}/300)...`;
           }
 
           if (attempts >= 300) {

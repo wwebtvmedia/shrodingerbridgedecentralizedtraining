@@ -73,14 +73,31 @@ export class TFJSTrainer {
 
       console.log(`🚀 Swarm AI Engine: Using [${this.device.toUpperCase()}]`);
       
-      // Update UI if app is available
-      if (window.enhancedApp && window.enhancedApp.ui) {
-        window.enhancedApp.ui.log(`🚀 Hardware Acceleration: ${this.device.toUpperCase()}`);
-      }
+      // Update UI with acceleration type
+      this.updateUIWithDevice(this.device);
     } catch (error) {
       console.error("❌ Critical Hardware Error:", error);
       await tf.setBackend('cpu');
       this.device = 'cpu (fallback)';
+      this.updateUIWithDevice(this.device);
+    }
+  }
+
+  updateUIWithDevice(device) {
+    if (typeof window !== 'undefined') {
+      // 1. Log to the training log if possible
+      if (window.enhancedApp && window.enhancedApp.ui) {
+        window.enhancedApp.ui.log(`🚀 Hardware Acceleration: ${device.toUpperCase()}`);
+        window.enhancedApp.ui.updateAccelerationType(device);
+      } else {
+        // Fallback: wait a bit for UI to be ready
+        setTimeout(() => {
+          if (window.enhancedApp && window.enhancedApp.ui) {
+            window.enhancedApp.ui.log(`🚀 Hardware Acceleration: ${device.toUpperCase()}`);
+            window.enhancedApp.ui.updateAccelerationType(device);
+          }
+        }, 2000);
+      }
     }
   }
 

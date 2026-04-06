@@ -255,6 +255,22 @@ class UIManager {
     }
   }
 
+  updateAccelerationType(type) {
+    const element = document.getElementById("acceleration-type");
+    if (element) {
+      element.textContent = type.toUpperCase();
+      
+      // Color-code based on performance
+      if (type.includes("gpu") || type.includes("webgpu") || type.includes("webgl")) {
+        element.style.color = "#4caf50"; // Green for GPU
+      } else if (type.includes("wasm")) {
+        element.style.color = "#2196f3"; // Blue for WASM
+      } else {
+        element.style.color = "#ff9800"; // Orange for standard CPU
+      }
+    }
+  }
+
   updateMetrics(metrics) {
     // Update models evaluated
     const modelsElement = document.getElementById("models-evaluated");
