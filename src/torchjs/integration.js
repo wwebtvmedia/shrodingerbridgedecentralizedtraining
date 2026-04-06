@@ -2,11 +2,21 @@
 // This implementation maps precisely to the device selection in PyTorch
 
 import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-backend-webgl'; // Standard GPU acceleration
-import '@tensorflow/tfjs-backend-webgpu'; // High-performance GPU acceleration
-import '@tensorflow/tfjs-backend-wasm';  // High-speed CPU fallback
 import { CONFIG } from "../config.js";
 import { LabelConditionedVAE, LabelConditionedDrift } from "./models.js";
+
+// Conditional backend loading to prevent "already registered" errors
+const loadBackends = async () => {
+  try {
+    // WASM and WebGPU are not in the union package by default, so we import them
+    if (!tf.findBackend('wasm')) await import('@tensorflow/tfjs-backend-wasm');
+    if (!tf.findBackend('webgpu')) await import('@tensorflow/tfjs-backend-webgpu');
+    // WebGL is usually in the union package, but we check just in case
+    if (!tf.findBackend('webgl')) await import('@tensorflow/tfjs-backend-webgl');
+  } catch (e) {
+    console.warn("Lazy backend loading failed:", e);
+  }
+};
 
 export class TFJSTrainer {
   constructor() {
@@ -22,18 +32,21 @@ export class TFJSTrainer {
     // Set performance flags immediately
     this.setPerformanceFlags();
 
-    // Start detection immediately
+    // Start detection immediately (backends are loaded inside detectBackend)
     this.detectBackend().catch(console.error);
   }
 
   setPerformanceFlags() {
-    if (typeof tf !== 'undefined') {
+    // Check if tf.env exists (it's a function in modern TFJS)
+    if (typeof tf !== 'undefined' && typeof tf.env === 'function') {
       try {
-        tf.env().set('WEBGL_EXP_CONV_ACCELERATION_ENABLED', true);
-        tf.env().set('WEBGL_FLUSH_THRESHOLD', 1);
-        tf.env().set('WEBGL_CPU_FORWARD', false);
-        // Enable PACKED_INTERPOLATE for faster generation if available
-        tf.env().set('WEBGL_PACK', true);
+        const env = tf.env();
+        if (env && typeof env.set === 'function') {
+          env.set('WEBGL_EXP_CONV_ACCELERATION_ENABLED', true);
+          env.set('WEBGL_FLUSH_THRESHOLD', 1);
+          env.set('WEBGL_CPU_FORWARD', false);
+          env.set('WEBGL_PACK', true);
+        }
       } catch (e) {
         console.warn("Failed to set TFJS flags:", e);
       }
@@ -49,6 +62,9 @@ export class TFJSTrainer {
     this.detectionPromise = (async () => {
       this.updateUIWithDevice("detecting", "detecting");
       
+      // Load extra backends first
+      await loadBackends();
+
       // Explicitly expose to window for the HTML loader to see
       if (typeof window !== 'undefined') {
         window.tfjsTrainer = this;
@@ -58,7 +74,9 @@ export class TFJSTrainer {
       const switchToCPU = async (reason) => {
         console.warn(`⚠️ Switching to CPU: ${reason}`);
         try {
-          await tf.setBackend('cpu');
+          if (typeof tf.setBackend === 'function') {
+            await tf.setBackend('cpu');
+          }
         } catch (e) {
           console.error("Failed to set CPU backend, forcing state anyway", e);
         }
@@ -72,7 +90,7 @@ export class TFJSTrainer {
           console.error("❌ Global detection timeout! Forcing CPU fallback.");
           switchToCPU("Global timeout");
         }
-      }, 15000); // 15 seconds total for all detection (increased for reliability)
+      }, 15000); 
 
       // Helper for timeouts
       const withTimeout = (promise, ms) => Promise.race([
@@ -84,8 +102,7 @@ export class TFJSTrainer {
         // 1. Check for Node-specific acceleration (CUDA)
         if (typeof process !== 'undefined' && process.versions && process.versions.node) {
           try {
-            // Check if tfjs-node is already loaded or available
-            if (tf.findBackend('tensorflow')) {
+            if (typeof tf.findBackend === 'function' && tf.findBackend('tensorflow')) {
               await tf.setBackend('tensorflow');
               this.device = 'tensorflow-native';
               this.updateUIWithDevice("ready", this.device);
@@ -100,14 +117,11 @@ export class TFJSTrainer {
         if (typeof navigator !== 'undefined' && navigator.gpu) {
           try {
             console.log("🔍 Probing WebGPU...");
-            // Ensure WebGPU is registered
-            if (tf.findBackend('webgpu')) {
+            if (typeof tf.findBackend === 'function' && tf.findBackend('webgpu')) {
               await withTimeout(tf.setBackend('webgpu'), 3000);
               this.device = 'webgpu';
               this.updateUIWithDevice("ready", this.device);
               return;
-            } else {
-              console.log("WebGPU backend not registered");
             }
           } catch (e) {
             console.log(`WebGPU failed: ${e.message}, falling back to WebGL...`);
@@ -118,10 +132,12 @@ export class TFJSTrainer {
         if (typeof navigator !== 'undefined') {
           try {
             console.log("🔍 Probing WebGL...");
-            await withTimeout(tf.setBackend('webgl'), 3000);
-            this.device = 'webgl';
-            this.updateUIWithDevice("ready", this.device);
-            return;
+            if (typeof tf.findBackend === 'function' && tf.findBackend('webgl')) {
+              await withTimeout(tf.setBackend('webgl'), 3000);
+              this.device = 'webgl';
+              this.updateUIWithDevice("ready", this.device);
+              return;
+            }
           } catch (e) {
             console.log(`WebGL failed: ${e.message}, falling back to WASM...`);
           }
@@ -130,13 +146,17 @@ export class TFJSTrainer {
         // 4. Optimized CPU: WASM (Max 5s wait)
         try {
           console.log("🔍 Probing WASM...");
-          if (typeof window !== 'undefined') {
-            const version = tf.version_core || '4.17.0';
-            tf.wasm.setWasmPaths(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${version}/dist/`);
+          if (typeof tf.findBackend === 'function' && tf.findBackend('wasm')) {
+            if (typeof window !== 'undefined' && tf.wasm) {
+              const version = tf.version_core || '4.17.0';
+              tf.wasm.setWasmPaths(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${version}/dist/`);
+            }
+            await withTimeout(tf.setBackend('wasm'), 5000);
+            this.device = 'wasm';
+            this.updateUIWithDevice("ready", this.device);
+          } else {
+            await switchToCPU("WASM not registered");
           }
-          await withTimeout(tf.setBackend('wasm'), 5000);
-          this.device = 'wasm';
-          this.updateUIWithDevice("ready", this.device);
         } catch (e) {
           await switchToCPU(e.message === 'timeout' ? "WASM timeout" : "WASM failure");
         }
@@ -152,6 +172,7 @@ export class TFJSTrainer {
 
     return this.detectionPromise;
   }
+
 
 
   updateUIWithDevice(status, device) {
