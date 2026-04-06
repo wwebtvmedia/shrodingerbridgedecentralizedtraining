@@ -64,8 +64,8 @@ class UIManager {
             {
               label: "Training Loss",
               data: [],
-              borderColor: "rgb(255, 99, 132)",
-              backgroundColor: "rgba(255, 99, 132, 0.1)",
+              borderColor: "#ea4335", // Google Red
+              backgroundColor: "rgba(234, 67, 53, 0.1)",
               tension: 0.4,
               fill: true,
             },
@@ -125,8 +125,8 @@ class UIManager {
             {
               label: "Diversity",
               data: [],
-              borderColor: "rgb(54, 162, 235)",
-              backgroundColor: "rgba(54, 162, 235, 0.1)",
+              borderColor: "#4285f4", // Google Blue
+              backgroundColor: "rgba(66, 133, 244, 0.1)",
               tension: 0.4,
               fill: true,
             },
@@ -262,17 +262,17 @@ class UIManager {
       const fullStatus = device ? `${state.toUpperCase()} (${device.toUpperCase()})` : state.toUpperCase();
       element.textContent = fullStatus;
       
-      // Color-code based on state and device performance
+      // Color-code based on state and device performance using Google colors
       if (state.toLowerCase().includes("error") || state.toLowerCase().includes("failed")) {
-        element.style.color = "#f44336"; // Red for errors
+        element.style.color = "#ea4335"; // Google Red
       } else if (device && (device.toLowerCase().includes("gpu") || device.toLowerCase().includes("webgpu") || device.toLowerCase().includes("webgl"))) {
-        element.style.color = "#4caf50"; // Green for GPU Ready
+        element.style.color = "#34a853"; // Google Green
       } else if (device && device.toLowerCase().includes("wasm")) {
-        element.style.color = "#2196f3"; // Blue for WASM Ready
+        element.style.color = "#4285f4"; // Google Blue
       } else if (state.toLowerCase().includes("ready")) {
-        element.style.color = "#e0e0e0"; // Standard white-ish for Ready CPU
+        element.style.color = "#e0e0e0"; 
       } else {
-        element.style.color = "#ff9800"; // Orange for Initializing/Detecting
+        element.style.color = "#fbbc05"; // Google Yellow for Initializing
       }
     }
   }
@@ -407,12 +407,12 @@ class UIManager {
             animation: slideIn 0.3s ease;
         `;
 
-    // Type-specific colors
+    // Type-specific Google colors
     const colors = {
-      info: "linear-gradient(90deg, #2196f3, #21cbf3)",
-      success: "linear-gradient(90deg, #00c853, #64dd17)",
-      warning: "linear-gradient(90deg, #ff9800, #ff5722)",
-      error: "linear-gradient(90deg, #f44336, #ff5252)",
+      info: "#4285f4", // Google Blue
+      success: "#34a853", // Google Green
+      warning: "#fbbc05", // Google Yellow
+      error: "#ea4335", // Google Red
     };
 
     notification.style.background = colors[type] || colors.info;

@@ -31,7 +31,7 @@ header {
 
 h1 {
   font-size: 2.5rem;
-  background: linear-gradient(90deg, #00dbde, #fc00ff);
+  background: linear-gradient(90deg, #4285f4, #ea4335, #fbbc05, #34a853);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -95,7 +95,7 @@ h1 {
 
 .value {
   font-weight: bold;
-  color: #4fc3f7;
+  color: #4285f4;
 }
 
 .controls {
@@ -115,17 +115,17 @@ h1 {
 }
 
 .btn-primary {
-  background: linear-gradient(90deg, #2196f3, #21cbf3);
+  background: #4285f4; /* Google Blue */
   color: white;
 }
 
 .btn-success {
-  background: linear-gradient(90deg, #00c853, #64dd17);
+  background: #34a853; /* Google Green */
   color: white;
 }
 
 .btn-danger {
-  background: linear-gradient(90deg, #f44336, #ff5252);
+  background: #ea4335; /* Google Red */
   color: white;
 }
 
@@ -177,7 +177,7 @@ canvas {
 }
 
 .phase-btn.active {
-  background: linear-gradient(90deg, #ff9800, #ff5722);
+  background: #4285f4; /* Google Blue */
   color: white;
 }
 
@@ -200,7 +200,7 @@ input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 20px;
   height: 20px;
-  background: #00bcd4;
+  background: #4285f4; /* Google Blue */
   border-radius: 50%;
   cursor: pointer;
 }
@@ -314,7 +314,7 @@ input[type="range"]::-webkit-slider-thumb {
   height: 20px;
   border: 3px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
-  border-top-color: #4fc3f7;
+  border-top-color: #4285f4; /* Google Blue */
   animation: spin 1s ease-in-out infinite;
 }
 

@@ -18,8 +18,8 @@
         gap: 10px;
       }
       .btn-nav {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        background: #fbbc05; /* Google Yellow */
+        color: #202124;
         padding: 10px 20px;
         border-radius: 8px;
         text-decoration: none;
@@ -33,7 +33,7 @@
       .btn-nav:hover {
         transform: translateY(-3px);
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-        background: linear-gradient(135deg, #768efa 0%, #865bb2 100%);
+        background: #fbd005;
       }
       .database-panel {
         grid-column: span 2;
@@ -58,7 +58,7 @@
       .db-stat .value {
         font-size: 1.2rem;
         font-weight: bold;
-        color: #4fc3f7;
+        color: #4285f4;
       }
       .tunnel-status {
         display: flex;
@@ -70,10 +70,10 @@
         width: 12px;
         height: 12px;
         border-radius: 50%;
-        background: #f44336;
+        background: #ea4335; /* Google Red */
       }
       .status-indicator.connected {
-        background: #4caf50;
+        background: #34a853; /* Google Green */
         animation: pulse 2s infinite;
       }
       @keyframes pulse {
@@ -120,7 +120,7 @@
       <h2 style="color: white; margin-bottom: 10px">
         Initializing AI Engine...
       </h2>
-      <p id="loader-status" style="color: #4fc3f7; opacity: 0.8">
+      <p id="loader-status" style="color: #4285f4; opacity: 0.8">
         Downloading Engine from cdnjs
       </p>
     </div>
@@ -307,7 +307,7 @@
           if (window.enhancedApp && window.enhancedApp.isInitialized) {
             clearInterval(check);
             const device = window.tfjsTrainer?.device || "DETECTING...";
-            statusText.innerHTML = `STATE: <span style="color: #4caf50">READY</span> | ACCELERATION: <span style="color: #4fc3f7">${device.toUpperCase()}</span>`;
+            statusText.innerHTML = `STATE: <span style="color: #34a853">READY</span> | ACCELERATION: <span style="color: #4285f4">${device.toUpperCase()}</span>`;
             setTimeout(() => {
               loader.style.opacity = "0";
               setTimeout(() => (loader.style.display = "none"), 500);
@@ -315,12 +315,12 @@
             console.log("✅ Swarm AI App initialized successfully");
           } else {
             const device = window.tfjsTrainer?.device || "DETECTING...";
-            statusText.innerHTML = `STATE: <span style="color: #ff9800">INITIALIZING</span> | ACCELERATION: <span style="color: #4fc3f7">${device.toUpperCase()}</span><br><small style="opacity: 0.5">(Attempt ${attempts}/300)</small>`;
+            statusText.innerHTML = `STATE: <span style="color: #fbbc05">INITIALIZING</span> | ACCELERATION: <span style="color: #4285f4">${device.toUpperCase()}</span><br><small style="opacity: 0.5">(Attempt ${attempts}/300)</small>`;
           }
 
           if (attempts >= 300) {
             clearInterval(check);
-            statusText.style.color = "#ff9800";
+            statusText.style.color = "#fbbc05";
             statusText.textContent =
               "Warning: App initialization taking longer than expected. Swarm features may be limited.";
             setTimeout(() => {
