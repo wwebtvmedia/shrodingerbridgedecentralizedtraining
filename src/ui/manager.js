@@ -255,18 +255,24 @@ class UIManager {
     }
   }
 
-  updateAccelerationType(type) {
-    const element = document.getElementById("acceleration-type");
+  updateHardwareInfo(state, device) {
+    const element = document.getElementById("hardware-state");
     if (element) {
-      element.textContent = type.toUpperCase();
+      // Write both state and acceleration as text (e.g., READY (WEBGPU))
+      const fullStatus = device ? `${state.toUpperCase()} (${device.toUpperCase()})` : state.toUpperCase();
+      element.textContent = fullStatus;
       
-      // Color-code based on performance
-      if (type.includes("gpu") || type.includes("webgpu") || type.includes("webgl")) {
-        element.style.color = "#4caf50"; // Green for GPU
-      } else if (type.includes("wasm")) {
-        element.style.color = "#2196f3"; // Blue for WASM
+      // Color-code based on state and device performance
+      if (state.toLowerCase().includes("error") || state.toLowerCase().includes("failed")) {
+        element.style.color = "#f44336"; // Red for errors
+      } else if (device && (device.toLowerCase().includes("gpu") || device.toLowerCase().includes("webgpu") || device.toLowerCase().includes("webgl"))) {
+        element.style.color = "#4caf50"; // Green for GPU Ready
+      } else if (device && device.toLowerCase().includes("wasm")) {
+        element.style.color = "#2196f3"; // Blue for WASM Ready
+      } else if (state.toLowerCase().includes("ready")) {
+        element.style.color = "#e0e0e0"; // Standard white-ish for Ready CPU
       } else {
-        element.style.color = "#ff9800"; // Orange for standard CPU
+        element.style.color = "#ff9800"; // Orange for Initializing/Detecting
       }
     }
   }
