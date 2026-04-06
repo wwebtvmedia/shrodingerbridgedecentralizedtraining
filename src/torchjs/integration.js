@@ -35,27 +35,42 @@ export class TFJSTrainer {
         window.tfjsTrainer = this;
       }
 
+      // Helper for CPU fallback
+      const switchToCPU = async (reason) => {
+        console.warn(`⚠️ Switching to CPU: ${reason}`);
+        try {
+          // Try to set backend, but don't wait forever if it's already hung
+          await Promise.race([
+            tf.setBackend('cpu'),
+            new Promise(resolve => setTimeout(resolve, 1000))
+          ]);
+        } catch (e) {
+          console.error("Failed to set CPU backend, forcing state anyway", e);
+        }
+        this.device = 'cpu';
+        this.updateUIWithDevice("ready", this.device);
+      };
+
+      // Global timeout to force-switch to CPU if anything hangs
+      const globalTimeout = setTimeout(() => {
+        if (this.device === 'detecting') {
+          console.error("❌ Global detection timeout! Forcing CPU fallback.");
+          switchToCPU("Global timeout");
+        }
+      }, 8000); // 8 seconds total for all detection
+
       // Helper for timeouts
       const withTimeout = (promise, ms) => Promise.race([
         promise,
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
       ]);
 
-      // Helper for CPU fallback
-      const switchToCPU = async (reason) => {
-        console.warn(`⚠️ Switching to CPU: ${reason}`);
-        await tf.setBackend('cpu');
-        this.device = 'cpu';
-        this.updateUIWithDevice("ready", this.device);
-      };
-
-      // Explicitly set performance flags before backend initialization
+      // Explicitly set performance flags
       if (typeof tf !== 'undefined') {
         try {
           tf.env().set('WEBGL_EXP_CONV_ACCELERATION_ENABLED', true);
           tf.env().set('WEBGL_FLUSH_THRESHOLD', 1);
-          tf.env().set('WEBGL_CPU_FORWARD', false); // Force GPU execution
-          console.log("⚡ Optimized GPU flags set");
+          tf.env().set('WEBGL_CPU_FORWARD', false); 
         } catch (e) {
           console.warn("Failed to set TFJS flags:", e);
         }
@@ -67,19 +82,21 @@ export class TFJSTrainer {
           try {
             await import('@tensorflow/tfjs-node');
             this.device = 'tensorflow-native';
+            clearTimeout(globalTimeout);
             this.updateUIWithDevice("ready", this.device);
             return;
           } catch (e) {
-            console.warn("TFJS-Node not found, attempting Browser-style backends...");
+            console.warn("TFJS-Node not found");
           }
         }
 
-        // 2. High-Performance GPU: WebGPU (Max 3s wait)
+        // 2. High-Performance GPU: WebGPU (Max 2s wait)
         if (typeof navigator !== 'undefined' && navigator.gpu) {
           try {
             console.log("🔍 Probing WebGPU...");
-            await withTimeout(tf.setBackend('webgpu'), 3000);
+            await withTimeout(tf.setBackend('webgpu'), 2000);
             this.device = 'webgpu';
+            clearTimeout(globalTimeout);
             this.updateUIWithDevice("ready", this.device);
             return;
           } catch (e) {
@@ -90,12 +107,13 @@ export class TFJSTrainer {
           }
         }
 
-        // 3. Standard GPU: WebGL (Max 3s wait)
+        // 3. Standard GPU: WebGL (Max 2s wait)
         if (typeof navigator !== 'undefined') {
           try {
             console.log("🔍 Probing WebGL...");
-            await withTimeout(tf.setBackend('webgl'), 3000);
+            await withTimeout(tf.setBackend('webgl'), 2000);
             this.device = 'webgl';
+            clearTimeout(globalTimeout);
             this.updateUIWithDevice("ready", this.device);
             return;
           } catch (e) {
@@ -106,15 +124,16 @@ export class TFJSTrainer {
           }
         }
 
-        // 4. Optimized CPU: WASM (Max 5s wait for binary load)
+        // 4. Optimized CPU: WASM (Max 3s wait)
         try {
           console.log("🔍 Probing WASM...");
           if (typeof window !== 'undefined') {
-            const version = tf.version_core;
+            const version = tf.version_core || '4.17.0';
             tf.wasm.setWasmPaths(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${version}/dist/`);
           }
-          await withTimeout(tf.setBackend('wasm'), 5000);
+          await withTimeout(tf.setBackend('wasm'), 3000);
           this.device = 'wasm';
+          clearTimeout(globalTimeout);
           this.updateUIWithDevice("ready", this.device);
         } catch (e) {
           await switchToCPU(e.message === 'timeout' ? "WASM timeout" : "WASM failure");
@@ -123,13 +142,9 @@ export class TFJSTrainer {
         console.log(`🚀 Swarm AI Engine: Using [${this.device.toUpperCase()}]`);
       } catch (error) {
         console.error("❌ Critical Hardware Error:", error);
-        try {
-          await tf.setBackend('cpu');
-          this.device = 'cpu (fallback)';
-        } catch (e) {
-          this.device = 'error';
-        }
-        this.updateUIWithDevice("error", this.device);
+        await switchToCPU("Final fallback");
+      } finally {
+        clearTimeout(globalTimeout);
       }
     })();
 
