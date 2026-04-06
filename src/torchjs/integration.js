@@ -41,6 +41,14 @@ export class TFJSTrainer {
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
       ]);
 
+      // Helper for CPU fallback
+      const switchToCPU = async (reason) => {
+        console.warn(`⚠️ Switching to CPU: ${reason}`);
+        await tf.setBackend('cpu');
+        this.device = 'cpu';
+        this.updateUIWithDevice("ready", this.device);
+      };
+
       // Explicitly set performance flags before backend initialization
       if (typeof tf !== 'undefined') {
         try {
@@ -75,7 +83,10 @@ export class TFJSTrainer {
             this.updateUIWithDevice("ready", this.device);
             return;
           } catch (e) {
-            console.log("WebGPU failed or timed out, falling back to WebGL...");
+            if (e.message === 'timeout') {
+              return await switchToCPU("WebGPU timeout");
+            }
+            console.log("WebGPU failed, falling back to WebGL...");
           }
         }
 
@@ -88,7 +99,10 @@ export class TFJSTrainer {
             this.updateUIWithDevice("ready", this.device);
             return;
           } catch (e) {
-            console.log("WebGL failed or timed out, falling back to WASM...");
+            if (e.message === 'timeout') {
+              return await switchToCPU("WebGL timeout");
+            }
+            console.log("WebGL failed, falling back to WASM...");
           }
         }
 
@@ -103,10 +117,7 @@ export class TFJSTrainer {
           this.device = 'wasm';
           this.updateUIWithDevice("ready", this.device);
         } catch (e) {
-          console.warn("WASM backend failed or timed out, falling back to CPU:", e);
-          await tf.setBackend('cpu');
-          this.device = 'cpu';
-          this.updateUIWithDevice("ready", this.device);
+          await switchToCPU(e.message === 'timeout' ? "WASM timeout" : "WASM failure");
         }
 
         console.log(`🚀 Swarm AI Engine: Using [${this.device.toUpperCase()}]`);
