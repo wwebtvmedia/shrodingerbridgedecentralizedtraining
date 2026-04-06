@@ -14,76 +14,84 @@ export class TFJSTrainer {
     this.phase = 1;
     this.epoch = 0;
     this.isInitialized = false;
-    this.device = 'cpu';
+    this.device = 'detecting';
+    this.detectionPromise = null;
+
+    // Start detection immediately
+    this.detectBackend().catch(console.error);
   }
 
   /**
    * Device Selection Logic (precisely matching PyTorch's MPS/CUDA logic)
    */
   async detectBackend() {
-    this.updateUIWithDevice("detecting", null);
-    try {
-      // 1. Check for Node-specific acceleration (NVIDIA/CPU)
-      if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-        try {
-          // Check for @tensorflow/tfjs-node (Native C++ backend)
-          await import('@tensorflow/tfjs-node');
-          this.device = 'tensorflow-native';
-          this.updateUIWithDevice("ready", this.device);
-          return; // Node native handles its own device selection
-        } catch (e) {
-          console.warn("TFJS-Node not found, attempting Browser-style backends...");
-        }
-      }
+    if (this.detectionPromise) return this.detectionPromise;
 
-      // 2. High-Performance GPU: WebGPU (Mac M1-M4 Metal, NVIDIA/AMD Vulkan/DX12)
-      if (typeof navigator !== 'undefined' && navigator.gpu) {
-        try {
-          await tf.setBackend('webgpu');
-          this.device = 'webgpu';
-          this.updateUIWithDevice("ready", this.device);
-          return;
-        } catch (e) {
-          console.log("WebGPU failed, falling back to WebGL...");
-        }
-      }
-
-      // 3. Standard GPU: WebGL (Universal GPU Support)
-      if (typeof navigator !== 'undefined') {
-        try {
-          await tf.setBackend('webgl');
-          this.device = 'webgl';
-          this.updateUIWithDevice("ready", this.device);
-          return;
-        } catch (e) {
-          console.log("WebGL failed, falling back to WASM...");
-        }
-      }
-
-      // 4. Optimized CPU: WASM (Intel/AMD/Mac without GPU)
+    this.detectionPromise = (async () => {
+      this.updateUIWithDevice("detecting", "detecting");
       try {
-        // Set WASM paths for browser environments
-        if (typeof window !== 'undefined') {
-          const version = tf.version_core;
-          tf.wasm.setWasmPaths(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${version}/dist/`);
+        // 1. Check for Node-specific acceleration (NVIDIA/CPU)
+        if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+          try {
+            await import('@tensorflow/tfjs-node');
+            this.device = 'tensorflow-native';
+            this.updateUIWithDevice("ready", this.device);
+            return;
+          } catch (e) {
+            console.warn("TFJS-Node not found, attempting Browser-style backends...");
+          }
         }
-        await tf.setBackend('wasm');
-        this.device = 'wasm';
-        this.updateUIWithDevice("ready", this.device);
-      } catch (e) {
-        console.warn("WASM backend failed, falling back to CPU:", e);
-        await tf.setBackend('cpu');
-        this.device = 'cpu';
-        this.updateUIWithDevice("ready", this.device);
-      }
 
-      console.log(`🚀 Swarm AI Engine: Using [${this.device.toUpperCase()}]`);
-    } catch (error) {
-      console.error("❌ Critical Hardware Error:", error);
-      await tf.setBackend('cpu');
-      this.device = 'cpu (fallback)';
-      this.updateUIWithDevice("error", this.device);
-    }
+        // 2. High-Performance GPU: WebGPU
+        if (typeof navigator !== 'undefined' && navigator.gpu) {
+          try {
+            await tf.setBackend('webgpu');
+            this.device = 'webgpu';
+            this.updateUIWithDevice("ready", this.device);
+            return;
+          } catch (e) {
+            console.log("WebGPU failed, falling back to WebGL...");
+          }
+        }
+
+        // 3. Standard GPU: WebGL
+        if (typeof navigator !== 'undefined') {
+          try {
+            await tf.setBackend('webgl');
+            this.device = 'webgl';
+            this.updateUIWithDevice("ready", this.device);
+            return;
+          } catch (e) {
+            console.log("WebGL failed, falling back to WASM...");
+          }
+        }
+
+        // 4. Optimized CPU: WASM
+        try {
+          if (typeof window !== 'undefined') {
+            const version = tf.version_core;
+            tf.wasm.setWasmPaths(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${version}/dist/`);
+          }
+          await tf.setBackend('wasm');
+          this.device = 'wasm';
+          this.updateUIWithDevice("ready", this.device);
+        } catch (e) {
+          console.warn("WASM backend failed, falling back to CPU:", e);
+          await tf.setBackend('cpu');
+          this.device = 'cpu';
+          this.updateUIWithDevice("ready", this.device);
+        }
+
+        console.log(`🚀 Swarm AI Engine: Using [${this.device.toUpperCase()}]`);
+      } catch (error) {
+        console.error("❌ Critical Hardware Error:", error);
+        await tf.setBackend('cpu');
+        this.device = 'cpu (fallback)';
+        this.updateUIWithDevice("error", this.device);
+      }
+    })();
+
+    return this.detectionPromise;
   }
 
   updateUIWithDevice(status, device) {
