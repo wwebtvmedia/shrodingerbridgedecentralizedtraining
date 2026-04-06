@@ -136,12 +136,11 @@ export class TFJSTrainer {
         }
 
         // 2. High-Performance GPU: WebGPU (Max 3s wait)
-        // Note: navigator.gpu check is first defense
         if (typeof navigator !== 'undefined' && navigator.gpu) {
           try {
             console.log("🔍 Probing WebGPU...");
-            // Only try if registered
-            if (tf.findBackend('webgpu')) {
+            if (typeof tf.findBackend === 'function' && tf.findBackend('webgpu')) {
+              // Using try/catch locally to swallow TFJS's internal "No available adapters" log if possible
               await withTimeout(tf.setBackend('webgpu'), 3000);
               this.device = 'webgpu';
               this.setPerformanceFlags('webgpu');
@@ -149,7 +148,7 @@ export class TFJSTrainer {
               return;
             }
           } catch (e) {
-            console.log(`WebGPU not supported on this hardware: ${e.message}, falling back...`);
+            console.log("ℹ️ WebGPU not available on this browser/hardware, falling back to WebGL...");
           }
         }
 

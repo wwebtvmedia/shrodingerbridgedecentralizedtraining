@@ -590,14 +590,19 @@ class EnhancedSwarmApp {
 
 // Start the app when DOM is ready
 const startApp = () => {
-  if (!window.enhancedApp) {
-    window.enhancedApp = new EnhancedSwarmApp();
+  if (window.enhancedApp) {
+    console.log("⚠️ App already initialized, skipping...");
+    return;
   }
+  
+  console.log("🛠️ Creating new EnhancedSwarmApp instance...");
+  window.enhancedApp = new EnhancedSwarmApp();
 };
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", startApp);
 } else {
+  // If we are already loaded or interactive, run immediately
   startApp();
 }
 
