@@ -29,6 +29,15 @@ export class TFJSTrainer {
 
     this.detectionPromise = (async () => {
       this.updateUIWithDevice("detecting", "detecting");
+      
+      // Explicitly set performance flags before backend initialization
+      if (typeof tf !== 'undefined') {
+        tf.env().set('WEBGL_EXP_CONV_ACCELERATION_ENABLED', true);
+        tf.env().set('WEBGL_FLUSH_THRESHOLD', 1);
+        tf.env().set('WEBGL_CPU_FORWARD', false); // Force GPU execution
+        console.log("⚡ Optimized GPU flags set");
+      }
+
       try {
         // 1. Check for Node-specific acceleration (NVIDIA/CPU)
         if (typeof process !== 'undefined' && process.versions && process.versions.node) {
