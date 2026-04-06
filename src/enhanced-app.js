@@ -11,7 +11,10 @@ class EnhancedSwarmApp {
     this.inferenceEngine = null;
     this.isInitialized = false;
 
-    this.init();
+    // Start initialization
+    this.init().catch(err => {
+      console.error("Failed to initialize app:", err);
+    });
   }
 
   async init() {
@@ -24,90 +27,95 @@ class EnhancedSwarmApp {
     // Setup event listeners
     this.setupEventListeners();
 
+    // Set initialized state
+    this.isInitialized = true;
+    
     // Update UI
     this.ui.updateStatus("Ready to connect");
     this.ui.enableButton("connect-btn");
 
     console.log("✅ Enhanced app initialized");
-    this.isInitialized = true;
   }
 
   setupEventListeners() {
+    // Helper to get element and add listener
+    const addListener = (id, event, callback) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener(event, callback);
+      } else {
+        console.warn(`⚠️ Element #${id} not found when setting up listeners`);
+      }
+    };
+
     // Connect button
-    document
-      .getElementById("connect-btn")
-      .addEventListener("click", () => this.connect());
+    addListener("connect-btn", "click", () => this.connect());
 
     // Start training button
-    document
-      .getElementById("start-btn")
-      .addEventListener("click", () => this.startTraining());
+    addListener("start-btn", "click", () => this.startTraining());
 
     // Stop training button
-    document
-      .getElementById("stop-btn")
-      .addEventListener("click", () => this.stopTraining());
+    addListener("stop-btn", "click", () => this.stopTraining());
 
     // Phase buttons
     document.querySelectorAll(".phase-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
-        const phase = e.target.dataset.phase;
+        const target = e.currentTarget || e.target;
+        const phase = target.dataset.phase;
         this.setTrainingPhase(phase);
       });
     });
 
     // Generate samples button
-    document
-      .getElementById("generate-btn")
-      .addEventListener("click", () => this.generateSamples());
+    addListener("generate-btn", "click", () => this.generateSamples());
 
     // Exploration slider
-    document
-      .getElementById("exploration-slider")
-      .addEventListener("input", (e) => {
+    const slider = document.getElementById("exploration-slider");
+    if (slider) {
+      slider.addEventListener("input", (e) => {
         const value = e.target.value;
-        document.getElementById("exploration-value").textContent = `${value}%`;
+        const display = document.getElementById("exploration-value");
+        if (display) display.textContent = `${value}%`;
         if (this.trainer) {
           this.trainer.setExplorationRate(value / 100);
         }
       });
+    }
 
     // Database export button
-    document
-      .getElementById("export-btn")
-      .addEventListener("click", () => this.exportDatabase());
+    addListener("export-btn", "click", () => this.exportDatabase());
 
     // Database import button
-    document
-      .getElementById("import-btn")
-      .addEventListener("click", () => this.importDatabase());
+    addListener("import-btn", "click", () => this.importDatabase());
 
     // Data import button
-    document
-      .getElementById("data-import-btn")
-      .addEventListener("click", () => this.importData());
+    addListener("data-import-btn", "click", () => this.importData());
 
     // Inference button
-    document
-      .getElementById("inference-btn")
-      .addEventListener("click", () => this.runInference());
+    addListener("inference-btn", "click", () => this.runInference());
 
     // Stats button
-    document
-      .getElementById("stats-btn")
-      .addEventListener("click", () => this.showDatabaseStats());
+    addListener("stats-btn", "click", () => this.showDatabaseStats());
+
+    // Refresh button
+    addListener("refresh-btn", "click", () => this.showDatabaseStats());
 
     // Cleanup button
-    document
-      .getElementById("cleanup-btn")
-      .addEventListener("click", () => this.cleanupDatabase());
+    addListener("cleanup-btn", "click", () => this.cleanupDatabase());
   }
 
   async connect() {
-    if (!this.isInitialized) return;
+    // If not initialized, try to wait a bit or initialize now
+    if (!this.isInitialized) {
+      this.ui.log("⌛ Still initializing... please wait.");
+      await this.init();
+    }
 
+    // Disable button to prevent multiple clicks
+    this.ui.disableButton("connect-btn");
     this.ui.updateStatus("Connecting...");
     this.ui.log("Initializing enhanced swarm trainer");
+
 
     try {
       // Create enhanced trainer with database and tunnel
@@ -218,7 +226,10 @@ class EnhancedSwarmApp {
   }
 
   async stopTraining() {
-    if (!this.trainer) return;
+    if (!this.trainer) {
+      this.ui.log("❌ Cannot stop: Trainer not initialized.");
+      return;
+    }
 
     this.ui.updateStatus("Stopping training...");
     this.ui.log("Stopping trainer and saving state");
@@ -237,7 +248,10 @@ class EnhancedSwarmApp {
   }
 
   setTrainingPhase(phase) {
-    if (!this.trainer) return;
+    if (!this.trainer) {
+      this.ui.log("❌ Cannot change phase: Trainer not initialized. Connect first.");
+      return;
+    }
 
     this.trainer.setPhase(phase);
     this.ui.updatePhase(phase);
@@ -300,12 +314,13 @@ class EnhancedSwarmApp {
 
   async exportDatabase() {
     if (!this.trainer || !this.trainer.database) {
-      this.ui.log("❌ Database not available");
+      this.ui.log("❌ Cannot export: Connect to swarm first.");
       return;
     }
 
     try {
       const exportData = await this.trainer.database.exportData();
+      // ...
 
       // Create download link
       const blob = new Blob([exportData], { type: "application/json" });
@@ -324,15 +339,16 @@ class EnhancedSwarmApp {
       this.ui.log(`❌ Export failed: ${error.message}`);
     }
   }
+async importDatabase() {
+  if (!this.trainer || !this.trainer.database) {
+    this.ui.log("❌ Cannot import: Connect to swarm first.");
+    return;
+  }
 
-  async importDatabase() {
-    if (!this.trainer || !this.trainer.database) {
-      this.ui.log("❌ Database not available");
-      return;
-    }
+  // Create file input
+  const input = document.createElement("input");
+  // ...
 
-    // Create file input
-    const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json";
 
@@ -525,10 +541,14 @@ class EnhancedSwarmApp {
   }
 
   async showDatabaseStats() {
-    if (!this.trainer || !this.trainer.database) return;
+    if (!this.trainer || !this.trainer.database) {
+      this.ui.log("❌ Connect to swarm first to access database stats.");
+      return;
+    }
 
     try {
       const stats = await this.trainer.database.getStatistics();
+      // ...
 
       const statsText = `
 📊 Database Statistics:
@@ -549,10 +569,14 @@ class EnhancedSwarmApp {
   }
 
   async cleanupDatabase() {
-    if (!this.trainer || !this.trainer.database) return;
+    if (!this.trainer || !this.trainer.database) {
+      this.ui.log("❌ Connect to swarm first to clear database.");
+      return;
+    }
 
     if (confirm("Clear all database data? This cannot be undone.")) {
-      try {
+      // ...
+
         await this.trainer.database.clearDatabase();
         this.ui.log("✅ Database cleared");
 
@@ -568,9 +592,17 @@ class EnhancedSwarmApp {
   }
 }
 
-// Start the app when DOM is loaded
-document.addEventListener("DOMContentLoaded", () => {
-  window.enhancedApp = new EnhancedSwarmApp();
-});
+// Start the app when DOM is ready
+const startApp = () => {
+  if (!window.enhancedApp) {
+    window.enhancedApp = new EnhancedSwarmApp();
+  }
+};
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", startApp);
+} else {
+  startApp();
+}
 
 export { EnhancedSwarmApp };

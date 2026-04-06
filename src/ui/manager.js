@@ -1,3 +1,29 @@
+import {
+  Chart,
+  LineController,
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+} from "chart.js";
+
+// Register Chart.js components
+Chart.register(
+  LineController,
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+);
+
 class UIManager {
   constructor() {
     this.lossChart = null;
@@ -22,6 +48,11 @@ class UIManager {
   }
 
   initCharts() {
+    if (typeof Chart === "undefined") {
+      console.warn("⚠️ Chart.js not loaded. Charts will not be available.");
+      return;
+    }
+
     // Loss chart
     const lossCtx = document.getElementById("loss-chart")?.getContext("2d");
     if (lossCtx) {

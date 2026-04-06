@@ -5,10 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Enhanced Swarm Schrödinger Bridge Training</title>
     <link rel="stylesheet" href="/css/styles.css" />
-    <!-- Universal AI Backends -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.17.0/dist/tf-backend-wasm.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Universal AI Backends are now bundled by Vite -->
     <style>
       .header-nav {
         display: flex;
@@ -302,24 +299,29 @@
         const check = setInterval(() => {
           attempts++;
 
-          // Check if TensorFlow.js (global tf) is available
-          if (typeof tf !== "undefined" || window.tf) {
+          // Check if App is initialized
+          if (window.enhancedApp && window.enhancedApp.isInitialized) {
             clearInterval(check);
             statusText.textContent = "AI Engine Ready!";
             setTimeout(() => {
               loader.style.opacity = "0";
               setTimeout(() => (loader.style.display = "none"), 500);
             }, 500);
-            console.log("✅ TensorFlow.js (tf) loaded successfully");
+            console.log("✅ Swarm AI App initialized successfully");
           } else {
-            statusText.textContent = `Downloading AI Engine (Attempt ${attempts}/20)...`;
+            statusText.textContent = `Initializing AI Engine (Attempt ${attempts}/30)...`;
           }
 
-          if (attempts >= 20) {
+          if (attempts >= 30) {
             clearInterval(check);
-            statusText.style.color = "#f44336";
+            statusText.style.color = "#ff9800";
             statusText.textContent =
-              "Error: Failed to load AI Engine. Please check your internet connection.";
+              "Warning: App initialization slow. Swarm features may be limited.";
+            setTimeout(() => {
+              loader.style.opacity = "0";
+              setTimeout(() => (loader.style.display = "none"), 500);
+            }, 2000);
+            console.warn("⚠️ App initialization timeout. Please check console for errors.");
           }
         }, 1000);
       })();
