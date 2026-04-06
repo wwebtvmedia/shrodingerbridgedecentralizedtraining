@@ -320,7 +320,6 @@ class EnhancedSwarmApp {
 
     try {
       const exportData = await this.trainer.database.exportData();
-      // ...
 
       // Create download link
       const blob = new Blob([exportData], { type: "application/json" });
@@ -347,10 +346,8 @@ async importDatabase() {
 
   // Create file input
   const input = document.createElement("input");
-  // ...
-
-    input.type = "file";
-    input.accept = ".json";
+  input.type = "file";
+  input.accept = ".json";
 
     input.onchange = async (e) => {
       const file = e.target.files[0];
@@ -548,7 +545,6 @@ async importDatabase() {
 
     try {
       const stats = await this.trainer.database.getStatistics();
-      // ...
 
       const statsText = `
 📊 Database Statistics:
@@ -575,8 +571,7 @@ async importDatabase() {
     }
 
     if (confirm("Clear all database data? This cannot be undone.")) {
-      // ...
-
+      try {
         await this.trainer.database.clearDatabase();
         this.ui.log("✅ Database cleared");
 
