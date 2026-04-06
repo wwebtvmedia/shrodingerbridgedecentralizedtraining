@@ -2,7 +2,9 @@
 // This implementation maps precisely to the device selection in PyTorch
 
 import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-backend-wasm'; // High-speed CPU fallback
+import '@tensorflow/tfjs-backend-webgl'; // Standard GPU acceleration
+import '@tensorflow/tfjs-backend-webgpu'; // High-performance GPU acceleration
+import '@tensorflow/tfjs-backend-wasm';  // High-speed CPU fallback
 import { CONFIG } from "../config.js";
 import { LabelConditionedVAE, LabelConditionedDrift } from "./models.js";
 
@@ -17,8 +19,25 @@ export class TFJSTrainer {
     this.device = 'detecting';
     this.detectionPromise = null;
 
+    // Set performance flags immediately
+    this.setPerformanceFlags();
+
     // Start detection immediately
     this.detectBackend().catch(console.error);
+  }
+
+  setPerformanceFlags() {
+    if (typeof tf !== 'undefined') {
+      try {
+        tf.env().set('WEBGL_EXP_CONV_ACCELERATION_ENABLED', true);
+        tf.env().set('WEBGL_FLUSH_THRESHOLD', 1);
+        tf.env().set('WEBGL_CPU_FORWARD', false);
+        // Enable PACKED_INTERPOLATE for faster generation if available
+        tf.env().set('WEBGL_PACK', true);
+      } catch (e) {
+        console.warn("Failed to set TFJS flags:", e);
+      }
+    }
   }
 
   /**
@@ -39,11 +58,7 @@ export class TFJSTrainer {
       const switchToCPU = async (reason) => {
         console.warn(`⚠️ Switching to CPU: ${reason}`);
         try {
-          // Try to set backend, but don't wait forever if it's already hung
-          await Promise.race([
-            tf.setBackend('cpu'),
-            new Promise(resolve => setTimeout(resolve, 1000))
-          ]);
+          await tf.setBackend('cpu');
         } catch (e) {
           console.error("Failed to set CPU backend, forcing state anyway", e);
         }
@@ -57,7 +72,7 @@ export class TFJSTrainer {
           console.error("❌ Global detection timeout! Forcing CPU fallback.");
           switchToCPU("Global timeout");
         }
-      }, 8000); // 8 seconds total for all detection
+      }, 15000); // 15 seconds total for all detection (increased for reliability)
 
       // Helper for timeouts
       const withTimeout = (promise, ms) => Promise.race([
@@ -65,75 +80,62 @@ export class TFJSTrainer {
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
       ]);
 
-      // Explicitly set performance flags
-      if (typeof tf !== 'undefined') {
-        try {
-          tf.env().set('WEBGL_EXP_CONV_ACCELERATION_ENABLED', true);
-          tf.env().set('WEBGL_FLUSH_THRESHOLD', 1);
-          tf.env().set('WEBGL_CPU_FORWARD', false); 
-        } catch (e) {
-          console.warn("Failed to set TFJS flags:", e);
-        }
-      }
-
       try {
-        // 1. Check for Node-specific acceleration
+        // 1. Check for Node-specific acceleration (CUDA)
         if (typeof process !== 'undefined' && process.versions && process.versions.node) {
           try {
-            await import('@tensorflow/tfjs-node');
-            this.device = 'tensorflow-native';
-            clearTimeout(globalTimeout);
-            this.updateUIWithDevice("ready", this.device);
-            return;
+            // Check if tfjs-node is already loaded or available
+            if (tf.findBackend('tensorflow')) {
+              await tf.setBackend('tensorflow');
+              this.device = 'tensorflow-native';
+              this.updateUIWithDevice("ready", this.device);
+              return;
+            }
           } catch (e) {
-            console.warn("TFJS-Node not found");
+            console.warn("TFJS-Node (CUDA) not available");
           }
         }
 
-        // 2. High-Performance GPU: WebGPU (Max 2s wait)
+        // 2. High-Performance GPU: WebGPU (Max 3s wait)
         if (typeof navigator !== 'undefined' && navigator.gpu) {
           try {
             console.log("🔍 Probing WebGPU...");
-            await withTimeout(tf.setBackend('webgpu'), 2000);
-            this.device = 'webgpu';
-            clearTimeout(globalTimeout);
-            this.updateUIWithDevice("ready", this.device);
-            return;
-          } catch (e) {
-            if (e.message === 'timeout') {
-              return await switchToCPU("WebGPU timeout");
+            // Ensure WebGPU is registered
+            if (tf.findBackend('webgpu')) {
+              await withTimeout(tf.setBackend('webgpu'), 3000);
+              this.device = 'webgpu';
+              this.updateUIWithDevice("ready", this.device);
+              return;
+            } else {
+              console.log("WebGPU backend not registered");
             }
-            console.log("WebGPU failed, falling back to WebGL...");
+          } catch (e) {
+            console.log(`WebGPU failed: ${e.message}, falling back to WebGL...`);
           }
         }
 
-        // 3. Standard GPU: WebGL (Max 2s wait)
+        // 3. Standard GPU: WebGL (Max 3s wait)
         if (typeof navigator !== 'undefined') {
           try {
             console.log("🔍 Probing WebGL...");
-            await withTimeout(tf.setBackend('webgl'), 2000);
+            await withTimeout(tf.setBackend('webgl'), 3000);
             this.device = 'webgl';
-            clearTimeout(globalTimeout);
             this.updateUIWithDevice("ready", this.device);
             return;
           } catch (e) {
-            if (e.message === 'timeout') {
-              return await switchToCPU("WebGL timeout");
-            }
-            console.log("WebGL failed, falling back to WASM...");
+            console.log(`WebGL failed: ${e.message}, falling back to WASM...`);
           }
         }
 
-        // 4. Optimized CPU: WASM (Max 3s wait)
+        // 4. Optimized CPU: WASM (Max 5s wait)
         try {
           console.log("🔍 Probing WASM...");
           if (typeof window !== 'undefined') {
             const version = tf.version_core || '4.17.0';
             tf.wasm.setWasmPaths(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${version}/dist/`);
           }
-          await withTimeout(tf.setBackend('wasm'), 3000);
+          await withTimeout(tf.setBackend('wasm'), 5000);
           this.device = 'wasm';
-          clearTimeout(globalTimeout);
           this.updateUIWithDevice("ready", this.device);
         } catch (e) {
           await switchToCPU(e.message === 'timeout' ? "WASM timeout" : "WASM failure");
@@ -150,6 +152,7 @@ export class TFJSTrainer {
 
     return this.detectionPromise;
   }
+
 
   updateUIWithDevice(status, device) {
     if (typeof window !== 'undefined') {

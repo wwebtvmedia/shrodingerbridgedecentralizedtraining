@@ -13,7 +13,7 @@ async function testTFJSIntegration() {
     console.log(`   ✅ TFJS Trainer initialized`);
     console.log(`   - Epoch: ${state.epoch}`);
     console.log(`   - Phase: ${state.phase}`);
-    console.log(`   - Backend: ${state.backend}`);
+    console.log(`   - Device: ${state.device}`);
   } catch (error) {
     console.log(
       `   ❌ TFJS Trainer initialization failed: ${error.message}`,

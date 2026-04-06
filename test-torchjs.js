@@ -1,5 +1,5 @@
 // Test script for torch-js implementation
-import { torchJSTrainer } from "./src/torchjs/integration.js";
+import { tfjsTrainer as torchJSTrainer } from "./src/torchjs/integration.js";
 import { ModelManager } from "./src/core/models.js";
 
 async function testTorchJSIntegration() {
@@ -13,9 +13,7 @@ async function testTorchJSIntegration() {
     console.log(`   ✅ Torch-JS Trainer initialized`);
     console.log(`   - Epoch: ${state.epoch}`);
     console.log(`   - Phase: ${state.phase}`);
-    console.log(`   - VAE initialized: ${state.vae_initialized}`);
-    console.log(`   - Drift initialized: ${state.drift_initialized}`);
-    console.log(`   - Torch available: ${state.torch_available}`);
+    console.log(`   - Device: ${state.device}`);
   } catch (error) {
     console.log(
       `   ❌ Torch-JS Trainer initialization failed: ${error.message}`,
