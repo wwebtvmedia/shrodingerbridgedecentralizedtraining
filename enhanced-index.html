@@ -309,14 +309,14 @@
             }, 500);
             console.log("✅ Swarm AI App initialized successfully");
           } else {
-            statusText.textContent = `Initializing AI Engine (Attempt ${attempts}/30)...`;
+            statusText.textContent = `Initializing AI Engine (Attempt ${attempts}/300)...`;
           }
 
-          if (attempts >= 30) {
+          if (attempts >= 300) {
             clearInterval(check);
             statusText.style.color = "#ff9800";
             statusText.textContent =
-              "Warning: App initialization slow. Swarm features may be limited.";
+              "Warning: App initialization taking longer than expected. Swarm features may be limited.";
             setTimeout(() => {
               loader.style.opacity = "0";
               setTimeout(() => (loader.style.display = "none"), 500);
