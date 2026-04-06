@@ -338,16 +338,17 @@ class EnhancedSwarmApp {
       this.ui.log(`❌ Export failed: ${error.message}`);
     }
   }
-async importDatabase() {
-  if (!this.trainer || !this.trainer.database) {
-    this.ui.log("❌ Cannot import: Connect to swarm first.");
-    return;
-  }
 
-  // Create file input
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = ".json";
+  async importDatabase() {
+    if (!this.trainer || !this.trainer.database) {
+      this.ui.log("❌ Cannot import: Connect to swarm first.");
+      return;
+    }
+
+    // Create file input
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
 
     input.onchange = async (e) => {
       const file = e.target.files[0];
