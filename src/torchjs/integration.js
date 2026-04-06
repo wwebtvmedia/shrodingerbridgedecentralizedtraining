@@ -58,14 +58,25 @@ export class TFJSTrainer {
 
       // 4. Optimized CPU: WASM (Intel/AMD/Mac without GPU)
       try {
+        // Set WASM paths for browser environments
+        if (typeof window !== 'undefined') {
+          const version = tf.version_core;
+          tf.wasm.setWasmPaths(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${version}/dist/`);
+        }
         await tf.setBackend('wasm');
         this.device = 'wasm (cpu-optimized)';
       } catch (e) {
+        console.warn("WASM backend failed, falling back to CPU:", e);
         await tf.setBackend('cpu');
         this.device = 'cpu (standard)';
       }
 
       console.log(`🚀 Swarm AI Engine: Using [${this.device.toUpperCase()}]`);
+      
+      // Update UI if app is available
+      if (window.enhancedApp && window.enhancedApp.ui) {
+        window.enhancedApp.ui.log(`🚀 Hardware Acceleration: ${this.device.toUpperCase()}`);
+      }
     } catch (error) {
       console.error("❌ Critical Hardware Error:", error);
       await tf.setBackend('cpu');
