@@ -306,17 +306,16 @@
           // Check if App is initialized
           if (window.enhancedApp && window.enhancedApp.isInitialized) {
             clearInterval(check);
-            const device = window.enhancedApp.trainer?.modelManager?.state?.tfjs_initialized ? 
-                           (window.tfjsTrainer?.device || "Accelerated") : "Ready";
-            statusText.textContent = `AI Engine Ready! [${device.toUpperCase()}]`;
+            const device = window.tfjsTrainer?.device || "DETECTING...";
+            statusText.innerHTML = `STATE: <span style="color: #4caf50">READY</span> | ACCELERATION: <span style="color: #4fc3f7">${device.toUpperCase()}</span>`;
             setTimeout(() => {
               loader.style.opacity = "0";
               setTimeout(() => (loader.style.display = "none"), 500);
-            }, 800);
+            }, 1000);
             console.log("✅ Swarm AI App initialized successfully");
           } else {
-            const deviceNote = window.tfjsTrainer?.device ? ` [${window.tfjsTrainer.device.toUpperCase()}]` : "";
-            statusText.textContent = `Initializing AI Engine${deviceNote} (Attempt ${attempts}/300)...`;
+            const device = window.tfjsTrainer?.device || "DETECTING...";
+            statusText.innerHTML = `STATE: <span style="color: #ff9800">INITIALIZING</span> | ACCELERATION: <span style="color: #4fc3f7">${device.toUpperCase()}</span><br><small style="opacity: 0.5">(Attempt ${attempts}/300)</small>`;
           }
 
           if (attempts >= 300) {
