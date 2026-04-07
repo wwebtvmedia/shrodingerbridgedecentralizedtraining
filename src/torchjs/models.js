@@ -6,30 +6,41 @@ import { CONFIG } from "../config.js";
 
 /**
  * Robust torch initialization
- * Handles browser global, ESM exports, and potential initialization delays.
+ * Handles browser global and Node.js ESM exports.
  */
 async function resolveTorch() {
-  if (typeof window !== 'undefined' && window.torch) return window.torch;
+  // 1. Check for browser global first
+  if (typeof window !== 'undefined') {
+    if (window.torch) return window.torch;
+    
+    // Wait for it to appear (handles script tag loading delays)
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const interval = setInterval(() => {
+        if (window.torch) {
+          clearInterval(interval);
+          resolve(window.torch);
+        }
+        if (attempts++ > 100) { // 10 seconds timeout
+          clearInterval(interval);
+          reject(new Error("Timeout waiting for window.torch to initialize. Check if /js/js-pytorch-browser.js is loading correctly."));
+        }
+      }, 100);
+    });
+  }
   
+  // 2. Node.js environment - use dynamic import
   try {
     const JSTorch = await import('js-pytorch');
-    return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    const t = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    if (!t || !t.nn) {
+      throw new Error("Imported module is not a valid js-pytorch instance (missing torch.nn)");
+    }
+    return t;
   } catch (e) {
-    // If dynamic import fails, try waiting for global if in browser
-    if (typeof window !== 'undefined') {
-      return new Promise((resolve, reject) => {
-        let attempts = 0;
-        const interval = setInterval(() => {
-          if (window.torch) {
-            clearInterval(interval);
-            resolve(window.torch);
-          }
-          if (attempts++ > 50) {
-            clearInterval(interval);
-            reject(new Error("Timeout waiting for torch to initialize"));
-          }
-        }, 100);
-      });
+    // Last ditch fallback for worker environments
+    if (typeof globalThis !== 'undefined' && globalThis.torch) {
+      return globalThis.torch;
     }
     throw e;
   }
@@ -40,7 +51,7 @@ const torch = await resolveTorch();
 
 // Verify torch.nn
 if (!torch || !torch.nn) {
-  console.error("Torch or Torch.nn is undefined:", torch);
+  console.error("Critical: Torch or Torch.nn is undefined after resolution attempt.");
   throw new Error("js-pytorch initialization failed: nn submodule not found");
 }
 

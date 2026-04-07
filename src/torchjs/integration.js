@@ -7,20 +7,28 @@ import { EnhancedLabelTrainer } from "./training.js";
  * Robust torch resolution
  */
 async function resolveTorch() {
-  if (typeof window !== 'undefined' && window.torch) return window.torch;
+  if (typeof window !== 'undefined') {
+    if (window.torch) return window.torch;
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const interval = setInterval(() => {
+        if (window.torch) {
+          clearInterval(interval);
+          resolve(window.torch);
+        }
+        if (attempts++ > 100) {
+          clearInterval(interval);
+          reject(new Error("Timeout waiting for torch"));
+        }
+      }, 100);
+    });
+  }
   try {
     const JSTorch = await import('js-pytorch');
     return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
   } catch (e) {
-    if (typeof window !== 'undefined') {
-      return new Promise((resolve) => {
-        const check = setInterval(() => {
-          if (window.torch) {
-            clearInterval(check);
-            resolve(window.torch);
-          }
-        }, 50);
-      });
+    if (typeof globalThis !== 'undefined' && globalThis.torch) {
+      return globalThis.torch;
     }
     throw e;
   }
