@@ -13,7 +13,8 @@ class EnhancedSwarmTrainer {
       syncInterval: 5, // Epochs between sync checks
       explorationRate: 0.3,
       maxNeighbors: 50,
-      batchSize: 16,
+      batchSize: CONFIG.BATCH_SIZE || 16,
+      numClasses: CONFIG.NUM_CLASSES || 10,
       ...config,
     };
 
@@ -206,7 +207,7 @@ class EnhancedSwarmTrainer {
       this.currentPhase = this.phaseManager.determinePhase(this.currentEpoch);
     }
 
-    const targetBatchSize = this.config.batchSize || CONFIG.BATCH_SIZE || 16;
+    const targetBatchSize = this.config.batchSize || 16;
     let batch = [];
     let labels = [];
     
@@ -225,7 +226,7 @@ class EnhancedSwarmTrainer {
     // This is CRITICAL for js-pytorch GPU kernel stability
     while (batch.length < targetBatchSize) {
       batch.push(this.generateDummyData());
-      labels.push(Math.floor(Math.random() * (CONFIG.NUM_CLASSES || 10)));
+      labels.push(Math.floor(Math.random() * (this.config.numClasses || 10)));
     }
 
     // 3. Train epoch with strictly constant batch size

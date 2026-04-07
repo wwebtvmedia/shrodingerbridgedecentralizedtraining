@@ -24,8 +24,8 @@ async function resolveTorch() {
     });
   }
   try {
-    const JSTorch = await import('js-pytorch');
-    const t = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    const JSTorchModule = await import('js-pytorch');
+    const t = JSTorchModule.torch || (JSTorchModule.default && JSTorchModule.default.torch) || JSTorchModule;
     if (t && t.nn) return t;
     throw new Error("Invalid js-pytorch module");
   } catch (e) {

@@ -5,7 +5,7 @@
 import { CONFIG } from "../config.js";
 
 /**
- * Robust torch resolution
+ * Robust torch initialization
  */
 async function resolveTorch() {
   if (typeof window !== 'undefined') {
@@ -19,7 +19,7 @@ async function resolveTorch() {
         }
         if (attempts++ > 100) {
           clearInterval(interval);
-          reject(new Error("Timeout waiting for window.torch. Ensure /js/js-pytorch-browser.js is loaded correctly."));
+          reject(new Error("Timeout waiting for window.torch.nn submodule. Check if /js/js-pytorch-browser.js is loaded correctly."));
         }
       }, 100);
     });
@@ -27,13 +27,11 @@ async function resolveTorch() {
   
   // Node.js environment
   try {
-    const JSTorch = await import('js-pytorch');
-    const t = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    const JSTorchModule = await import('js-pytorch');
+    // Extract torch from module namespace if it's there
+    const t = JSTorchModule.torch || (JSTorchModule.default && JSTorchModule.default.torch) || JSTorchModule;
     if (t && t.nn) return t;
-    if (typeof globalThis !== 'undefined' && globalThis.torch && globalThis.torch.nn) {
-      return globalThis.torch;
-    }
-    throw new Error("js-pytorch (torch.nn) not found.");
+    throw new Error("js-pytorch (torch.nn) not found in module.");
   } catch (e) {
     if (typeof globalThis !== 'undefined' && globalThis.torch && globalThis.torch.nn) {
       return globalThis.torch;
@@ -173,7 +171,9 @@ export class LabelConditionedDrift extends torch.nn.Module {
     const label_dim = 128;
     this.time_fc1 = new torch.nn.Linear(1, 64, device);
     this.time_fc2 = new torch.nn.Linear(64, label_dim, device);
+
     this.label_emb = new torch.nn.Embedding(CONFIG.NUM_CLASSES || 10, label_dim, device);
+
     this.head = new torch.nn.Linear(latent_dim, 128, device);
     this.mixer = new ConditionedMixer(4, 32, label_dim, device);
     this.tail = new torch.nn.Linear(128, latent_dim, device);
