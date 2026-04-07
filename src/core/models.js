@@ -14,35 +14,35 @@ class ModelManager {
     this.state = {
       parameters: null,
       hash: null,
-      version: "3.0.0", // Updated for tfjs integration
-      tfjs_initialized: false,
+      version: "4.0.0", // Updated for js-pytorch integration
+      torchjs_initialized: false,
     };
   }
 
   async initialize() {
     if (this.isInitialized) return;
 
-    console.log("🧠 Initializing model manager with TensorFlow.js...");
+    console.log("🧠 Initializing model manager with js-pytorch...");
 
     try {
-      // Initialize tfjs trainer
+      // Initialize trainer (which now uses js-pytorch)
       await tfjsTrainer.initialize();
 
-      // Update model structure to use tfjs
-      this.model = {
-        vae: tfjsTrainer.vae,
-        drift: tfjsTrainer.drift,
-      };
-
-      this.optimizer = tfjsTrainer.optimizers;
-
-      this.isInitialized = true;
-      this.state.tfjs_initialized = true;
-      console.log("✅ Model manager initialized with TensorFlow.js");
+      // Access models from the trainer
+      if (tfjsTrainer.trainer) {
+        this.model = {
+          vae: tfjsTrainer.trainer.vae,
+          drift: tfjsTrainer.trainer.drift,
+        };
+        this.isInitialized = true;
+        this.state.torchjs_initialized = true;
+        console.log("✅ Model manager initialized with js-pytorch");
+      } else {
+        throw new Error("Trainer not initialized");
+      }
     } catch (error) {
       console.error("❌ Model initialization failed:", error);
-      // Fall back to prototype model
-      console.log("🔄 Falling back to prototype model...");
+      // Fallback to prototype model
       await this.createPrototypeModel();
       this.isInitialized = true;
     }
@@ -77,7 +77,7 @@ class ModelManager {
         { type: "conv", in: 3, out: 16, kernel: 3 },
         { type: "conv", in: 16, out: 32, kernel: 3, stride: 2 },
         { type: "conv", in: 32, out: 64, kernel: 3, stride: 2 },
-        { type: "linear", in: 64 * 8 * 8, out: this.config.latentChannels * 2 },
+        { type: "linear", in: 64 * 8 * 8, out: (this.config.latentChannels || 4) * 2 },
       ],
       activation: "silu",
     };
@@ -87,7 +87,7 @@ class ModelManager {
     // Simple decoder for prototype
     return {
       layers: [
-        { type: "linear", in: this.config.latentChannels, out: 64 * 8 * 8 },
+        { type: "linear", in: this.config.latentChannels || 4, out: 64 * 8 * 8 },
         { type: "conv_transpose", in: 64, out: 32, kernel: 3, stride: 2 },
         { type: "conv_transpose", in: 32, out: 16, kernel: 3, stride: 2 },
         { type: "conv", in: 16, out: 3, kernel: 3 },
@@ -102,13 +102,13 @@ class ModelManager {
       layers: [
         {
           type: "conv",
-          in: this.config.latentChannels + this.config.labelEmbDim,
+          in: (this.config.latentChannels || 4) + (this.config.labelEmbDim || 128),
           out: 64,
           kernel: 3,
         },
         { type: "conv", in: 64, out: 128, kernel: 3 },
         { type: "conv", in: 128, out: 64, kernel: 3 },
-        { type: "conv", in: 64, out: this.config.latentChannels, kernel: 3 },
+        { type: "conv", in: 64, out: this.config.latentChannels || 4, kernel: 3 },
       ],
       timeEmbedding: true,
       labelConditioning: true,
@@ -122,28 +122,12 @@ class ModelManager {
 
     console.log(`Training step - Phase: ${phase}, Batch size: ${batch.length}`);
 
-    // Use tfjs trainer if available
-    if (this.state.tfjs_initialized && tfjsTrainer.isInitialized) {
-      // Convert phase string to number for tfjs
-      let phaseNum;
-      switch (phase) {
-        case "vae":
-          phaseNum = 1;
-          break;
-        case "drift":
-          phaseNum = 2;
-          break;
-        case "both":
-          phaseNum = 3;
-          break;
-        default:
-          phaseNum = 1;
-      }
+    // Use js-pytorch trainer
+    if (this.state.torchjs_initialized && tfjsTrainer.isInitialized) {
+      // Set phase
+      tfjsTrainer.setPhase(phase);
 
-      // Set phase in tfjs trainer
-      tfjsTrainer.setPhase(phaseNum);
-
-      // Train step with tfjs
+      // Train step
       const result = await tfjsTrainer.trainStep(batch, labels);
 
       // Update model hash
@@ -153,17 +137,12 @@ class ModelManager {
         loss: result.loss,
         metrics: {
           ...result.metrics,
-          phase: phase,
-          tfjs: true,
+          torchjs: true,
         },
       };
     } else {
       // Fall back to simulation
-      console.log("⚠️ FAKE TRAINING: Using simulated training because TensorFlow.js is not available");
-      // Also log to UI if available
-      if (typeof window !== 'undefined' && window.enhancedApp && window.enhancedApp.ui && window.enhancedApp.ui.log) {
-        window.enhancedApp.ui.log("⚠️ FAKE TRAINING: Using simulated training (TensorFlow.js not available)");
-      }
+      console.log("⚠️ FAKE TRAINING: Using simulated training because js-pytorch is not available");
       const loss = this.simulateLoss(batch, labels, phase);
       await this.simulateParameterUpdate(loss);
       await this.updateModelHash();
@@ -171,9 +150,6 @@ class ModelManager {
       return {
         loss,
         metrics: {
-          reconstruction_loss: loss * 0.7,
-          kl_loss: loss * 0.2,
-          diversity_loss: loss * 0.1,
           phase: phase,
           torchjs: false,
           simulated: true,

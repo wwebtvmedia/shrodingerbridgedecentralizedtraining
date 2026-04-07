@@ -33,22 +33,24 @@ async function testTorchJSIntegration() {
 
   console.log("\n3. Testing training step...");
   try {
-    // Create mock batch data
-    const mockBatch = [
-      [0.1, 0.2, 0.3], // Simplified mock data
-      [0.4, 0.5, 0.6],
-    ];
+    // Create mock batch data: [batch_size, flattened_features]
+    // 2 samples of 3*32*32 = 3072
+    const mockBatch = [];
+    for (let b = 0; b < 2; b++) {
+      const pixels = new Array(3 * 32 * 32).fill(0).map(() => Math.random() * 2 - 1);
+      mockBatch.push(pixels);
+    }
     const mockLabels = [0, 1];
 
     const result = await modelManager.trainStep(mockBatch, mockLabels, "vae");
     console.log(`   ✅ Training step completed`);
-    console.log(`   - Loss: ${result.loss}`);
+    console.log(`   - Loss: ${result.loss.toFixed(6)}`);
     console.log(`   - Phase: ${result.metrics.phase}`);
     console.log(`   - Using torch-js: ${result.metrics.torchjs}`);
 
     if (result.metrics.torchjs) {
       console.log(
-        `   - Additional metrics:`,
+        `   - Metrics:`,
         Object.keys(result.metrics).filter(
           (k) => !["phase", "torchjs"].includes(k),
         ),
@@ -56,6 +58,7 @@ async function testTorchJSIntegration() {
     }
   } catch (error) {
     console.log(`   ❌ Training step failed: ${error.message}`);
+    console.error(error);
   }
 
   console.log("\n4. Testing phase switching...");
@@ -78,14 +81,17 @@ async function testTorchJSIntegration() {
     console.log(`   ✅ Checkpoint loaded successfully`);
   } catch (error) {
     console.log(`   ❌ Checkpoint operations failed: ${error.message}`);
+    console.error(error);
   }
 
   console.log("\n6. Testing sample generation...");
   try {
     const samples = await torchJSTrainer.generateSamples([0, 1, 2, 3], 4);
     console.log(`   ✅ Generated ${samples.length} samples`);
+    console.log(`   - Sample 0 shape: ${samples[0].length}`);
   } catch (error) {
     console.log(`   ❌ Sample generation failed: ${error.message}`);
+    console.error(error);
   }
 
   console.log("\n📊 Summary:");
@@ -93,22 +99,6 @@ async function testTorchJSIntegration() {
   console.log(
     "Torch-JS implementation has been successfully integrated with the swarm system.",
   );
-  console.log(
-    "The system will use torch-js when available, falling back to simulation mode otherwise.",
-  );
-  console.log("\nKey components implemented:");
-  console.log("1. VAE model (LabelConditionedVAE)");
-  console.log("2. Drift network (LabelConditionedDrift)");
-  console.log("3. Training loops with three-phase training");
-  console.log("4. Integration with existing ModelManager");
-  console.log("5. Checkpoint save/load functionality");
-  console.log("6. Sample generation");
-
-  console.log("\n🎯 Next steps:");
-  console.log("- Run the actual swarm training with: npm run dev");
-  console.log("- Check the browser console for training logs");
-  console.log("- Monitor the phase transitions in the UI");
-  console.log("- Generate samples using the inference interface");
 }
 
 // Run the test

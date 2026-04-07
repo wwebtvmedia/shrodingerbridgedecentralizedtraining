@@ -1,201 +1,132 @@
-// TensorFlow.js implementation of Schrödinger Bridge models
-// Ported from js-pytorch version for GPU (WebGL/WebGPU) acceleration
+// PyTorch-like implementation of Schrödinger Bridge models using js-pytorch
+// MLP-Mixer architecture for improved spatial quality in js-pytorch 0.7.2
 
-import * as tf from '@tensorflow/tfjs';
+import { torch } from 'js-pytorch';
 import { CONFIG } from "../config.js";
 
-/**
- * Residual Block for TF.js using tf.layers for proper variable tracking
- */
-class ResidualBlock {
-  constructor(in_channels, out_channels, stride = 1) {
-    this.stride = stride;
-    
-    this.conv1 = tf.layers.conv2d({
-      filters: out_channels,
-      kernelSize: 3,
-      strides: stride,
-      padding: 'same',
-      useBias: false,
-      kernelInitializer: 'heNormal'
-    });
-    this.bn1 = tf.layers.batchNormalization();
-    
-    this.conv2 = tf.layers.conv2d({
-      filters: out_channels,
-      kernelSize: 3,
-      strides: 1,
-      padding: 'same',
-      useBias: false,
-      kernelInitializer: 'heNormal'
-    });
-    this.bn2 = tf.layers.batchNormalization();
+// Global activation instances
+const relu_module = new torch.nn.ReLU();
+const relu = (x) => relu_module.forward(x);
 
-    if (in_channels !== out_channels || stride !== 1) {
-      this.shortcut = tf.layers.conv2d({
-        filters: out_channels,
-        kernelSize: 1,
-        strides: stride,
-        padding: 'same',
-        useBias: false
-      });
-      this.bn_shortcut = tf.layers.batchNormalization();
-    } else {
-      this.shortcut = null;
-    }
+/**
+ * Mixer Block: Performs spatial (token) and feature (channel) mixing.
+ */
+class MixerBlock extends torch.nn.Module {
+  constructor(n_patches, hidden_dim, tokens_mlp_dim, channels_mlp_dim) {
+    super();
+    this.ln1 = new torch.nn.LayerNorm(hidden_dim);
+    this.ln2 = new torch.nn.LayerNorm(hidden_dim);
+
+    this.token_fc1 = new torch.nn.Linear(n_patches, tokens_mlp_dim);
+    this.token_fc2 = new torch.nn.Linear(tokens_mlp_dim, n_patches);
+
+    this.channel_fc1 = new torch.nn.Linear(hidden_dim, channels_mlp_dim);
+    this.channel_fc2 = new torch.nn.Linear(channels_mlp_dim, hidden_dim);
   }
 
-  apply(x) {
-    let identity = x;
-    if (this.shortcut) {
-      identity = this.bn_shortcut.apply(this.shortcut.apply(x));
-    }
+  forward(x) {
+    let h = this.ln1.forward(x);
+    h = h.transpose(1, 2); 
+    h = relu(this.token_fc1.forward(h));
+    h = this.token_fc2.forward(h);
+    h = h.transpose(1, 2); 
+    let out = x.add(h);
 
-    let out = this.conv1.apply(x);
-    out = this.bn1.apply(out);
-    out = tf.leakyRelu(out, 0.2);
-
-    out = this.conv2.apply(out);
-    out = this.bn2.apply(out);
-
-    return tf.add(out, identity);
+    h = this.ln2.forward(out);
+    h = relu(this.channel_fc1.forward(h));
+    h = this.channel_fc2.forward(h);
+    
+    return out.add(h);
   }
 }
 
 /**
- * Label Conditioned Block for TF.js
+ * Label-Conditioned Mixer Block
  */
-class LabelConditionedBlock {
-  constructor(c_in, c_out, label_dim = CONFIG.LABEL_EMB_DIM) {
-    this.conv1 = tf.layers.conv2d({
-      filters: c_out,
-      kernelSize: 3,
-      padding: 'same',
-      useBias: false
-    });
-    this.bn1 = tf.layers.batchNormalization();
+class ConditionedMixer extends torch.nn.Module {
+  constructor(patches, dim, label_dim = 128) {
+    super();
+    this.patches = patches;
+    this.dim = dim;
+    this.mixer = new MixerBlock(patches, dim, Math.floor(dim / 2), dim * 2);
     
-    this.conv2 = tf.layers.conv2d({
-      filters: c_out,
-      kernelSize: 3,
-      padding: 'same',
-      useBias: false
-    });
-    this.bn2 = tf.layers.batchNormalization();
-
-    this.label_proj = tf.layers.dense({ units: c_out * 2 });
-
-    if (c_in !== c_out) {
-      this.shortcut = tf.layers.conv2d({ filters: c_out, kernelSize: 1, padding: 'same' });
-    } else {
-      this.shortcut = null;
-    }
+    this.label_scale = new torch.nn.Linear(label_dim, patches * dim);
+    this.label_shift = new torch.nn.Linear(label_dim, patches * dim);
   }
 
-  apply(x, label_emb = null) {
-    let identity = x;
-    if (this.shortcut) {
-      identity = this.shortcut.apply(x);
-    }
-
-    let out = this.conv1.apply(x);
-    out = this.bn1.apply(out);
-
+  forward(x, label_emb) {
+    let out = this.mixer.forward(x);
+    
     if (label_emb) {
-      const cond = this.label_proj.apply(label_emb);
-      const cond_reshaped = tf.reshape(cond, [-1, 1, 1, cond.shape[1]]);
-      const scale = tf.slice(cond_reshaped, [0, 0, 0, 0], [-1, -1, -1, out.shape[3]]);
-      const shift = tf.slice(cond_reshaped, [0, 0, 0, out.shape[3]], [-1, -1, -1, -1]);
-      
-      out = tf.add(tf.mul(out, tf.add(1, scale)), shift);
+      const B = x.shape[0];
+      const scale = this.label_scale.forward(label_emb).reshape([B, this.patches, this.dim]);
+      const shift = this.label_shift.forward(label_emb).reshape([B, this.patches, this.dim]);
+      out = out.mul(scale).add(shift);
     }
-
-    out = tf.leakyRelu(out, 0.2);
-    out = this.conv2.apply(out);
-    out = this.bn2.apply(out);
-
-    return tf.add(out, identity);
+    
+    return out;
   }
 }
 
 /**
- * Label Conditioned VAE Model
+ * Label Conditioned VAE Model (MLP-Mixer Version)
  */
-export class LabelConditionedVAE {
+export class LabelConditionedVAE extends torch.nn.Module {
   constructor() {
-    // Model architecture using Layers API
-    this.label_emb = tf.layers.embedding({
-      inputDim: CONFIG.NUM_CLASSES,
-      outputDim: CONFIG.LABEL_EMB_DIM
-    });
+    super();
+    const patch_size = 4;
+    const n_patches = 64; 
+    const hidden_dim = 64;
+    const latent_dim = 64;
+    const label_dim = 128;
+    const input_dim = 3 * 32 * 32; 
 
-    this.enc_in = tf.layers.conv2d({ filters: 64, kernelSize: 3, padding: 'same' });
-    this.enc_block1 = new LabelConditionedBlock(64, 128);
-    this.enc_block2 = new LabelConditionedBlock(128, 256);
-    
-    this.z_mean = tf.layers.conv2d({ filters: CONFIG.LATENT_CHANNELS, kernelSize: 1 });
-    this.z_logvar = tf.layers.conv2d({ filters: CONFIG.LATENT_CHANNELS, kernelSize: 1 });
+    this.n_patches = n_patches;
+    this.hidden_dim = hidden_dim;
+    this.latent_dim = latent_dim;
 
-    this.dec_in = tf.layers.conv2d({ filters: 256, kernelSize: 1 });
-    this.dec_block1 = new LabelConditionedBlock(256, 128);
-    this.dec_block2 = new LabelConditionedBlock(128, 64);
-    this.dec_out = tf.layers.conv2d({ filters: 3, kernelSize: 3, padding: 'same', activation: 'tanh' });
+    this.label_emb = new torch.nn.Embedding(CONFIG.NUM_CLASSES || 10, label_dim);
 
-    // Build layers with dummy inputs to initialize weights
-    this.initializeWeights();
-  }
+    this.patch_proj = new torch.nn.Linear(48, hidden_dim); 
+    this.enc_mixer = new ConditionedMixer(n_patches, hidden_dim, label_dim);
+    this.z_mean = new torch.nn.Linear(n_patches * hidden_dim, latent_dim);
+    this.z_logvar = new torch.nn.Linear(n_patches * hidden_dim, latent_dim);
 
-  initializeWeights() {
-    tf.tidy(() => {
-      const dummyX = tf.zeros([1, 64, 64, 3]);
-      const dummyLabels = tf.zeros([1], 'int32');
-      const dummyZ = tf.zeros([1, 8, 8, CONFIG.LATENT_CHANNELS]);
-      
-      this.forward(dummyX, dummyLabels);
-      this.decode(dummyZ, dummyLabels);
-    });
-  }
-
-  getWeights() {
-    const weights = [];
-    const layers = [
-      this.label_emb, this.enc_in, 
-      this.enc_block1.conv1, this.enc_block1.bn1, this.enc_block1.conv2, this.enc_block1.bn2, this.enc_block1.label_proj,
-      this.enc_block2.conv1, this.enc_block2.bn1, this.enc_block2.conv2, this.enc_block2.bn2, this.enc_block2.label_proj,
-      this.z_mean, this.z_logvar, this.dec_in,
-      this.dec_block1.conv1, this.dec_block1.bn1, this.dec_block1.conv2, this.dec_block1.bn2, this.dec_block1.label_proj,
-      this.dec_block2.conv1, this.dec_block2.bn1, this.dec_block2.conv2, this.dec_block2.bn2, this.dec_block2.label_proj,
-      this.dec_out
-    ];
-    
-    for (const layer of layers) {
-      if (layer && layer.weights) {
-        weights.push(...layer.weights.map(w => w.val));
-      }
-    }
-    return weights;
+    this.z_to_patches = new torch.nn.Linear(latent_dim, n_patches * hidden_dim);
+    this.dec_mixer = new ConditionedMixer(n_patches, hidden_dim, label_dim);
+    this.recon_proj = new torch.nn.Linear(hidden_dim, 48);
   }
 
   encode(x, labels) {
-    const l_emb = this.label_emb.apply(labels);
-    let h = this.enc_in.apply(x);
-    h = this.enc_block1.apply(h, l_emb);
-    h = this.enc_block2.apply(h, l_emb);
-    return [this.z_mean.apply(h), this.z_logvar.apply(h)];
+    const B = x.shape[0];
+    const l_emb_raw = this.label_emb.forward(labels);
+    const l_emb = l_emb_raw.reshape([B, l_emb_raw.shape[2]]);
+    
+    // Explicitly use known dimensions
+    let h = x.reshape([B, 64, 48]);
+    h = this.patch_proj.forward(h);
+    h = this.enc_mixer.forward(h, l_emb);
+    
+    h = h.reshape([B, 64 * 64]);
+    return [this.z_mean.forward(h), this.z_logvar.forward(h)];
   }
 
   reparameterize(mu, logvar) {
-    const std = tf.exp(tf.mul(0.5, logvar));
-    const eps = tf.randomNormal(mu.shape);
-    return tf.add(mu, tf.mul(eps, std));
+    const std = torch.exp(logvar.mul(0.5));
+    const eps = torch.randn(mu.shape);
+    return mu.add(eps.mul(std));
   }
 
   decode(z, labels) {
-    const l_emb = this.label_emb.apply(labels);
-    let h = this.dec_in.apply(z);
-    h = this.dec_block1.apply(h, l_emb);
-    h = this.dec_block2.apply(h, l_emb);
-    return this.dec_out.apply(h);
+    const B = z.shape[0];
+    const l_emb_raw = this.label_emb.forward(labels);
+    const l_emb = l_emb_raw.reshape([B, l_emb_raw.shape[2]]);
+    
+    let h = this.z_to_patches.forward(z).reshape([B, 64, 64]);
+    h = this.dec_mixer.forward(h, l_emb);
+    h = this.recon_proj.forward(h);
+    
+    return relu(h.reshape([B, 3072]));
   }
 
   forward(x, labels) {
@@ -206,70 +137,39 @@ export class LabelConditionedVAE {
 }
 
 /**
- * Label Conditioned Drift Network
+ * Label Conditioned Drift Network (MLP-Mixer Version)
  */
-export class LabelConditionedDrift {
+export class LabelConditionedDrift extends torch.nn.Module {
   constructor() {
-    this.time_mlp_dense1 = tf.layers.dense({ units: 128, activation: 'relu' });
-    this.time_mlp_dense2 = tf.layers.dense({ units: 256, activation: 'relu' });
+    super();
+    const latent_dim = 64;
+    const label_dim = 128;
+    const hidden_dim = 32;
+    const n_tokens = 4; 
 
-    this.label_emb = tf.layers.embedding({
-      inputDim: CONFIG.NUM_CLASSES,
-      outputDim: CONFIG.LABEL_EMB_DIM
-    });
+    this.n_tokens = n_tokens;
+    this.hidden_dim = hidden_dim;
 
-    this.head = tf.layers.conv2d({ filters: 64, kernelSize: 3, padding: 'same' });
-    this.down1 = new LabelConditionedBlock(64, 128);
-    this.down2 = tf.layers.conv2d({ filters: 256, kernelSize: 4, strides: 2, padding: 'same' });
-    this.mid = new LabelConditionedBlock(256, 256);
-    this.up_conv = tf.layers.conv2dTranspose({ filters: 128, kernelSize: 4, strides: 2, padding: 'same' });
-    this.up_block = new LabelConditionedBlock(128, 64);
-    this.tail = tf.layers.conv2d({ filters: CONFIG.LATENT_CHANNELS, kernelSize: 3, padding: 'same' });
+    this.time_fc1 = new torch.nn.Linear(1, 64);
+    this.time_fc2 = new torch.nn.Linear(64, label_dim);
 
-    // Initialize weights
-    this.initializeWeights();
-  }
+    this.label_emb = new torch.nn.Embedding(CONFIG.NUM_CLASSES || 10, label_dim);
 
-  initializeWeights() {
-    tf.tidy(() => {
-      const dummyZ = tf.zeros([1, 8, 8, CONFIG.LATENT_CHANNELS]);
-      const dummyT = tf.zeros([1, 1]);
-      const dummyLabels = tf.zeros([1], 'int32');
-      this.forward(dummyZ, dummyT, dummyLabels);
-    });
-  }
-
-  getWeights() {
-    const weights = [];
-    const layers = [
-      this.time_mlp_dense1, this.time_mlp_dense2, this.label_emb, this.head,
-      this.down1.conv1, this.down1.bn1, this.down1.conv2, this.down1.bn2, this.down1.label_proj,
-      this.down2,
-      this.mid.conv1, this.mid.bn1, this.mid.conv2, this.mid.bn2, this.mid.label_proj,
-      this.up_conv,
-      this.up_block.conv1, this.up_block.bn1, this.up_block.conv2, this.up_block.bn2, this.up_block.label_proj,
-      this.tail
-    ];
-    
-    for (const layer of layers) {
-      if (layer && layer.weights) {
-        weights.push(...layer.weights.map(w => w.val));
-      }
-    }
-    return weights;
+    this.head = new torch.nn.Linear(latent_dim, 4 * 32);
+    this.mixer = new ConditionedMixer(4, 32, label_dim);
+    this.tail = new torch.nn.Linear(4 * 32, latent_dim);
   }
 
   forward(z, t, labels) {
-    const t_emb = this.time_mlp_dense2.apply(this.time_mlp_dense1.apply(t));
-    const l_emb = this.label_emb.apply(labels);
-    const cond = tf.concat([t_emb, l_emb], -1);
+    const B = z.shape[0];
+    const t_emb = relu(this.time_fc2.forward(relu(this.time_fc1.forward(t))));
+    const l_emb_raw = this.label_emb.forward(labels);
+    const l_emb = l_emb_raw.reshape([B, l_emb_raw.shape[2]]);
+    const cond = t_emb.add(l_emb);
 
-    let h = this.head.apply(z);
-    const d1 = this.down1.apply(h, cond);
-    let d2 = this.down2.apply(d1);
-    let m = this.mid.apply(d2, cond);
-    let u = this.up_conv.apply(m);
-    u = this.up_block.apply(u, cond);
-    return this.tail.apply(u);
+    let h = this.head.forward(z).reshape([B, 4, 32]);
+    h = this.mixer.forward(h, cond);
+    h = h.reshape([B, 128]);
+    return this.tail.forward(h);
   }
 }

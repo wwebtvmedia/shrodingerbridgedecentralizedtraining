@@ -3,14 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Swarm Schrödinger Bridge - Documentation Access</title>
+    <title>Swarm Schrödinger Bridge - AI Training Portal</title>
     <script type="importmap">
       {
         "imports": {
           "@tensorflow/tfjs": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/+esm",
-          "@tensorflow/tfjs-backend-webgl": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.17.0/+esm",
-          "@tensorflow/tfjs-backend-webgpu": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.17.0/+esm",
-          "@tensorflow/tfjs-backend-wasm": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.17.0/+esm"
+          "js-pytorch": "https://cdn.jsdelivr.net/npm/js-pytorch@0.7.2/+esm"
         }
       }
     </script>
@@ -25,36 +23,39 @@
         font-family:
           -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
           sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
         min-height: 100vh;
         display: flex;
         justify-content: center;
         align-items: center;
         padding: 20px;
+        color: #e0e0e0;
       }
 
       .container {
-        background: white;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 20px;
         padding: 3rem;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        max-width: 800px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        max-width: 850px;
         width: 100%;
         text-align: center;
       }
 
       h1 {
-        color: #2c3e50;
-        font-size: 2.5rem;
+        color: #fff;
+        font-size: 2.8rem;
         margin-bottom: 1rem;
-        background: linear-gradient(90deg, #667eea, #764ba2);
+        background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
       }
 
       .subtitle {
-        color: #666;
+        color: #aaa;
         font-size: 1.2rem;
         margin-bottom: 2rem;
         line-height: 1.6;
@@ -62,7 +63,8 @@
 
       .button-container {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
+        justify-content: center;
         gap: 1.5rem;
         margin: 3rem 0;
       }
@@ -70,190 +72,169 @@
       .btn {
         display: inline-block;
         padding: 18px 36px;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         font-weight: 600;
         text-decoration: none;
-        border-radius: 10px;
-        transition: all 0.3s ease;
+        border-radius: 12px;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         border: none;
         cursor: pointer;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
       }
 
       .btn-primary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: #0f0c29;
       }
 
       .btn-primary:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-        background: linear-gradient(135deg, #768efa 0%, #865bb2 100%);
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: 0 12px 30px rgba(79, 172, 254, 0.4);
       }
 
       .btn-secondary {
-        background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+        background: rgba(255, 255, 255, 0.1);
         color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
       }
 
       .btn-secondary:hover {
         transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-        background: linear-gradient(135deg, #5eddd4 0%, #54b09d 100%);
+        background: rgba(255, 255, 255, 0.2);
       }
 
       .features {
         text-align: left;
         margin: 2rem 0;
-        padding: 1.5rem;
-        background: #f8f9fa;
-        border-radius: 10px;
+        padding: 2rem;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
       }
 
       .features h3 {
-        color: #2c3e50;
-        margin-bottom: 1rem;
+        color: #4facfe;
+        margin-bottom: 1.5rem;
         text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-size: 0.9rem;
       }
 
       .features ul {
         list-style: none;
         padding-left: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
       }
 
       .features li {
         padding: 0.5rem 0;
-        color: #555;
+        color: #ccc;
         display: flex;
         align-items: center;
+        font-size: 0.95rem;
       }
 
       .features li:before {
-        content: "✓";
-        color: #4ecdc4;
-        font-weight: bold;
-        margin-right: 10px;
-        font-size: 1.2rem;
+        content: "✦";
+        color: #00f2fe;
+        margin-right: 12px;
       }
 
       .info-box {
-        background: #fff3cd;
-        border-left: 4px solid #ffc107;
-        padding: 1rem;
-        border-radius: 5px;
+        background: rgba(79, 172, 254, 0.1);
+        border-left: 4px solid #4facfe;
+        padding: 1.2rem;
+        border-radius: 8px;
         margin: 2rem 0;
         text-align: left;
       }
 
       .info-box h4 {
-        color: #856404;
+        color: #4facfe;
         margin-bottom: 0.5rem;
       }
 
       .info-box p {
-        color: #856404;
+        color: #ccc;
+        font-size: 0.9rem;
         margin-bottom: 0;
       }
 
       footer {
         margin-top: 2rem;
         color: #666;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
       }
 
       @media (max-width: 768px) {
         .container {
           padding: 2rem;
         }
-
-        h1 {
-          font-size: 2rem;
+        .button-container {
+          flex-direction: column;
         }
-
-        .btn {
-          padding: 15px 30px;
-          font-size: 1.1rem;
+        .features ul {
+          grid-template-columns: 1fr;
         }
       }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>Swarm Schrödinger Bridge Training System</h1>
+      <h1>Swarm Schrödinger Bridge</h1>
       <p class="subtitle">
-        A decentralized, self-organizing swarm training system for Schrödinger
-        Bridge models using WebTorch and peer-to-peer networking.
+        Decentralized, hardware-accelerated generative model training using 
+        <strong>js-pytorch</strong> and MLP-Mixer spatial architectures.
       </p>
 
       <div class="button-container">
         <a
           href="enhanced-index.html"
           class="btn btn-primary"
-          style="background: linear-gradient(135deg, #00dbde 0%, #fc00ff 100%)"
         >
-          🚀 Launch Training Dashboard
+          🚀 Launch Swarm Trainer
         </a>
         <a href="readme.html" class="btn btn-secondary">
-          📖 View Full Documentation
+          📖 Technical Docs
         </a>
       </div>
 
       <div class="features">
-        <h3>Documentation Features</h3>
+        <h3>System Capabilities</h3>
         <ul>
-          <li>
-            Complete mathematical formulations of Schrödinger Bridge problems
-          </li>
-          <li>Three-phase training architecture (VAE, Drift, Both)</li>
-          <li>Swarm intelligence and evolutionary optimization algorithms</li>
-          <li>System architecture diagrams and component interactions</li>
-          <li>Network protocol stack and synchronization protocols</li>
-          <li>Performance metrics and convergence analysis</li>
-          <li>Implementation details and technical specifications</li>
-          <li>Getting started guide and usage examples</li>
+          <li>Real Backpropagation Training</li>
+          <li>MLP-Mixer Spatial Architecture</li>
+          <li>WebGL Hardware Acceleration</li>
+          <li>P2P Model Synchronization</li>
+          <li>Schrödinger Bridge SDE Sampling</li>
+          <li>Reverse-Time Trajectory Drift</li>
+          <li>Evolutionary Swarm Optimization</li>
+          <li>IndexedDB Local Persistence</li>
         </ul>
       </div>
 
       <div class="info-box">
-        <h4>📋 Quick Access</h4>
+        <h4>⚡ Hardware Optimized</h4>
         <p>
-          The HTML documentation includes interactive navigation, mathematical
-          equations rendered with MathJax, syntax highlighting for code
-          examples, and responsive design for all devices.
+          This portal automatically detects your local GPU capabilities via WebGL 
+          to run high-performance tensor operations directly in your browser tab.
         </p>
       </div>
 
       <footer>
         <p>
-          Last updated: April 2026 | Project: Swarm Schrödinger Bridge Training
-          Prototype
+          Version 0.2.0-Mixer | Last updated: April 2026
         </p>
-        <p>
-          Note: This is a prototype demonstrating decentralized swarm training
-          concepts.
+        <p style="margin-top: 5px; opacity: 0.6">
+          Real-time collaborative training for next-gen generative models.
         </p>
       </footer>
     </div>
 
     <script>
-      // Add smooth scrolling for anchor links
-      document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
-        anchor.addEventListener("click", function (e) {
-          const targetId = this.getAttribute("href");
-          if (targetId.startsWith("#") && targetId !== "#") {
-            e.preventDefault();
-            const targetElement = document.querySelector(targetId);
-            if (targetElement) {
-              targetElement.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-              });
-            }
-          }
-        });
-      });
-
-      // Add animation to buttons on load
       document.addEventListener("DOMContentLoaded", function () {
         const buttons = document.querySelectorAll(".btn");
         buttons.forEach((button, index) => {
@@ -261,10 +242,10 @@
           button.style.transform = "translateY(20px)";
 
           setTimeout(() => {
-            button.style.transition = "opacity 0.5s ease, transform 0.5s ease";
+            button.style.transition = "all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
             button.style.opacity = "1";
             button.style.transform = "translateY(0)";
-          }, index * 200);
+          }, index * 150);
         });
       });
     </script>

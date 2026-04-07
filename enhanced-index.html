@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Enhanced Swarm Schrödinger Bridge Training</title>
+    <title>Enhanced Swarm Schrödinger Bridge Training (js-pytorch)</title>
     <script type="importmap">
       {
         "imports": {
@@ -11,13 +11,13 @@
           "@tensorflow/tfjs-backend-webgl": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.17.0/+esm",
           "@tensorflow/tfjs-backend-webgpu": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.17.0/+esm",
           "@tensorflow/tfjs-backend-wasm": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.17.0/+esm",
+          "js-pytorch": "https://cdn.jsdelivr.net/npm/js-pytorch@0.7.2/+esm",
           "chart.js": "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/+esm",
           "@kurkle/color": "https://cdn.jsdelivr.net/npm/@kurkle/color@0.3.4/+esm"
         }
       }
     </script>
     <link rel="stylesheet" href="/css/styles.css" />
-    <!-- Universal AI Backends are now bundled by Vite -->
     <style>
       .header-nav {
         display: flex;
@@ -130,10 +130,10 @@
         "
       ></div>
       <h2 style="color: white; margin-bottom: 10px">
-        Initializing AI Engine...
+        Initializing Schrödinger Bridge Engine...
       </h2>
       <p id="loader-status" style="color: #4285f4; opacity: 0.8">
-        Downloading Engine from cdnjs
+        Loading js-pytorch (WebTorch) Runtime
       </p>
     </div>
 
@@ -146,7 +146,7 @@
           </div>
         </div>
         <p class="subtitle">
-          Database + Cloudflare Tunnel + Evolutionary Optimization
+          js-pytorch + MLP-Mixer Architecture + Evolutionary Optimization
         </p>
       </header>
 
@@ -201,8 +201,8 @@
           <div class="phase-controls">
             <h3>Phase Management</h3>
             <div class="phase-buttons">
-              <button class="phase-btn" data-phase="vae">VAE Only</button>
-              <button class="phase-btn" data-phase="drift">Drift Only</button>
+              <button class="phase-btn" data-phase="vae">VAE (MLP-Mixer)</button>
+              <button class="phase-btn" data-phase="drift">Drift (Trajectory)</button>
               <button class="phase-btn" data-phase="both">Both</button>
               <button class="phase-btn" data-phase="auto">Auto</button>
             </div>
@@ -289,7 +289,7 @@
           <div class="generation-controls">
             <button id="generate-btn" class="btn">Generate Samples</button>
             <button id="inference-btn" class="btn btn-primary">
-              Run Inference
+              Run SB Inference
             </button>
             <button id="refresh-btn" class="btn">Refresh Stats</button>
           </div>
@@ -318,7 +318,7 @@
           // Check if App is initialized
           if (window.enhancedApp && window.enhancedApp.isInitialized) {
             clearInterval(check);
-            const device = window.tfjsTrainer?.device || "DETECTING...";
+            const device = window.tfjsTrainer?.device || "WEBGL";
             statusText.innerHTML = `STATE: <span style="color: #34a853">READY</span> | ACCELERATION: <span style="color: #4285f4">${device.toUpperCase()}</span>`;
             setTimeout(() => {
               loader.style.opacity = "0";
