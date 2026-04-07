@@ -3,7 +3,22 @@
 
 import { EnhancedLabelTrainer } from "./training.js";
 
-const torch = typeof window !== 'undefined' && window.torch ? window.torch : (await import('js-pytorch')).torch;
+/**
+ * Robust torch initialization
+ */
+let torch;
+if (typeof window !== 'undefined' && window.torch) {
+  torch = window.torch;
+} else {
+  try {
+    const JSTorch = await import('js-pytorch');
+    torch = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+  } catch (e) {
+    if (typeof globalThis !== 'undefined' && globalThis.torch) {
+      torch = globalThis.torch;
+    }
+  }
+}
 
 export class TorchJSTrainer {
   constructor() {
