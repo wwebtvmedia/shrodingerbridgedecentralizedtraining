@@ -1,11 +1,8 @@
 // Universal js-pytorch Hardware Accelerator Integration
 // This implementation provides a bridge between the swarm system and js-pytorch (WebTorch)
 
-import * as JSTorch from 'js-pytorch';
+import { torch } from 'js-pytorch';
 import { EnhancedLabelTrainer } from "./training.js";
-
-// Robust import handling for different environments
-const torch = JSTorch.torch || JSTorch.default?.torch || JSTorch;
 
 export class TorchJSTrainer {
   constructor() {
