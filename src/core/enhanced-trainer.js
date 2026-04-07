@@ -13,6 +13,7 @@ class EnhancedSwarmTrainer {
       syncInterval: 5, // Epochs between sync checks
       explorationRate: 0.3,
       maxNeighbors: 50,
+      batchSize: 16,
       ...config,
     };
 
@@ -210,7 +211,7 @@ class EnhancedSwarmTrainer {
     let labels = [];
     
     if (this.database) {
-      const trainingData = await this.database.getTrainingData(CONFIG.BATCH_SIZE || 16);
+      const trainingData = await this.database.getTrainingData(this.config.batchSize || CONFIG.BATCH_SIZE || 16);
       if (trainingData && trainingData.length > 0) {
         // Process training data into tensors-compatible format
         batch = trainingData.map(item => {
@@ -225,7 +226,7 @@ class EnhancedSwarmTrainer {
 
     // If no data in database, use fallback data (to keep training running but with "real" tensors)
     if (batch.length === 0) {
-      const batchSize = CONFIG.BATCH_SIZE || 16;
+      const batchSize = this.config.batchSize || CONFIG.BATCH_SIZE || 16;
       for (let i = 0; i < batchSize; i++) {
         batch.push(this.generateDummyData());
         labels.push(Math.floor(Math.random() * (CONFIG.NUM_CLASSES || 10)));

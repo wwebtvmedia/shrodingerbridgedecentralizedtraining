@@ -6,10 +6,13 @@ import { CONFIG } from "../config.js";
 
 /**
  * Robust torch initialization
+ * Prioritizes window.torch in browser, fallbacks to import in Node.js.
  */
 async function resolveTorch() {
+  // 1. Browser check - Prioritize script-loaded global
   if (typeof window !== 'undefined') {
     if (window.torch) return window.torch;
+    
     return new Promise((resolve, reject) => {
       let attempts = 0;
       const interval = setInterval(() => {
@@ -25,7 +28,7 @@ async function resolveTorch() {
     });
   }
   
-  // Node.js environment
+  // 2. Node.js environment
   try {
     const JSTorch = await import('js-pytorch');
     return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
