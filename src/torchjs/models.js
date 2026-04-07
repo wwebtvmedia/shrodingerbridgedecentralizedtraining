@@ -6,28 +6,42 @@ import { CONFIG } from "../config.js";
 
 /**
  * Robust torch initialization
- * In the browser, js-pytorch-browser.js is loaded via <script> tag and provides global 'torch'.
- * In Node.js, we import it dynamically.
+ * Handles browser global, ESM exports, and potential initialization delays.
  */
-let torch;
-if (typeof window !== 'undefined' && window.torch) {
-  torch = window.torch;
-} else {
-  // Use dynamic import for Node.js environments
+async function resolveTorch() {
+  if (typeof window !== 'undefined' && window.torch) return window.torch;
+  
   try {
     const JSTorch = await import('js-pytorch');
-    torch = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
   } catch (e) {
-    console.error("Failed to load js-pytorch:", e.message);
-    // Fallback to global if it somehow exists but window doesn't (some workers)
-    if (typeof globalThis !== 'undefined' && globalThis.torch) {
-      torch = globalThis.torch;
+    // If dynamic import fails, try waiting for global if in browser
+    if (typeof window !== 'undefined') {
+      return new Promise((resolve, reject) => {
+        let attempts = 0;
+        const interval = setInterval(() => {
+          if (window.torch) {
+            clearInterval(interval);
+            resolve(window.torch);
+          }
+          if (attempts++ > 50) {
+            clearInterval(interval);
+            reject(new Error("Timeout waiting for torch to initialize"));
+          }
+        }, 100);
+      });
     }
+    throw e;
   }
 }
 
-if (!torch) {
-  throw new Error("js-pytorch (torch) could not be initialized. Ensure the script is loaded.");
+// Top-level await to ensure torch is ready for class definitions
+const torch = await resolveTorch();
+
+// Verify torch.nn
+if (!torch || !torch.nn) {
+  console.error("Torch or Torch.nn is undefined:", torch);
+  throw new Error("js-pytorch initialization failed: nn submodule not found");
 }
 
 // Global activation instances

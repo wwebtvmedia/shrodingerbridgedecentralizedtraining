@@ -4,21 +4,29 @@ import {
 import { LabelConditionedVAE, LabelConditionedDrift } from "./models.js";
 
 /**
- * Robust torch initialization
+ * Robust torch resolution
  */
-let torch;
-if (typeof window !== 'undefined' && window.torch) {
-  torch = window.torch;
-} else {
+async function resolveTorch() {
+  if (typeof window !== 'undefined' && window.torch) return window.torch;
   try {
     const JSTorch = await import('js-pytorch');
-    torch = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
   } catch (e) {
-    if (typeof globalThis !== 'undefined' && globalThis.torch) {
-      torch = globalThis.torch;
+    if (typeof window !== 'undefined') {
+      return new Promise((resolve) => {
+        const check = setInterval(() => {
+          if (window.torch) {
+            clearInterval(check);
+            resolve(window.torch);
+          }
+        }, 50);
+      });
     }
+    throw e;
   }
 }
+
+const torch = await resolveTorch();
 
 // OU Reference Process
 class OUReference {
