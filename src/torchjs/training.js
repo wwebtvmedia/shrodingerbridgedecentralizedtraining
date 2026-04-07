@@ -1,8 +1,11 @@
-import { torch } from 'js-pytorch';
+import * as JSTorch from 'js-pytorch';
 import {
   CONFIG,
 } from "../config.js";
 import { LabelConditionedVAE, LabelConditionedDrift } from "./models.js";
+
+// Robust import handling for different environments
+const torch = JSTorch.torch || JSTorch.default?.torch || JSTorch;
 
 // OU Reference Process
 class OUReference {
@@ -13,28 +16,24 @@ class OUReference {
 
   bridgeSample(z0, z1, t) {
     // Vectorized version using torch
-    return torch.tidy(() => {
-      const exp_neg_theta_t = torch.exp(torch.mul(t, -this.theta));
-      const exp_neg_theta_1_t = torch.exp(torch.mul(torch.sub(1, t), -this.theta));
-      const exp_neg_theta = Math.exp(-this.theta);
+    const exp_neg_theta_t = torch.exp(t.mul(-this.theta));
+    const ones_t = torch.ones(t.shape);
+    const exp_neg_theta_1_t = torch.exp(ones_t.sub(t).mul(-this.theta));
+    const exp_neg_theta = Math.exp(-this.theta);
 
-      const denominator = 1 - exp_neg_theta ** 2;
-      
-      const term1 = torch.mul(exp_neg_theta_t, torch.sub(1, torch.pow(exp_neg_theta_1_t, 2)));
-      const term2 = torch.mul(torch.sub(1, torch.pow(exp_neg_theta_t, 2)), exp_neg_theta_1_t);
-      
-      const mean = torch.div(torch.add(torch.mul(term1, z0), torch.mul(term2, z1)), denominator);
-      
-      const var_term = torch.div(
-        torch.mul(
-          torch.mul(this.sigma ** 2 / (2 * this.theta), torch.sub(1, torch.pow(exp_neg_theta_t, 2))),
-          torch.sub(1, torch.pow(exp_neg_theta_1_t, 2))
-        ),
-        denominator
-      );
-      
-      return [mean, var_term];
-    });
+    const denominator = 1 - exp_neg_theta ** 2;
+    
+    const term1 = exp_neg_theta_t.mul(torch.ones(exp_neg_theta_1_t.shape).sub(exp_neg_theta_1_t.pow(2)));
+    const term2 = torch.ones(exp_neg_theta_t.shape).sub(exp_neg_theta_t.pow(2)).mul(exp_neg_theta_1_t);
+    
+    const mean = term1.mul(z0).add(term2.mul(z1)).div(denominator);
+    
+    const var_term = torch.ones(exp_neg_theta_t.shape).sub(exp_neg_theta_t.pow(2))
+      .mul(torch.ones(exp_neg_theta_1_t.shape).sub(exp_neg_theta_1_t.pow(2)))
+      .mul(this.sigma ** 2 / (2 * this.theta))
+      .div(denominator);
+    
+    return [mean, var_term];
   }
 }
 
@@ -87,13 +86,13 @@ export class EnhancedLabelTrainer {
       
       const recon_loss = this.mse_loss.forward(recon, images);
       
-      // Use Tensor methods sum and mean as torch.sum/mean might be missing or inconsistent
-      const mu_sq = torch.pow(mu, 2);
+      // Simplified KL loss for js-pytorch compatibility
+      const mu_sq = mu.pow(2);
       const var_val = torch.exp(logvar);
-      const kl_element = torch.add(torch.add(mu_sq, var_val), torch.neg(torch.add(logvar, 1)));
-      const kl_loss = torch.mul(kl_element.sum(-1).mean(-1), 0.5);
+      const kl_element = mu_sq.add(var_val).add(logvar.add(1).neg());
+      const kl_loss = kl_element.sum(-1).mean(-1).mul(0.5);
       
-      const total_loss = torch.add(recon_loss, torch.mul(kl_loss, CONFIG.KL_WEIGHT || 0.01));
+      const total_loss = recon_loss.add(kl_loss.mul(CONFIG.KL_WEIGHT || 0.01));
       total_loss.backward();
       this.opt_vae.step();
       
@@ -120,8 +119,8 @@ export class EnhancedLabelTrainer {
       // Sample zt and target
       const [mean, var_] = this.ou_ref.bridgeSample(z0, z1, t);
       // zt = mean + sqrt(var) * eps
-      const zt = torch.add(mean, torch.mul(torch.randn(mean.shape), torch.sqrt(var_)));
-      const target = torch.sub(z1, z0);
+      const zt = mean.add(torch.randn(mean.shape).mul(torch.sqrt(var_)));
+      const target = z1.sub(z0);
       
       const pred = this.drift.forward(zt, t, labelsTensor);
       const drift_loss = this.mse_loss.forward(pred, target);
@@ -142,7 +141,7 @@ export class EnhancedLabelTrainer {
         loss: drift_loss._data[0], 
         metrics: { 
           phase: this.phase === 2 ? 'drift' : 'both', 
-          drift_loss: loss._data[0] 
+          drift_loss: drift_loss._data[0] 
         } 
       };
     }

@@ -1,14 +1,17 @@
 // Universal js-pytorch Hardware Accelerator Integration
 // This implementation provides a bridge between the swarm system and js-pytorch (WebTorch)
 
-import { torch } from 'js-pytorch';
+import * as JSTorch from 'js-pytorch';
 import { EnhancedLabelTrainer } from "./training.js";
+
+// Robust import handling for different environments
+const torch = JSTorch.torch || JSTorch.default?.torch || JSTorch;
 
 export class TorchJSTrainer {
   constructor() {
     this.trainer = null;
     this.isInitialized = false;
-    this.device = 'cpu'; // Default
+    this.device = 'cpu'; 
     this.status = 'initializing';
 
     // Start initialization
@@ -24,8 +27,6 @@ export class TorchJSTrainer {
     console.log("🔍 Initializing js-pytorch hardware acceleration...");
     
     try {
-      // js-pytorch automatically tries to use GPU if available via WebGL
-      // In some versions we might need to explicitly set it, but 0.7.2 is usually auto
       this.device = 'webgl'; 
       
       this.trainer = new EnhancedLabelTrainer();
@@ -59,8 +60,6 @@ export class TorchJSTrainer {
   async trainStep(batch, labels) {
     if (!this.isInitialized) await this.initialize();
     
-    // Convert batch to nested arrays if it's not already
-    // js-pytorch expects arrays for tensor creation
     const processedBatch = Array.isArray(batch) ? batch : [batch];
     const processedLabels = Array.isArray(labels) ? labels : [labels];
     
@@ -92,7 +91,5 @@ export class TorchJSTrainer {
   }
 }
 
-// Export as tfjsTrainer to maintain compatibility with existing code
-// but it's actually using js-pytorch now
 export const tfjsTrainer = new TorchJSTrainer();
 export default tfjsTrainer;

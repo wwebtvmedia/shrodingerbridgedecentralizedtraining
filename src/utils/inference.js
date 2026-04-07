@@ -1,6 +1,9 @@
-import { torch } from 'js-pytorch';
+import * as JSTorch from 'js-pytorch';
 import { CONFIG } from "../config.js";
 import { LabelConditionedVAE, LabelConditionedDrift } from "../torchjs/models.js";
+
+// Robust import handling for different environments
+const torch = JSTorch.torch || JSTorch.default?.torch || JSTorch;
 
 export class InferenceEngine {
   constructor() {
@@ -96,44 +99,42 @@ export class InferenceEngine {
     const steps = config.steps || 50;
     const label = config.label !== undefined ? config.label : Math.floor(Math.random() * 10);
     
-    return torch.tidy(() => {
-      // 1. Initial Latent (Noise) - Flattened 64
-      const latentShape = [1, 64];
-      let zt = torch.randn(latentShape);
-      
-      const labelsTensor = torch.tensor([[label]]);
+    // 1. Initial Latent (Noise) - Flattened 64
+    const latentShape = [1, 64];
+    let zt = torch.randn(latentShape);
+    
+    const labelsTensor = torch.tensor([[label]]);
 
-      // 2. Iterative Drift updates (Reverse SB)
-      for (let step = 0; step < steps; step++) {
-        const t = (steps - step) / steps;
-        const tTensor = torch.tensor([[t]]);
-        
-        // Compute drift
-        const predDrift = this.drift.forward(zt, tTensor, labelsTensor);
-        
-        // Update zt (Euler step)
-        const dt = 1.0 / steps;
-        zt = torch.add(zt, torch.mul(predDrift, dt));
-        
-        // Add temperature-scaled noise
-        if (config.temperature > 0 && step < steps - 1) {
-          const noise = torch.mul(torch.randn(latentShape), config.temperature * Math.sqrt(dt));
-          zt = torch.add(zt, noise);
-        }
+    // 2. Iterative Drift updates (Reverse SB)
+    for (let step = 0; step < steps; step++) {
+      const t = (steps - step) / steps;
+      const tTensor = torch.tensor([[t]]);
+      
+      // Compute drift
+      const predDrift = this.drift.forward(zt, tTensor, labelsTensor);
+      
+      // Update zt (Euler step)
+      const dt = 1.0 / steps;
+      zt = zt.add(predDrift.mul(dt));
+      
+      // Add temperature-scaled noise
+      if (config.temperature > 0 && step < steps - 1) {
+        const noise = torch.randn(latentShape).mul(config.temperature * Math.sqrt(dt));
+        zt = zt.add(noise);
       }
+    }
 
-      // 3. Final Decode
-      const decoded = this.vae.decode(zt, labelsTensor);
-      
-      // 4. Convert to Image (Canvas)
-      const image = this.tensorToDataURL(decoded);
+    // 3. Final Decode
+    const decoded = this.vae.decode(zt, labelsTensor);
+    
+    // 4. Convert to Image (Canvas)
+    const image = this.tensorToDataURL(decoded);
 
-      return {
-        id: `sample_${Date.now()}_${index}`,
-        image,
-        metadata: { label, steps, temperature: config.temperature }
-      };
-    });
+    return {
+      id: `sample_${Date.now()}_${index}`,
+      image,
+      metadata: { label, steps, temperature: config.temperature }
+    };
   }
 
   tensorToDataURL(tensor) {
@@ -151,7 +152,7 @@ export class InferenceEngine {
       for (let x = 0; x < width; x++) {
         const idx = (y * width + x) * 4;
         const pixelIdx = y * width + x;
-        const r = Math.floor((data[pixelIdx] || 0) * 255); // Use 0-1 range from ReLU
+        const r = Math.floor((data[pixelIdx] || 0) * 255); 
         const g = Math.floor((data[pixelIdx + 1024] || 0) * 255);
         const b = Math.floor((data[pixelIdx + 2048] || 0) * 255);
         

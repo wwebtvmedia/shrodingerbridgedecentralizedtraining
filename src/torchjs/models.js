@@ -1,8 +1,11 @@
 // PyTorch-like implementation of Schrödinger Bridge models using js-pytorch
 // MLP-Mixer architecture for improved spatial quality in js-pytorch 0.7.2
 
-import { torch } from 'js-pytorch';
+import * as JSTorch from 'js-pytorch';
 import { CONFIG } from "../config.js";
+
+// Robust import handling for different environments (Node vs Browser CDN)
+const torch = JSTorch.torch || JSTorch.default?.torch || JSTorch;
 
 // Global activation instances
 const relu_module = new torch.nn.ReLU();
@@ -102,7 +105,6 @@ export class LabelConditionedVAE extends torch.nn.Module {
     const l_emb_raw = this.label_emb.forward(labels);
     const l_emb = l_emb_raw.reshape([B, l_emb_raw.shape[2]]);
     
-    // Explicitly use known dimensions
     let h = x.reshape([B, 64, 48]);
     h = this.patch_proj.forward(h);
     h = this.enc_mixer.forward(h, l_emb);
