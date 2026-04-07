@@ -2097,4 +2097,4 @@ const torch = {
   optim,
   getShape
 };
-if (typeof exports !== 'undefined') { exports.torch = torch; } else if (typeof window !== 'undefined') { window.torch = torch; }
+export { torch };
