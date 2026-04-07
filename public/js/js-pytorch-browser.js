@@ -2098,3 +2098,4 @@ const torch = {
   getShape
 };
 if (typeof window !== 'undefined') { window.torch = torch; }
+export { torch };
