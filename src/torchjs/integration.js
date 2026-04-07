@@ -8,7 +8,7 @@ export class TorchJSTrainer {
   constructor() {
     this.trainer = null;
     this.isInitialized = false;
-    this.device = 'cpu'; 
+    this.device = 'gpu'; 
     this.status = 'initializing';
 
     // Start initialization
@@ -21,17 +21,17 @@ export class TorchJSTrainer {
   async initialize() {
     if (this.isInitialized) return;
 
-    console.log("🔍 Initializing js-pytorch hardware acceleration...");
+    console.log("🔍 Initializing js-pytorch hardware acceleration (GPU)...");
     
     try {
-      this.device = 'webgl'; 
+      this.device = 'gpu'; 
       
-      this.trainer = new EnhancedLabelTrainer();
+      this.trainer = new EnhancedLabelTrainer(this.device);
       this.isInitialized = true;
       this.status = 'ready';
       
       this.updateUIWithDevice("ready", this.device);
-      console.log(`🚀 Swarm AI Engine: Using [JS-PYTORCH / ${this.device.toUpperCase()}]`);
+      console.log(`🚀 Swarm AI Engine: Using [JS-PYTORCH / ${this.device.toUpperCase()}] (Hardware Accelerated Training)`);
     } catch (error) {
       console.error("❌ js-pytorch initialization failed:", error);
       this.device = 'cpu';

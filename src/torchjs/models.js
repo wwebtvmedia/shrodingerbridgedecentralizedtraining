@@ -1,5 +1,6 @@
 // PyTorch-like implementation of Schrödinger Bridge models using js-pytorch
 // MLP-Mixer architecture for improved spatial quality in js-pytorch 0.7.2
+// Hardware accelerated (GPU/WebGL)
 
 import { torch } from 'js-pytorch';
 import { CONFIG } from "../config.js";
@@ -12,16 +13,16 @@ const relu = (x) => relu_module.forward(x);
  * Mixer Block: Performs spatial (token) and feature (channel) mixing.
  */
 class MixerBlock extends torch.nn.Module {
-  constructor(n_patches, hidden_dim, tokens_mlp_dim, channels_mlp_dim) {
+  constructor(n_patches, hidden_dim, tokens_mlp_dim, channels_mlp_dim, device = "gpu") {
     super();
-    this.ln1 = new torch.nn.LayerNorm(hidden_dim);
-    this.ln2 = new torch.nn.LayerNorm(hidden_dim);
+    this.ln1 = new torch.nn.LayerNorm(hidden_dim, device);
+    this.ln2 = new torch.nn.LayerNorm(hidden_dim, device);
 
-    this.token_fc1 = new torch.nn.Linear(n_patches, tokens_mlp_dim);
-    this.token_fc2 = new torch.nn.Linear(tokens_mlp_dim, n_patches);
+    this.token_fc1 = new torch.nn.Linear(n_patches, tokens_mlp_dim, device);
+    this.token_fc2 = new torch.nn.Linear(tokens_mlp_dim, n_patches, device);
 
-    this.channel_fc1 = new torch.nn.Linear(hidden_dim, channels_mlp_dim);
-    this.channel_fc2 = new torch.nn.Linear(channels_mlp_dim, hidden_dim);
+    this.channel_fc1 = new torch.nn.Linear(hidden_dim, channels_mlp_dim, device);
+    this.channel_fc2 = new torch.nn.Linear(channels_mlp_dim, hidden_dim, device);
   }
 
   forward(x) {
@@ -44,14 +45,14 @@ class MixerBlock extends torch.nn.Module {
  * Label-Conditioned Mixer Block
  */
 class ConditionedMixer extends torch.nn.Module {
-  constructor(patches, dim, label_dim = 128) {
+  constructor(patches, dim, label_dim = 128, device = "gpu") {
     super();
     this.patches = patches;
     this.dim = dim;
-    this.mixer = new MixerBlock(patches, dim, Math.floor(dim / 2), dim * 2);
+    this.mixer = new MixerBlock(patches, dim, Math.floor(dim / 2), dim * 2, device);
     
-    this.label_scale = new torch.nn.Linear(label_dim, patches * dim);
-    this.label_shift = new torch.nn.Linear(label_dim, patches * dim);
+    this.label_scale = new torch.nn.Linear(label_dim, patches * dim, device);
+    this.label_shift = new torch.nn.Linear(label_dim, patches * dim, device);
   }
 
   forward(x, label_emb) {
@@ -72,7 +73,7 @@ class ConditionedMixer extends torch.nn.Module {
  * Label Conditioned VAE Model (MLP-Mixer Version)
  */
 export class LabelConditionedVAE extends torch.nn.Module {
-  constructor() {
+  constructor(device = "gpu") {
     super();
     const patch_size = 4;
     const n_patches = 64; 
@@ -85,16 +86,16 @@ export class LabelConditionedVAE extends torch.nn.Module {
     this.hidden_dim = hidden_dim;
     this.latent_dim = latent_dim;
 
-    this.label_emb = new torch.nn.Embedding(CONFIG.NUM_CLASSES || 10, label_dim);
+    this.label_emb = new torch.nn.Embedding(CONFIG.NUM_CLASSES || 10, label_dim, device);
 
-    this.patch_proj = new torch.nn.Linear(48, hidden_dim); 
-    this.enc_mixer = new ConditionedMixer(n_patches, hidden_dim, label_dim);
-    this.z_mean = new torch.nn.Linear(n_patches * hidden_dim, latent_dim);
-    this.z_logvar = new torch.nn.Linear(n_patches * hidden_dim, latent_dim);
+    this.patch_proj = new torch.nn.Linear(48, hidden_dim, device); 
+    this.enc_mixer = new ConditionedMixer(n_patches, hidden_dim, label_dim, device);
+    this.z_mean = new torch.nn.Linear(n_patches * hidden_dim, latent_dim, device);
+    this.z_logvar = new torch.nn.Linear(n_patches * hidden_dim, latent_dim, device);
 
-    this.z_to_patches = new torch.nn.Linear(latent_dim, n_patches * hidden_dim);
-    this.dec_mixer = new ConditionedMixer(n_patches, hidden_dim, label_dim);
-    this.recon_proj = new torch.nn.Linear(hidden_dim, 48);
+    this.z_to_patches = new torch.nn.Linear(latent_dim, n_patches * hidden_dim, device);
+    this.dec_mixer = new ConditionedMixer(n_patches, hidden_dim, label_dim, device);
+    this.recon_proj = new torch.nn.Linear(hidden_dim, 48, device);
   }
 
   encode(x, labels) {
@@ -112,7 +113,7 @@ export class LabelConditionedVAE extends torch.nn.Module {
 
   reparameterize(mu, logvar) {
     const std = torch.exp(logvar.mul(0.5));
-    const eps = torch.randn(mu.shape);
+    const eps = torch.randn(mu.shape, false, mu.device);
     return mu.add(eps.mul(std));
   }
 
@@ -139,7 +140,7 @@ export class LabelConditionedVAE extends torch.nn.Module {
  * Label Conditioned Drift Network (MLP-Mixer Version)
  */
 export class LabelConditionedDrift extends torch.nn.Module {
-  constructor() {
+  constructor(device = "gpu") {
     super();
     const latent_dim = 64;
     const label_dim = 128;
@@ -149,14 +150,14 @@ export class LabelConditionedDrift extends torch.nn.Module {
     this.n_tokens = n_tokens;
     this.hidden_dim = hidden_dim;
 
-    this.time_fc1 = new torch.nn.Linear(1, 64);
-    this.time_fc2 = new torch.nn.Linear(64, label_dim);
+    this.time_fc1 = new torch.nn.Linear(1, 64, device);
+    this.time_fc2 = new torch.nn.Linear(64, label_dim, device);
 
-    this.label_emb = new torch.nn.Embedding(CONFIG.NUM_CLASSES || 10, label_dim);
+    this.label_emb = new torch.nn.Embedding(CONFIG.NUM_CLASSES || 10, label_dim, device);
 
-    this.head = new torch.nn.Linear(latent_dim, 4 * 32);
-    this.mixer = new ConditionedMixer(4, 32, label_dim);
-    this.tail = new torch.nn.Linear(4 * 32, latent_dim);
+    this.head = new torch.nn.Linear(latent_dim, 4 * 32, device);
+    this.mixer = new ConditionedMixer(4, 32, label_dim, device);
+    this.tail = new torch.nn.Linear(4 * 32, latent_dim, device);
   }
 
   forward(z, t, labels) {

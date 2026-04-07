@@ -12,21 +12,22 @@ class OUReference {
   }
 
   bridgeSample(z0, z1, t) {
+    const device = z0.device;
     // Vectorized version using torch
     const exp_neg_theta_t = torch.exp(t.mul(-this.theta));
-    const ones_t = torch.ones(t.shape);
+    const ones_t = torch.ones(t.shape, false, device);
     const exp_neg_theta_1_t = torch.exp(ones_t.sub(t).mul(-this.theta));
     const exp_neg_theta = Math.exp(-this.theta);
 
     const denominator = 1 - exp_neg_theta ** 2;
     
-    const term1 = exp_neg_theta_t.mul(torch.ones(exp_neg_theta_1_t.shape).sub(exp_neg_theta_1_t.pow(2)));
-    const term2 = torch.ones(exp_neg_theta_t.shape).sub(exp_neg_theta_t.pow(2)).mul(exp_neg_theta_1_t);
+    const term1 = exp_neg_theta_t.mul(torch.ones(exp_neg_theta_1_t.shape, false, device).sub(exp_neg_theta_1_t.pow(2)));
+    const term2 = torch.ones(exp_neg_theta_t.shape, false, device).sub(exp_neg_theta_t.pow(2)).mul(exp_neg_theta_1_t);
     
     const mean = term1.mul(z0).add(term2.mul(z1)).div(denominator);
     
-    const var_term = torch.ones(exp_neg_theta_t.shape).sub(exp_neg_theta_t.pow(2))
-      .mul(torch.ones(exp_neg_theta_1_t.shape).sub(exp_neg_theta_1_t.pow(2)))
+    const var_term = torch.ones(exp_neg_theta_t.shape, false, device).sub(exp_neg_theta_t.pow(2))
+      .mul(torch.ones(exp_neg_theta_1_t.shape, false, device).sub(exp_neg_theta_1_t.pow(2)))
       .mul(this.sigma ** 2 / (2 * this.theta))
       .div(denominator);
     
@@ -36,10 +37,11 @@ class OUReference {
 
 // Enhanced Label Trainer using js-pytorch
 export class EnhancedLabelTrainer {
-  constructor() {
+  constructor(device = "gpu") {
+    this.device = device;
     // Initialize models
-    this.vae = new LabelConditionedVAE();
-    this.drift = new LabelConditionedDrift();
+    this.vae = new LabelConditionedVAE(device);
+    this.drift = new LabelConditionedDrift(device);
 
     // Optimizers (js-pytorch style)
     this.opt_vae = new torch.optim.Adam(this.vae.parameters(), CONFIG.LR || 0.0002);
@@ -56,7 +58,7 @@ export class EnhancedLabelTrainer {
     // OU reference process
     this.ou_ref = new OUReference(CONFIG.OU_THETA || 1.0, CONFIG.OU_SIGMA || Math.sqrt(2));
 
-    console.log("💓 Enhanced Label Trainer initialized (js-pytorch)");
+    console.log(`💓 Enhanced Label Trainer initialized (js-pytorch / ${device.toUpperCase()})`);
   }
 
   setPhase(phase) {
@@ -72,9 +74,9 @@ export class EnhancedLabelTrainer {
   }
 
   async trainStep(batch, labels) {
-    const images = torch.tensor(batch);
+    const images = torch.tensor(batch, false, this.device);
     // Embedding expects [B, T]
-    const labelsTensor = torch.tensor(labels.map(l => [l]));
+    const labelsTensor = torch.tensor(labels.map(l => [l]), false, this.device);
 
     if (this.phase === 1) {
       // Phase 1: VAE
@@ -110,13 +112,13 @@ export class EnhancedLabelTrainer {
       const z1 = this.vae.reparameterize(mu, logvar);
       
       // Sample t and z0
-      const t = torch.rand([images.shape[0], 1]);
-      const z0 = torch.randn(z1.shape);
+      const t = torch.rand([images.shape[0], 1], false, this.device);
+      const z0 = torch.randn(z1.shape, false, this.device);
       
       // Sample zt and target
       const [mean, var_] = this.ou_ref.bridgeSample(z0, z1, t);
       // zt = mean + sqrt(var) * eps
-      const zt = mean.add(torch.randn(mean.shape).mul(torch.sqrt(var_)));
+      const zt = mean.add(torch.randn(mean.shape, false, this.device).mul(torch.sqrt(var_)));
       const target = z1.sub(z0);
       
       const pred = this.drift.forward(zt, t, labelsTensor);
@@ -146,9 +148,9 @@ export class EnhancedLabelTrainer {
 
   async generateSamples(labels, count = 4) {
     // Embedding expects [B, T]
-    const labelsTensor = torch.tensor(labels.slice(0, count).map(l => [l]));
+    const labelsTensor = torch.tensor(labels.slice(0, count).map(l => [l]), false, this.device);
     // Latent dim is 64
-    const z = torch.randn([labelsTensor.shape[0], 64]);
+    const z = torch.randn([labelsTensor.shape[0], 64], false, this.device);
     const samples = this.vae.decode(z, labelsTensor);
     // js-pytorch tensor to array conversion
     return samples.tolist ? samples.tolist() : samples._data;
