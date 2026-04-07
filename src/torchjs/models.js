@@ -2,11 +2,43 @@
 // MLP-Mixer architecture for improved spatial quality in js-pytorch 0.7.2
 // Hardware accelerated (GPU/WebGL)
 
-import * as JSTorch from 'js-pytorch';
-import { CONFIG } from "../config.js";
+// Check for global torch first (browser version loaded via script tag)
+let torch_obj;
+if (typeof window !== 'undefined' && window.torch) {
+  torch_obj = window.torch;
+}
 
-// Robust import handling for both Node.js and Browser (Vite/CDN)
-const torch = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+/**
+ * Robust async initializer for torch to handle both Node and Browser
+ */
+async function getTorch() {
+  if (torch_obj) return torch_obj;
+  
+  try {
+    const JSTorch = await import('js-pytorch');
+    torch_obj = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    return torch_obj;
+  } catch (e) {
+    // If dynamic import fails, try to return global if it appeared
+    if (typeof torch !== 'undefined') return torch;
+    throw e;
+  }
+}
+
+// Initial sync check for Node.js tests
+if (!torch_obj && typeof process !== 'undefined') {
+  // In Node, we can try to require or it will be handled by the async getter
+}
+
+// We need a way to export the classes but they depend on torch
+// So we'll use a proxy or just ensure torch is ready before use.
+// For js-pytorch 0.7.2, the classes need torch.nn.Module as base.
+
+/**
+ * Since JS-PyTorch classes are defined at load time, we need torch immediately.
+ * In the browser, it's global. In Node, we'll import it.
+ */
+const torch = typeof window !== 'undefined' && window.torch ? window.torch : (await import('js-pytorch')).torch;
 
 // Global activation instances
 const relu_module = new torch.nn.ReLU();
@@ -89,7 +121,7 @@ export class LabelConditionedVAE extends torch.nn.Module {
     this.hidden_dim = hidden_dim;
     this.latent_dim = latent_dim;
 
-    this.label_emb = new torch.nn.Embedding(CONFIG.NUM_CLASSES || 10, label_dim, device);
+    this.label_emb = new torch.nn.Embedding(10, label_dim, device);
 
     this.patch_proj = new torch.nn.Linear(48, hidden_dim, device); 
     this.enc_mixer = new ConditionedMixer(n_patches, hidden_dim, label_dim, device);
@@ -156,7 +188,7 @@ export class LabelConditionedDrift extends torch.nn.Module {
     this.time_fc1 = new torch.nn.Linear(1, 64, device);
     this.time_fc2 = new torch.nn.Linear(64, label_dim, device);
 
-    this.label_emb = new torch.nn.Embedding(CONFIG.NUM_CLASSES || 10, label_dim, device);
+    this.label_emb = new torch.nn.Embedding(10, label_dim, device);
 
     this.head = new torch.nn.Linear(latent_dim, 4 * 32, device);
     this.mixer = new ConditionedMixer(4, 32, label_dim, device);
