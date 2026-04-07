@@ -2,6 +2,7 @@ import { LocalDatabase } from "../storage/database.js";
 import { CloudflareTunnel } from "../network/tunnel.js";
 import { PhaseManager } from "./phase.js";
 import { ModelManager } from "./models.js";
+import { CONFIG } from "../config.js";
 
 class EnhancedSwarmTrainer {
   constructor(config = {}) {

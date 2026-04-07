@@ -24,11 +24,25 @@ async function resolveTorch() {
       }, 100);
     });
   }
-  const JSTorch = await import('js-pytorch');
-  return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+  
+  // Node.js environment
+  try {
+    const JSTorch = await import('js-pytorch');
+    return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+  } catch (e) {
+    if (typeof globalThis !== 'undefined' && globalThis.torch) {
+      return globalThis.torch;
+    }
+    throw e;
+  }
 }
 
 const torch = await resolveTorch();
+
+// Verify submodule existence
+if (!torch || !torch.nn) {
+  throw new Error("js-pytorch (torch.nn) is not initialized correctly.");
+}
 
 // Global activation instances
 const relu_module = new torch.nn.ReLU();

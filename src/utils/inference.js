@@ -21,8 +21,15 @@ async function resolveTorch() {
       }, 100);
     });
   }
-  const JSTorch = await import('js-pytorch');
-  return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+  try {
+    const JSTorch = await import('js-pytorch');
+    return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+  } catch (e) {
+    if (typeof globalThis !== 'undefined' && globalThis.torch) {
+      return globalThis.torch;
+    }
+    throw e;
+  }
 }
 
 const torch = await resolveTorch();
