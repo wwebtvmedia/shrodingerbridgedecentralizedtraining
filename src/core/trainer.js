@@ -228,6 +228,11 @@ class SwarmTrainer {
   }
 
   async generateSamples(count = 4) {
+    console.log("⚠️ FAKE SAMPLE GENERATION: Generating simulated samples (no real model)");
+    // Also log to UI if available
+    if (typeof window !== 'undefined' && window.enhancedApp && window.enhancedApp.ui && window.enhancedApp.ui.log) {
+      window.enhancedApp.ui.log("⚠️ FAKE SAMPLE GENERATION: Generating simulated samples");
+    }
     // Generate sample images (simulated for now)
     const samples = [];
     for (let i = 0; i < count; i++) {

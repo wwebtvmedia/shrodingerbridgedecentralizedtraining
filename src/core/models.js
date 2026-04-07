@@ -159,7 +159,11 @@ class ModelManager {
       };
     } else {
       // Fall back to simulation
-      console.log("🔄 Using simulated training (tfjs not available)");
+      console.log("⚠️ FAKE TRAINING: Using simulated training because TensorFlow.js is not available");
+      // Also log to UI if available
+      if (typeof window !== 'undefined' && window.enhancedApp && window.enhancedApp.ui && window.enhancedApp.ui.log) {
+        window.enhancedApp.ui.log("⚠️ FAKE TRAINING: Using simulated training (TensorFlow.js not available)");
+      }
       const loss = this.simulateLoss(batch, labels, phase);
       await this.simulateParameterUpdate(loss);
       await this.updateModelHash();
@@ -172,6 +176,7 @@ class ModelManager {
           diversity_loss: loss * 0.1,
           phase: phase,
           torchjs: false,
+          simulated: true,
         },
       };
     }

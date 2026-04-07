@@ -5,16 +5,38 @@ import * as tf from '@tensorflow/tfjs';
 import { CONFIG } from "../config.js";
 import { LabelConditionedVAE, LabelConditionedDrift } from "./models.js";
 
+// Helper function to check if a backend is available
+const isBackendAvailable = (backendName) => {
+  try {
+    // Check if backend exists in registry
+    if (tf.engine && tf.engine().registry) {
+      return backendName in tf.engine().registry;
+    }
+    // Fallback: try to get current backend
+    return tf.getBackend() === backendName;
+  } catch (e) {
+    return false;
+  }
+};
+
 // Conditional backend loading to prevent "already registered" errors
 const loadBackends = async () => {
-  try {
-    // WASM and WebGPU are not in the union package by default, so we import them
-    if (!tf.findBackend('wasm')) await import('@tensorflow/tfjs-backend-wasm');
-    if (!tf.findBackend('webgpu')) await import('@tensorflow/tfjs-backend-webgpu');
-    // WebGL is usually in the union package, but we check just in case
-    if (!tf.findBackend('webgl')) await import('@tensorflow/tfjs-backend-webgl');
-  } catch (e) {
-    console.warn("Lazy backend loading failed:", e);
+  const backends = [
+    { name: 'wasm', pkg: '@tensorflow/tfjs-backend-wasm' },
+    { name: 'webgpu', pkg: '@tensorflow/tfjs-backend-webgpu' },
+    { name: 'webgl', pkg: '@tensorflow/tfjs-backend-webgl' }
+  ];
+  
+  for (const backend of backends) {
+    if (!isBackendAvailable(backend.name)) {
+      try {
+        await import(backend.pkg);
+        console.log(`✅ Loaded ${backend.name} backend`);
+      } catch (e) {
+        console.warn(`⚠️ Failed to load ${backend.name} backend: ${e.message}`);
+        // Continue with other backends
+      }
+    }
   }
 };
 
@@ -130,7 +152,7 @@ export class TFJSTrainer {
         // 1. Check for Node-specific acceleration (CUDA/TensorFlow-Native)
         if (typeof process !== 'undefined' && process.versions && process.versions.node) {
           try {
-            if (tf.findBackend('tensorflow')) {
+            if (isBackendAvailable('tensorflow')) {
               console.log("✅ Using TensorFlow Native (Node.js)");
               await tf.setBackend('tensorflow');
               await tf.ready();
@@ -149,7 +171,7 @@ export class TFJSTrainer {
         if (typeof navigator !== 'undefined' && navigator.gpu) {
           try {
             console.log("🔍 Probing WebGPU...");
-            if (tf.findBackend('webgpu')) {
+            if (isBackendAvailable('webgpu')) {
               await withTimeout(tf.setBackend('webgpu'), 3000);
               await tf.ready();
               console.log("✅ WebGPU selected");
@@ -168,7 +190,7 @@ export class TFJSTrainer {
         if (typeof navigator !== 'undefined') {
           try {
             console.log("🔍 Probing WebGL...");
-            if (tf.findBackend('webgl')) {
+            if (isBackendAvailable('webgl')) {
               await withTimeout(tf.setBackend('webgl'), 3000);
               await tf.ready();
               console.log("✅ WebGL selected");
@@ -186,7 +208,7 @@ export class TFJSTrainer {
         // 4. Optimized CPU: WASM (Max 5s wait)
         try {
           console.log("🔍 Probing WASM...");
-          if (tf.findBackend('wasm')) {
+          if (isBackendAvailable('wasm')) {
             if (typeof window !== 'undefined' && tf.wasm) {
               const version = tf.version_core || '4.17.0';
               tf.wasm.setWasmPaths(`https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@${version}/dist/`);
@@ -342,6 +364,34 @@ export class TFJSTrainer {
       const samples = this.vae.decode(z, labelsTensor);
       return samples.arraySync();
     });
+  }
+
+  async saveCheckpoint() {
+    if (!this.isInitialized) await this.initialize();
+    const checkpoint = {
+      epoch: this.epoch,
+      phase: this.phase,
+      device: this.device,
+      vae_state: this.vae ? this.vae.getWeights() : null,
+      drift_state: this.drift ? this.drift.getWeights() : null
+    };
+    console.log(`✅ Checkpoint saved at epoch ${this.epoch}`);
+    return checkpoint;
+  }
+
+  async loadCheckpoint(checkpoint) {
+    if (!this.isInitialized) await this.initialize();
+    this.epoch = checkpoint.epoch || this.epoch;
+    this.phase = checkpoint.phase || this.phase;
+    
+    if (checkpoint.vae_state && this.vae && this.vae.setWeights) {
+      this.vae.setWeights(checkpoint.vae_state);
+    }
+    if (checkpoint.drift_state && this.drift && this.drift.setWeights) {
+      this.drift.setWeights(checkpoint.drift_state);
+    }
+    
+    console.log(`✅ Checkpoint loaded from epoch ${this.epoch}`);
   }
 
   getModelState() {

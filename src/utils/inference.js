@@ -46,7 +46,7 @@ class InferenceEngine {
       this.torch = torchModule;
       console.log("✅ Torch-js loaded for inference");
     } catch (error) {
-      console.warn("⚠️ Torch-js not available, inference will use simulation");
+      console.warn("⚠️ FAKE INFERENCE: Torch-js not available, inference will use simulation");
       this.torch = null;
     }
 
@@ -140,6 +140,11 @@ class InferenceEngine {
     if (this.torch && this.checkpoint) {
       return await this.generateWithModel(config);
     } else {
+      console.warn("⚠️ FAKE INFERENCE: Using simulated inference because torch-js or checkpoint is not available");
+      // Also log to UI if available
+      if (typeof window !== 'undefined' && window.enhancedApp && window.enhancedApp.ui && window.enhancedApp.ui.log) {
+        window.enhancedApp.ui.log("⚠️ FAKE INFERENCE: Using simulated inference (torch-js not available)");
+      }
       return await this.simulateInference(config);
     }
   }
@@ -317,6 +322,11 @@ class InferenceEngine {
   }
 
   async simulateInference(config) {
+    console.log("⚠️ FAKE INFERENCE: Starting simulated inference (no real model)");
+    // Also log to UI if available
+    if (typeof window !== 'undefined' && window.enhancedApp && window.enhancedApp.ui && window.enhancedApp.ui.log) {
+      window.enhancedApp.ui.log("⚠️ FAKE INFERENCE: Starting simulated inference");
+    }
     const samples = [];
     const sampleCount = config.sampleCount || 4;
 
@@ -340,6 +350,7 @@ class InferenceEngine {
       samples.push(sample);
     }
 
+    console.log("⚠️ FAKE INFERENCE: Simulated inference completed");
     return samples;
   }
 
