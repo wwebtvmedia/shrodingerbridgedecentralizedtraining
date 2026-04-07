@@ -11,29 +11,35 @@ import { CONFIG } from "../config.js";
 async function resolveTorch() {
   // 1. Browser check - Prioritize script-loaded global
   if (typeof window !== 'undefined') {
-    if (window.torch) return window.torch;
+    if (window.torch && window.torch.nn) return window.torch;
     
     return new Promise((resolve, reject) => {
       let attempts = 0;
       const interval = setInterval(() => {
-        if (window.torch) {
+        if (window.torch && window.torch.nn) {
           clearInterval(interval);
           resolve(window.torch);
         }
         if (attempts++ > 100) {
           clearInterval(interval);
-          reject(new Error("Timeout waiting for window.torch. Ensure /js/js-pytorch-browser.js is loaded."));
+          reject(new Error("Timeout waiting for window.torch.nn submodule. Check if /js/js-pytorch-browser.js is loaded correctly."));
         }
       }, 100);
     });
   }
   
-  // 2. Node.js environment
+  // 2. Node.js environment - use dynamic import
   try {
     const JSTorch = await import('js-pytorch');
-    return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    const t = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    if (t && t.nn) return t;
+    // Fallback if import returns empty module
+    if (typeof globalThis !== 'undefined' && globalThis.torch && globalThis.torch.nn) {
+      return globalThis.torch;
+    }
+    throw new Error("js-pytorch (torch.nn) not found in imported module.");
   } catch (e) {
-    if (typeof globalThis !== 'undefined' && globalThis.torch) {
+    if (typeof globalThis !== 'undefined' && globalThis.torch && globalThis.torch.nn) {
       return globalThis.torch;
     }
     throw e;
@@ -41,11 +47,6 @@ async function resolveTorch() {
 }
 
 const torch = await resolveTorch();
-
-// Verify submodule existence
-if (!torch || !torch.nn) {
-  throw new Error("js-pytorch (torch.nn) is not initialized correctly.");
-}
 
 // Global activation instances
 const relu_module = new torch.nn.ReLU();

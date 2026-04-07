@@ -8,26 +8,28 @@ import { EnhancedLabelTrainer } from "./training.js";
  */
 async function resolveTorch() {
   if (typeof window !== 'undefined') {
-    if (window.torch) return window.torch;
+    if (window.torch && window.torch.nn) return window.torch;
     return new Promise((resolve, reject) => {
       let attempts = 0;
       const interval = setInterval(() => {
-        if (window.torch) {
+        if (window.torch && window.torch.nn) {
           clearInterval(interval);
           resolve(window.torch);
         }
         if (attempts++ > 100) {
           clearInterval(interval);
-          reject(new Error("Timeout waiting for torch"));
+          reject(new Error("Timeout waiting for torch.nn"));
         }
       }, 100);
     });
   }
   try {
     const JSTorch = await import('js-pytorch');
-    return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    const t = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    if (t && t.nn) return t;
+    throw new Error("Invalid js-pytorch module");
   } catch (e) {
-    if (typeof globalThis !== 'undefined' && globalThis.torch) {
+    if (typeof globalThis !== 'undefined' && globalThis.torch && globalThis.torch.nn) {
       return globalThis.torch;
     }
     throw e;
