@@ -5,6 +5,7 @@ export const CONFIG = {
   // Dataset configuration
   DATASET_NAME: "STL10",
   NUM_CLASSES: 10,
+  BATCH_SIZE: 16,
   LABEL_EMB_DIM: 128,
   USE_CONTEXT: true,
   CONTEXT_DIM: 64,
