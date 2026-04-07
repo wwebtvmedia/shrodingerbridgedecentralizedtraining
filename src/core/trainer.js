@@ -105,24 +105,31 @@ class SwarmTrainer {
   }
 
   async trainEpoch() {
-    const phaseParams = this.phaseManager.getPhaseParameters(this.currentPhase);
+    // Generate dummy training data for this epoch
+    // In a real application, this would come from a dataset loader
+    const batchSize = 2;
+    const dummyBatch = [];
+    for (let i = 0; i < batchSize; i++) {
+      const pixels = new Array(3 * 32 * 32).fill(0).map(() => Math.random() * 2 - 1);
+      dummyBatch.push(pixels);
+    }
+    const dummyLabels = new Array(batchSize).fill(0).map(() => Math.floor(Math.random() * 10));
 
-    // Simulate training (replace with actual WebTorch training)
-    const loss = 0.5 + Math.random() * 0.3 * Math.exp(-this.currentEpoch / 100);
+    // Train using model manager
+    const result = await this.modelManager.trainStep(
+      dummyBatch,
+      dummyLabels,
+      this.currentPhase === "auto" ? this.phaseManager.determinePhase(this.currentEpoch) : this.currentPhase
+    );
+
     const metrics = {
-      diversity: 0.7 + Math.random() * 0.2,
-      reconstruction: 0.3 + Math.random() * 0.2,
-      kl_divergence: 0.1 + Math.random() * 0.05,
+      diversity: result.metrics.kl_loss ? (1 / (1 + result.metrics.kl_loss)) : 0.5,
+      reconstruction: result.metrics.recon_loss || result.loss,
+      kl_divergence: result.metrics.kl_loss || 0,
+      ...result.metrics
     };
 
-    // Apply phase-specific adjustments
-    if (this.currentPhase === "vae") {
-      metrics.reconstruction *= 0.8; // Better reconstruction in VAE phase
-    } else if (this.currentPhase === "drift") {
-      metrics.diversity *= 1.2; // Better diversity in drift phase
-    }
-
-    return { loss, metrics };
+    return { loss: result.loss, metrics };
   }
 
   async shareResults(loss, metrics) {
@@ -228,40 +235,41 @@ class SwarmTrainer {
   }
 
   async generateSamples(count = 4) {
-    console.log("⚠️ FAKE SAMPLE GENERATION: Generating simulated samples (no real model)");
-    // Also log to UI if available
-    if (typeof window !== 'undefined' && window.enhancedApp && window.enhancedApp.ui && window.enhancedApp.ui.log) {
-      window.enhancedApp.ui.log("⚠️ FAKE SAMPLE GENERATION: Generating simulated samples");
+    console.log(`🎨 Generating ${count} real samples using hardware acceleration...`);
+    
+    try {
+      // Use the underlying trainer for sample generation
+      const { tfjsTrainer } = await import("../torchjs/integration.js");
+      const samples = await tfjsTrainer.generateSamples([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], count);
+      
+      // Convert flattened arrays back to data URLs for the UI
+      return samples.map(pixels => this.arrayToDataURL(pixels));
+    } catch (error) {
+      console.error("Sample generation failed:", error);
+      return [];
     }
-    // Generate sample images (simulated for now)
-    const samples = [];
-    for (let i = 0; i < count; i++) {
-      // Create a simple colored canvas
-      const canvas = document.createElement("canvas");
-      canvas.width = 64;
-      canvas.height = 64;
-      const ctx = canvas.getContext("2d");
+  }
 
-      // Generate random color
-      const hue = Math.random() * 360;
-      ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
-      ctx.fillRect(0, 0, 64, 64);
+  arrayToDataURL(pixels) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext("2d");
+    const imgData = ctx.createImageData(32, 32);
 
-      // Add some random shapes
-      ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-      for (let j = 0; j < 5; j++) {
-        const x = Math.random() * 64;
-        const y = Math.random() * 64;
-        const size = 5 + Math.random() * 15;
-        ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      samples.push(canvas.toDataURL());
+    for (let i = 0; i < 1024; i++) {
+      const r = Math.floor((pixels[i] || 0) * 255);
+      const g = Math.floor((pixels[i + 1024] || 0) * 255);
+      const b = Math.floor((pixels[i + 2048] || 0) * 255);
+      
+      imgData.data[i * 4] = Math.max(0, Math.min(255, r));
+      imgData.data[i * 4 + 1] = Math.max(0, Math.min(255, g));
+      imgData.data[i * 4 + 2] = Math.max(0, Math.min(255, b));
+      imgData.data[i * 4 + 3] = 255;
     }
 
-    return samples;
+    ctx.putImageData(imgData, 0, 0);
+    return canvas.toDataURL();
   }
 
   async generateAndShareSamples() {

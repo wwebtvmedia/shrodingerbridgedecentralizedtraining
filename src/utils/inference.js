@@ -1,6 +1,9 @@
-import { torch } from 'js-pytorch';
+import * as JSTorch from 'js-pytorch';
 import { CONFIG } from "../config.js";
 import { LabelConditionedVAE, LabelConditionedDrift } from "../torchjs/models.js";
+
+// Robust import handling
+const torch = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
 
 export class InferenceEngine {
   constructor() {

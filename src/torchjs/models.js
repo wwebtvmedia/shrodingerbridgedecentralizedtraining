@@ -2,8 +2,11 @@
 // MLP-Mixer architecture for improved spatial quality in js-pytorch 0.7.2
 // Hardware accelerated (GPU/WebGL)
 
-import { torch } from 'js-pytorch';
+import * as JSTorch from 'js-pytorch';
 import { CONFIG } from "../config.js";
+
+// Robust import handling for both Node.js and Browser (Vite/CDN)
+const torch = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
 
 // Global activation instances
 const relu_module = new torch.nn.ReLU();

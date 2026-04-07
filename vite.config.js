@@ -21,6 +21,6 @@ export default defineConfig({
     open: true,
   },
   optimizeDeps: {
-    exclude: ["@web/torch"],
+    exclude: ["js-pytorch"],
   },
 });

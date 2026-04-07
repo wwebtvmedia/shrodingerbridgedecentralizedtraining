@@ -1,8 +1,11 @@
-import { torch } from 'js-pytorch';
+import * as JSTorch from 'js-pytorch';
 import {
   CONFIG,
 } from "../config.js";
 import { LabelConditionedVAE, LabelConditionedDrift } from "./models.js";
+
+// Robust import handling
+const torch = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
 
 // OU Reference Process
 class OUReference {
