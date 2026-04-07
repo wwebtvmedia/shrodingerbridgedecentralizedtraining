@@ -1,6 +1,6 @@
 // PyTorch-like implementation of Schrödinger Bridge models using js-pytorch
 // MLP-Mixer architecture for improved spatial quality in js-pytorch 0.7.2
-// Hardware accelerated (GPU/WebGL)
+// Optimized for GPU stability (avoiding 3D matmul/transpose bugs)
 
 import { CONFIG } from "../config.js";
 
@@ -19,19 +19,16 @@ async function resolveTorch() {
         }
         if (attempts++ > 100) {
           clearInterval(interval);
-          reject(new Error("Timeout waiting for window.torch.nn submodule. Check if /js/js-pytorch-browser.js is loaded correctly."));
+          reject(new Error("Timeout waiting for window.torch. Ensure /js/js-pytorch-browser.js is loaded."));
         }
       }, 100);
     });
   }
-  
-  // Node.js environment
   try {
     const JSTorchModule = await import('js-pytorch');
-    // Extract torch from module namespace if it's there
     const t = JSTorchModule.torch || (JSTorchModule.default && JSTorchModule.default.torch) || JSTorchModule;
     if (t && t.nn) return t;
-    throw new Error("js-pytorch (torch.nn) not found in module.");
+    throw new Error("js-pytorch (torch.nn) not found.");
   } catch (e) {
     if (typeof globalThis !== 'undefined' && globalThis.torch && globalThis.torch.nn) {
       return globalThis.torch;
@@ -47,36 +44,62 @@ const relu_module = new torch.nn.ReLU();
 const relu = (x) => relu_module.forward(x);
 
 /**
- * Mixer Block: Performs spatial (token) and feature (channel) mixing.
+ * Mixer Block: Refactored to avoid complex 3D transpositions
+ * that trigger shader compilation errors in js-pytorch 0.7.2.
  */
 class MixerBlock extends torch.nn.Module {
   constructor(n_patches, hidden_dim, tokens_mlp_dim, channels_mlp_dim, device = "gpu") {
     super();
+    this.n_patches = n_patches;
+    this.hidden_dim = hidden_dim;
+    
     this.ln1 = new torch.nn.LayerNorm(hidden_dim, device);
     this.ln2 = new torch.nn.LayerNorm(hidden_dim, device);
 
+    // Token mixing (Spatial) - processed as 2D to avoid 3D matmul bugs
     this.token_fc1 = new torch.nn.Linear(n_patches, tokens_mlp_dim, device);
     this.token_fc2 = new torch.nn.Linear(tokens_mlp_dim, n_patches, device);
 
+    // Channel mixing (Feature)
     this.channel_fc1 = new torch.nn.Linear(hidden_dim, channels_mlp_dim, device);
     this.channel_fc2 = new torch.nn.Linear(channels_mlp_dim, hidden_dim, device);
   }
 
   forward(x) {
-    // 1. Token Mixing
-    let h = this.ln1.forward(x);
-    h = h.transpose(1, 2); 
-    h = relu(this.token_fc1.forward(h));
-    h = this.token_fc2.forward(h);
-    h = h.transpose(1, 2); 
-    let out = x.add(h);
-
-    // 2. Channel Mixing
-    h = this.ln2.forward(out);
-    h = relu(this.channel_fc1.forward(h));
-    h = this.channel_fc2.forward(h);
+    const B = x.shape[0];
     
-    return out.add(h);
+    // 1. Token Mixing (Across Patches)
+    // Input x is [B, n_patches, hidden_dim]
+    let h = this.ln1.forward(x);
+    
+    // To mix tokens safely, we transpose manually by reshaping if needed,
+    // but js-pytorch transpose(1, 2) is what we have. 
+    // To be extra safe, we process each step carefully.
+    let h_token = h.transpose(1, 2); // [B, hidden_dim, n_patches]
+    
+    // Flatten batch and hidden_dim to process all token vectors at once
+    // [B*hidden_dim, n_patches]
+    h_token = h_token.reshape([B * this.hidden_dim, this.n_patches]);
+    h_token = relu(this.token_fc1.forward(h_token));
+    h_token = this.token_fc2.forward(h_token);
+    
+    // Reshape back and transpose
+    h_token = h_token.reshape([B, this.hidden_dim, this.n_patches]);
+    h_token = h_token.transpose(1, 2); // [B, n_patches, hidden_dim]
+    
+    let out = x.add(h_token);
+
+    // 2. Channel Mixing (Across Features)
+    // Process as [B * n_patches, hidden_dim]
+    let h_chan = this.ln2.forward(out);
+    h_chan = h_chan.reshape([B * this.n_patches, this.hidden_dim]);
+    h_chan = relu(this.channel_fc1.forward(h_chan));
+    h_chan = this.channel_fc2.forward(h_chan);
+    
+    // Reshape back
+    h_chan = h_chan.reshape([B, this.n_patches, this.hidden_dim]);
+    
+    return out.add(h_chan);
   }
 }
 
@@ -89,6 +112,7 @@ class ConditionedMixer extends torch.nn.Module {
     this.patches = patches;
     this.dim = dim;
     this.mixer = new MixerBlock(patches, dim, Math.floor(dim / 2), dim * 2, device);
+    
     this.label_scale = new torch.nn.Linear(label_dim, patches * dim, device);
     this.label_shift = new torch.nn.Linear(label_dim, patches * dim, device);
   }
@@ -106,7 +130,7 @@ class ConditionedMixer extends torch.nn.Module {
 }
 
 /**
- * Label Conditioned VAE Model (MLP-Mixer Version)
+ * Label Conditioned VAE Model
  */
 export class LabelConditionedVAE extends torch.nn.Module {
   constructor(device = "gpu") {
@@ -162,7 +186,7 @@ export class LabelConditionedVAE extends torch.nn.Module {
 }
 
 /**
- * Label Conditioned Drift Network (MLP-Mixer Version)
+ * Label Conditioned Drift Network
  */
 export class LabelConditionedDrift extends torch.nn.Module {
   constructor(device = "gpu") {
@@ -171,12 +195,10 @@ export class LabelConditionedDrift extends torch.nn.Module {
     const label_dim = 128;
     this.time_fc1 = new torch.nn.Linear(1, 64, device);
     this.time_fc2 = new torch.nn.Linear(64, label_dim, device);
-
     this.label_emb = new torch.nn.Embedding(CONFIG.NUM_CLASSES || 10, label_dim, device);
-
-    this.head = new torch.nn.Linear(latent_dim, 128, device);
+    this.head = new torch.nn.Linear(latent_dim, 4 * 32, device);
     this.mixer = new ConditionedMixer(4, 32, label_dim, device);
-    this.tail = new torch.nn.Linear(128, latent_dim, device);
+    this.tail = new torch.nn.Linear(4 * 32, latent_dim, device);
   }
 
   forward(z, t, labels) {
