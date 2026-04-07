@@ -206,34 +206,29 @@ class EnhancedSwarmTrainer {
       this.currentPhase = this.phaseManager.determinePhase(this.currentEpoch);
     }
 
-    // Fetch real training data from database
+    const targetBatchSize = this.config.batchSize || CONFIG.BATCH_SIZE || 16;
     let batch = [];
     let labels = [];
     
+    // 1. Fetch data from database
     if (this.database) {
-      const trainingData = await this.database.getTrainingData(this.config.batchSize || CONFIG.BATCH_SIZE || 16);
+      const trainingData = await this.database.getTrainingData(targetBatchSize);
       if (trainingData && trainingData.length > 0) {
-        // Process training data into tensors-compatible format
         batch = trainingData.map(item => {
-          // If it's an image string, we'd need to convert it to pixels
-          // For now, if it's already a numeric array or buffer, use it
-          // Otherwise, generate a random tensor of correct shape to avoid crash
           return item.data && Array.isArray(item.data) ? item.data : this.generateDummyData();
         });
         labels = trainingData.map(item => item.metadata?.label || 0);
       }
     }
 
-    // If no data in database, use fallback data (to keep training running but with "real" tensors)
-    if (batch.length === 0) {
-      const batchSize = this.config.batchSize || CONFIG.BATCH_SIZE || 16;
-      for (let i = 0; i < batchSize; i++) {
-        batch.push(this.generateDummyData());
-        labels.push(Math.floor(Math.random() * (CONFIG.NUM_CLASSES || 10)));
-      }
+    // 2. Padding logic: ALWAYS ensure batch size is exactly targetBatchSize
+    // This is CRITICAL for js-pytorch GPU kernel stability
+    while (batch.length < targetBatchSize) {
+      batch.push(this.generateDummyData());
+      labels.push(Math.floor(Math.random() * (CONFIG.NUM_CLASSES || 10)));
     }
 
-    // Train epoch with real data
+    // 3. Train epoch with strictly constant batch size
     const { loss, metrics } = await this.modelManager.trainStep(
       batch,
       labels,
