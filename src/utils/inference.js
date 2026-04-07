@@ -23,7 +23,9 @@ async function resolveTorch() {
   }
   try {
     const JSTorch = await import('js-pytorch');
-    return JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    const t = JSTorch.torch || (JSTorch.default && JSTorch.default.torch) || JSTorch;
+    if (!t || !t.nn) throw new Error("Invalid js-pytorch module");
+    return t;
   } catch (e) {
     if (typeof globalThis !== 'undefined' && globalThis.torch) {
       return globalThis.torch;
