@@ -242,6 +242,11 @@ class CloudflareTunnel {
         this.handleHeartbeat(message);
         break;
 
+      case "HEARTBEAT_RESPONSE":
+        // Heartbeat responses are handled internally by the tunnel server
+        // but we acknowledge them here to avoid warnings.
+        break;
+
       case "TUNNEL_STATS":
         this.handleTunnelStats(message);
         break;

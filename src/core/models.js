@@ -1,7 +1,7 @@
 import { tfjsTrainer } from "../torchjs/integration.js";
 import { CONFIG } from "../config.js";
 
-class ModelManager {
+export class ModelManager {
   constructor() {
     this.model = null;
     this.optimizer = null;
@@ -14,7 +14,7 @@ class ModelManager {
     this.state = {
       parameters: null,
       hash: null,
-      version: "4.0.0", // Updated for js-pytorch integration
+      version: "4.0.0",
       torchjs_initialized: false,
     };
   }
@@ -36,201 +36,64 @@ class ModelManager {
         };
         this.isInitialized = true;
         this.state.torchjs_initialized = true;
+        
+        // Initial hash
+        await this.updateModelHash();
+        
         console.log("✅ Model manager initialized with js-pytorch");
       } else {
         throw new Error("Trainer not initialized");
       }
     } catch (error) {
       console.error("❌ Model initialization failed:", error);
-      // Fallback to prototype model
-      await this.createPrototypeModel();
-      this.isInitialized = true;
+      this.isInitialized = false;
     }
   }
 
-  async createPrototypeModel() {
-    // For prototype, create a simple model structure
-    // In production, this would load the actual Schrödinger Bridge models
+  async trainStep(batch, labels, phase = 1) {
+    if (!this.isInitialized) await this.initialize();
 
-    this.model = {
-      vae: {
-        encoder: this.createEncoder(),
-        decoder: this.createDecoder(),
-      },
-      drift: this.createDriftNetwork(),
-    };
+    try {
+      // Ensure phase is numeric for TorchJS
+      let phaseNum = 1;
+      if (phase === "vae" || phase === 1) phaseNum = 1;
+      else if (phase === "drift" || phase === 2) phaseNum = 2;
+      else if (phase === "both" || phase === 3) phaseNum = 3;
 
-    // Create optimizer
-    this.optimizer = {
-      vae: { lr: this.config.learningRate },
-      drift: { lr: this.config.learningRate * 2 },
-    };
+      tfjsTrainer.setPhase(phaseNum);
 
-    // Generate initial hash
-    await this.updateModelHash();
-  }
-
-  createEncoder() {
-    // Simple encoder for prototype
-    return {
-      layers: [
-        { type: "conv", in: 3, out: 16, kernel: 3 },
-        { type: "conv", in: 16, out: 32, kernel: 3, stride: 2 },
-        { type: "conv", in: 32, out: 64, kernel: 3, stride: 2 },
-        { type: "linear", in: 64 * 8 * 8, out: (this.config.latentChannels || 4) * 2 },
-      ],
-      activation: "silu",
-    };
-  }
-
-  createDecoder() {
-    // Simple decoder for prototype
-    return {
-      layers: [
-        { type: "linear", in: this.config.latentChannels || 4, out: 64 * 8 * 8 },
-        { type: "conv_transpose", in: 64, out: 32, kernel: 3, stride: 2 },
-        { type: "conv_transpose", in: 32, out: 16, kernel: 3, stride: 2 },
-        { type: "conv", in: 16, out: 3, kernel: 3 },
-      ],
-      activation: "silu",
-    };
-  }
-
-  createDriftNetwork() {
-    // Simple drift network for prototype
-    return {
-      layers: [
-        {
-          type: "conv",
-          in: (this.config.latentChannels || 4) + (this.config.labelEmbDim || 128),
-          out: 64,
-          kernel: 3,
-        },
-        { type: "conv", in: 64, out: 128, kernel: 3 },
-        { type: "conv", in: 128, out: 64, kernel: 3 },
-        { type: "conv", in: 64, out: this.config.latentChannels || 4, kernel: 3 },
-      ],
-      timeEmbedding: true,
-      labelConditioning: true,
-    };
-  }
-
-  async trainStep(batch, labels, phase) {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
-    console.log(`Training step - Phase: ${phase}, Batch size: ${batch.length}`);
-
-    // Use js-pytorch trainer
-    if (this.state.torchjs_initialized && tfjsTrainer.isInitialized) {
-      // Set phase
-      tfjsTrainer.setPhase(phase);
-
-      // Train step
       const result = await tfjsTrainer.trainStep(batch, labels);
 
-      // Update model hash
+      // Update local hash after training
       await this.updateModelHash();
 
       return {
         loss: result.loss,
-        metrics: {
-          ...result.metrics,
-          torchjs: true,
-        },
+        metrics: result.metrics,
+        hash: this.state.hash,
+        usingTorchJS: true,
       };
-    } else {
-      // Fall back to simulation
-      console.log("⚠️ FAKE TRAINING: Using simulated training because js-pytorch is not available");
-      const loss = this.simulateLoss(batch, labels, phase);
-      await this.simulateParameterUpdate(loss);
-      await this.updateModelHash();
-
-      return {
-        loss,
-        metrics: {
-          phase: phase,
-          torchjs: false,
-          simulated: true,
-        },
-      };
+    } catch (error) {
+      console.error("❌ Training step failed:", error);
+      throw error;
     }
-  }
-
-  simulateLoss(batch, labels, phase) {
-    // Simulate different losses based on phase
-    const baseLoss = 0.5 + Math.random() * 0.3;
-
-    switch (phase) {
-      case "vae":
-        return baseLoss * 0.8; // VAE typically has lower loss
-      case "drift":
-        return baseLoss * 1.2; // Drift training can be harder
-      case "both":
-        return baseLoss;
-      default:
-        return baseLoss;
-    }
-  }
-
-  async simulateParameterUpdate(loss) {
-    // Simulate parameter updates
-    // In real implementation, this would use WebTorch autograd
-
-    // Update state to reflect "training"
-    if (!this.state.parameters) {
-      this.state.parameters = {
-        vae: this.generateRandomParameters(1000),
-        drift: this.generateRandomParameters(500),
-      };
-    } else {
-      // Simulate small random changes
-      this.state.parameters.vae = this.addNoise(
-        this.state.parameters.vae,
-        0.01,
-      );
-      this.state.parameters.drift = this.addNoise(
-        this.state.parameters.drift,
-        0.02,
-      );
-    }
-  }
-
-  generateRandomParameters(count) {
-    const params = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      params[i] = Math.random() * 2 - 1; // Uniform [-1, 1]
-    }
-    return params;
-  }
-
-  addNoise(parameters, scale) {
-    const noisy = new Float32Array(parameters.length);
-    for (let i = 0; i < parameters.length; i++) {
-      noisy[i] = parameters[i] + (Math.random() * 2 - 1) * scale;
-    }
-    return noisy;
   }
 
   async updateModelHash() {
-    // Generate a simple hash from model parameters
-    const params = this.state.parameters;
+    try {
+      // Get real weights for hash
+      const checkpoint = await tfjsTrainer.saveCheckpoint();
+      // Use small part of VAE params for stable but unique hash
+      const sample = checkpoint.vae_params && checkpoint.vae_params[0] ? 
+                     checkpoint.vae_params[0].slice(0, 10) : [Math.random()];
+      
+      const sum = sample.reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
+      const avg = sample.length > 0 ? sum / sample.length : 0;
 
-    if (!params) {
-      this.state.hash = "initial";
-      return;
+      this.state.hash = `model_${Math.abs(avg).toFixed(8).replace(".", "")}_${Date.now().toString().slice(-4)}`;
+    } catch (e) {
+      this.state.hash = `model_fallback_${Date.now()}`;
     }
-
-    // Combine parameter arrays
-    const allParams = [...(params.vae || []), ...(params.drift || [])];
-
-    // Simple hash: average of first 100 parameters
-    const sample = allParams.slice(0, Math.min(100, allParams.length));
-    const sum = sample.reduce((a, b) => a + b, 0);
-    const avg = sample.length > 0 ? sum / sample.length : 0;
-
-    this.state.hash = `model_${avg.toFixed(6).replace(".", "")}`;
   }
 
   async getModelHash() {
@@ -241,9 +104,12 @@ class ModelManager {
   }
 
   async getState() {
+    // CRITICAL: Get real weights from TorchJS for sharing
+    const checkpoint = await tfjsTrainer.saveCheckpoint();
+    
     return {
-      parameters: this.state.parameters,
-      hash: this.state.hash,
+      parameters: checkpoint, // This contains vae_params and drift_params
+      hash: this.state.hash || `gen_${Date.now()}`,
       version: this.state.version,
       config: this.config,
       timestamp: Date.now(),
@@ -253,15 +119,23 @@ class ModelManager {
   async setState(state) {
     if (!state) return;
 
-    this.state.parameters = state.parameters;
-    this.state.hash = state.hash;
-    this.state.version = state.version || "1.0.0";
+    try {
+      // Load real weights into TorchJS
+      if (state.parameters) {
+        await tfjsTrainer.loadCheckpoint(state.parameters);
+      }
+      
+      this.state.hash = state.hash;
+      this.state.version = state.version || "4.0.0";
 
-    if (state.config) {
-      this.config = { ...this.config, ...state.config };
+      if (state.config) {
+        this.config = { ...this.config, ...state.config };
+      }
+
+      console.log(`📥 Model state loaded (hash: ${state.hash})`);
+    } catch (error) {
+      console.error("❌ Failed to set model state:", error);
     }
-
-    console.log(`📥 Model state loaded (hash: ${state.hash})`);
   }
 
   async loadModel(modelData) {
@@ -272,8 +146,8 @@ class ModelManager {
       const state = modelData.modelData || modelData;
 
       // Validate state
-      if (!state || !state.hash) {
-        throw new Error("Invalid model data");
+      if (!state || (!state.hash && !state.parameters)) {
+        throw new Error("Invalid model data structure");
       }
 
       // Load state
@@ -287,182 +161,16 @@ class ModelManager {
     }
   }
 
-  /**
-   * Stub for loading from a PyTorch checkpoint file (e.g., latest.pt).
-   * In a real implementation, this would parse the .pt file (using a server-side
-   * Python script or WebTorch compatibility layer) and load the weights.
-   * The checkpoint can be inspected using inspect_checkpoint.py.
-   */
   async loadFromPyTorchCheckpoint(checkpointPath = "latest.pt") {
-    console.log(
-      `📥 Attempting to load PyTorch checkpoint from ${checkpointPath}...`,
-    );
-    console.log(
-      "⚠️  This is a stub. Real implementation would require WebTorch compatibility.",
-    );
-
-    // For prototype, we could load the web-friendly JSON version
-    try {
-      const response = await fetch("/models/checkpoint_web.json");
-      if (!response.ok) throw new Error("Failed to fetch checkpoint");
-      const webCheckpoint = await response.json();
-
-      // Simulate loading metadata
-      console.log(
-        `📊 Checkpoint metadata: epoch ${webCheckpoint.metadata.epoch}, phase ${webCheckpoint.metadata.phase}`,
-      );
-      console.log(
-        "📝 Note: Actual model weights are not loaded in this prototype.",
-      );
-
-      // Update config if present
-      if (webCheckpoint.config) {
-        this.config = { ...this.config, ...webCheckpoint.config };
-      }
-
-      return {
-        success: true,
-        epoch: webCheckpoint.metadata.epoch,
-        phase: webCheckpoint.metadata.phase,
-        message: "Checkpoint metadata loaded (weights not implemented)",
-      };
-    } catch (error) {
-      console.error("❌ Failed to load checkpoint:", error);
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
+    console.log(`📥 PyTorch .pt load not supported in browser. Use JSON sync.`);
+    return false;
   }
 
-  async generateSample(label = 0) {
-    if (!this.isInitialized) {
-      throw new Error("Model not initialized");
-    }
-
-    // Simulate sample generation
-    // In real implementation, this would use the decoder
-
-    return {
-      label,
-      timestamp: Date.now(),
-      quality: 0.7 + Math.random() * 0.3,
-    };
-  }
-
-  async encodeImage(imageData) {
-    // Simulate encoding
-    const latent = new Float32Array(this.config.latentChannels);
-    for (let i = 0; i < latent.length; i++) {
-      latent[i] = Math.random() * 2 - 1;
-    }
-    return latent;
-  }
-
-  async decodeLatent(latent, label = 0) {
-    // Simulate decoding
-    // Returns simulated image data
-    return {
-      width: 64,
-      height: 64,
-      channels: 3,
-      data: new Uint8Array(64 * 64 * 3).map(() => Math.random() * 255),
-    };
-  }
-
-  async computeDrift(latent, time, label = 0) {
-    // Simulate drift computation
-    const drift = new Float32Array(latent.length);
-    for (let i = 0; i < drift.length; i++) {
-      drift[i] = (Math.random() * 2 - 1) * 0.1;
-    }
-    return drift;
-  }
-
-  getModelSize() {
-    if (!this.state.parameters) return 0;
-
-    let size = 0;
-    if (this.state.parameters.vae) {
-      size += this.state.parameters.vae.length * 4; // Float32 = 4 bytes
-    }
-    if (this.state.parameters.drift) {
-      size += this.state.parameters.drift.length * 4;
-    }
-
-    return size; // bytes
-  }
-
-  async exportModel(format = "json") {
-    const state = await this.getState();
-
-    switch (format) {
-      case "json":
-        return JSON.stringify(state, null, 2);
-
-      case "binary":
-        // Simple binary format for prototype
-        const buffer = new ArrayBuffer(this.getModelSize());
-        const view = new DataView(buffer);
-
-        // In real implementation, would pack parameters
-        return buffer;
-
-      default:
-        throw new Error(`Unsupported format: ${format}`);
-    }
-  }
-
-  async importModel(data, format = "json") {
-    try {
-      let state;
-
-      switch (format) {
-        case "json":
-          state = typeof data === "string" ? JSON.parse(data) : data;
-          break;
-
-        case "binary":
-          // Parse binary format
-          state = this.parseBinaryModel(data);
-          break;
-
-        default:
-          throw new Error(`Unsupported format: ${format}`);
-      }
-
-      await this.setState(state);
-      return true;
-    } catch (error) {
-      console.error("Import failed:", error);
-      return false;
-    }
-  }
-
-  parseBinaryModel(buffer) {
-    // Simple parser for prototype
-    return {
-      parameters: {
-        vae: new Float32Array(1000).map(() => Math.random() * 2 - 1),
-        drift: new Float32Array(500).map(() => Math.random() * 2 - 1),
-      },
-      hash: "imported",
-      version: "1.0.0",
-    };
-  }
-
-  reset() {
-    this.model = null;
-    this.optimizer = null;
-    this.isInitialized = false;
-    this.state = {
-      parameters: null,
-      hash: null,
-      version: "1.0.0",
-    };
-
-    console.log("🔄 Model manager reset");
+  async exportToONNX() {
+    console.log("📤 ONNX export not supported in this version.");
+    return null;
   }
 }
 
-export { ModelManager };
+export const modelManager = new ModelManager();
+export default modelManager;
