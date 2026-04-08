@@ -329,7 +329,7 @@ class Tensor {
             other.warned = true;
           }
         }
-        other.gpu = new GPU.GPU();
+        other.gpu = new (GPU.GPU || GPU)();
         // Define Kernel function for matmul:
         const kernelFunc = function(a, b, len) {
           let sum2 = 0;
@@ -2062,6 +2062,7 @@ const nn = {
   MSELoss
 };
 const optim = { Adam };
+const GPU = (typeof window !== "undefined") ? (window._GPU || window.GPU) : (typeof global !== "undefined" ? global.GPU : null);
 const torch = {
   // Add methods from tensor.js (these methods are accessed with "torch."):
   Tensor,
