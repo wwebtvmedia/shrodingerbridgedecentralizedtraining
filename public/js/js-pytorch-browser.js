@@ -2097,5 +2097,4 @@ const torch = {
   optim,
   getShape
 };
-if (typeof window !== 'undefined') { window.torch = torch; }
-if (typeof window !== 'undefined' && (typeof window.GPU === 'undefined' || window.GPU === null)) { try { window.GPU = torch.GPU || window._GPU; } catch(e) {} }
+export { torch };

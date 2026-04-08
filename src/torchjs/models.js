@@ -2,42 +2,8 @@
 // MLP-Mixer architecture for improved spatial quality in js-pytorch 0.7.2
 // Optimized for GPU stability (avoiding 3D matmul/transpose bugs)
 
+import { torch } from 'js-pytorch';
 import { CONFIG } from "../config.js";
-
-/**
- * Robust torch initialization
- */
-async function resolveTorch() {
-  if (typeof window !== 'undefined') {
-    if (window.torch && window.torch.nn) return window.torch;
-    return new Promise((resolve, reject) => {
-      let attempts = 0;
-      const interval = setInterval(() => {
-        if (window.torch && window.torch.nn) {
-          clearInterval(interval);
-          resolve(window.torch);
-        }
-        if (attempts++ > 100) {
-          clearInterval(interval);
-          reject(new Error("Timeout waiting for window.torch. Ensure /js/js-pytorch-browser.js is loaded correctly."));
-        }
-      }, 100);
-    });
-  }
-  try {
-    const JSTorchModule = await import('js-pytorch');
-    const t = JSTorchModule.torch || (JSTorchModule.default && JSTorchModule.default.torch) || JSTorchModule;
-    if (t && t.nn) return t;
-    throw new Error("js-pytorch (torch.nn) not found.");
-  } catch (e) {
-    if (typeof globalThis !== 'undefined' && globalThis.torch && globalThis.torch.nn) {
-      return globalThis.torch;
-    }
-    throw e;
-  }
-}
-
-const torch = await resolveTorch();
 
 // Global activation instances
 const relu_module = new torch.nn.ReLU();
