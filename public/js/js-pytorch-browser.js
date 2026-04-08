@@ -2098,5 +2098,4 @@ const torch = {
   getShape
 };
 if (typeof window !== 'undefined') { window.torch = torch; }
-export { torch };
 if (typeof window !== 'undefined' && typeof window.GPU === 'undefined') { window.GPU = window._JSPytorchGPU; }
