@@ -1,42 +1,8 @@
 // Universal js-pytorch Hardware Accelerator Integration
 // This implementation provides a bridge between the swarm system and js-pytorch (WebTorch)
 
+import { torch } from 'js-pytorch';
 import { EnhancedLabelTrainer } from "./training.js";
-
-/**
- * Robust torch resolution
- */
-async function resolveTorch() {
-  if (typeof window !== 'undefined') {
-    if (window.torch && window.torch.nn) return window.torch;
-    return new Promise((resolve, reject) => {
-      let attempts = 0;
-      const interval = setInterval(() => {
-        if (window.torch && window.torch.nn) {
-          clearInterval(interval);
-          resolve(window.torch);
-        }
-        if (attempts++ > 100) {
-          clearInterval(interval);
-          reject(new Error("Timeout waiting for torch.nn"));
-        }
-      }, 100);
-    });
-  }
-  try {
-    const JSTorchModule = await import('js-pytorch');
-    const t = JSTorchModule.torch || (JSTorchModule.default && JSTorchModule.default.torch) || JSTorchModule;
-    if (t && t.nn) return t;
-    throw new Error("Invalid js-pytorch module");
-  } catch (e) {
-    if (typeof globalThis !== 'undefined' && globalThis.torch && globalThis.torch.nn) {
-      return globalThis.torch;
-    }
-    throw e;
-  }
-}
-
-const torch = await resolveTorch();
 
 export class TorchJSTrainer {
   constructor() {
