@@ -121,20 +121,26 @@ export class ModelManager {
 
     try {
       // Load real weights into TorchJS
-      if (state.parameters) {
-        await tfjsTrainer.loadCheckpoint(state.parameters);
-      }
+      // Handle various nesting levels of parameters
+      const params = state.parameters?.parameters || state.parameters || state;
       
-      this.state.hash = state.hash;
+      if (params && (params.vae_params || params.drift_params)) {
+        await tfjsTrainer.loadCheckpoint(params);
+      } else {
+        console.warn("⚠️ No valid parameters found in state to load into TorchJS");
+      }
+
+      this.state.hash = state.hash || state.modelHash;
       this.state.version = state.version || "4.0.0";
 
       if (state.config) {
         this.config = { ...this.config, ...state.config };
       }
 
-      console.log(`📥 Model state loaded (hash: ${state.hash})`);
+      console.log(`📥 Model state loaded (hash: ${this.state.hash})`);
     } catch (error) {
       console.error("❌ Failed to set model state:", error);
+      throw error; // Rethrow to be caught by loadModel
     }
   }
 
@@ -142,18 +148,24 @@ export class ModelManager {
     try {
       console.log("📥 Loading model from external source...");
 
+      if (!modelData) {
+        throw new Error("Model data is null or undefined");
+      }
+
       // Extract state from model data
-      const state = modelData.modelData || modelData;
+      // Handle both direct state and wrapped model data from neighbors
+      const state = modelData.parameters || modelData.modelData || modelData;
 
       // Validate state
-      if (!state || (!state.hash && !state.parameters)) {
-        throw new Error("Invalid model data structure");
+      if (!state || (!state.hash && !state.modelHash && !state.parameters && !state.vae_params)) {
+        console.error("Invalid model data received:", modelData);
+        throw new Error("Invalid model data");
       }
 
       // Load state
       await this.setState(state);
 
-      console.log(`✅ Model loaded: ${state.hash}`);
+      console.log(`✅ Model loaded: ${this.state.hash}`);
       return true;
     } catch (error) {
       console.error("❌ Failed to load model:", error);

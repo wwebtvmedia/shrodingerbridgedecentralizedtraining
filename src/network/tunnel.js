@@ -243,8 +243,8 @@ class CloudflareTunnel {
         break;
 
       case "HEARTBEAT_RESPONSE":
-        // Heartbeat responses are handled internally by the tunnel server
-        // but we acknowledge them here to avoid warnings.
+        // Heartbeat responses are acknowledged to keep connection alive
+        this.connectionState = "connected";
         break;
 
       case "TUNNEL_STATS":
@@ -252,7 +252,10 @@ class CloudflareTunnel {
         break;
 
       default:
-        console.warn(`Unknown tunnel message type: ${message.type}`);
+        // Ignore messages without type or internal types we don't handle
+        if (message && message.type) {
+          console.warn(`Unknown tunnel message type: ${message.type}`);
+        }
     }
   }
 

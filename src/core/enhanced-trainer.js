@@ -367,10 +367,14 @@ class EnhancedSwarmTrainer {
     }
 
     // Load the model
-    await this.modelManager.loadModel(modelData);
+    const success = await this.modelManager.loadModel(modelData);
+    if (!success) {
+      console.warn(`Failed to load model from neighbor ${neighbor.peerId}`);
+      return;
+    }
 
     // Random epoch jump (0 to neighbor's epoch)
-    const randomEpoch = Math.floor(Math.random() * neighbor.epoch);
+    const randomEpoch = Math.floor(Math.random() * (neighbor.epoch || 100));
     this.currentEpoch = randomEpoch;
 
     // Update metrics
@@ -402,12 +406,15 @@ class EnhancedSwarmTrainer {
     // In production, this would request model via tunnel
     // For prototype, return simulated model
 
+    const modelState = await this.modelManager.getState();
     return {
-      modelHash,
+      type: "MODEL_SHARE",
+      modelHash: modelHash || modelState.hash,
       peerId,
       loss: 0.3 + Math.random() * 0.2,
       epoch: 50 + Math.floor(Math.random() * 100),
-      parameters: await this.modelManager.getState(),
+      parameters: modelState,
+      timestamp: Date.now(),
     };
   }
 
