@@ -308,13 +308,33 @@ class LocalDatabase {
       const transaction = this.db.transaction(["checkpoints"], "readwrite");
       const store = transaction.objectStore("checkpoints");
 
-      const request = store.put({
+      // 1. Save new checkpoint
+      const putRequest = store.put({
         ...checkpoint,
         timestamp: Date.now(),
       });
 
-      request.onsuccess = () => resolve();
-      request.onerror = (event) => reject(event.target.error);
+      putRequest.onsuccess = () => {
+        // 2. Prune old checkpoints (keep only latest 3)
+        const cursorRequest = store.openCursor(null, "prev");
+        let count = 0;
+        const keepLimit = 3;
+
+        cursorRequest.onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (cursor) {
+            count++;
+            if (count > keepLimit) {
+              cursor.delete();
+            }
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+      };
+
+      putRequest.onerror = (event) => reject(event.target.error);
     });
   }
 
@@ -446,17 +466,30 @@ class LocalDatabase {
 
     for (const storeName of stores) {
       try {
-        const items = await new Promise((resolve, reject) => {
+        const size = await new Promise((resolve, reject) => {
           const transaction = this.db.transaction([storeName], "readonly");
           const store = transaction.objectStore(storeName);
-          const request = store.getAll();
+          const request = store.openCursor();
+          let storeSize = 0;
 
-          request.onsuccess = () => resolve(request.result);
+          request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+              // Estimate individual item size
+              try {
+                storeSize += JSON.stringify(cursor.value).length;
+              } catch (e) {
+                storeSize += 1024; // Fallback for very large/complex objects
+              }
+              cursor.continue();
+            } else {
+              resolve(storeSize);
+            }
+          };
           request.onerror = reject;
         });
 
-        // Estimate size by JSON stringification
-        total += JSON.stringify(items).length;
+        total += size;
       } catch (error) {
         console.warn(`Could not estimate size for ${storeName}:`, error);
       }
