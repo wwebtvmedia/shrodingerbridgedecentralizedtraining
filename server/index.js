@@ -144,6 +144,7 @@ class ModelConsolidationServer {
     this.app.use(cors());
     this.app.use(express.json({ limit: "100mb" }));
     this.app.use(express.static(path.join(__dirname, "../public")));
+    this.app.use("/src", express.static(path.join(__dirname, "../src")));
     
     // Auth Middleware
     this.authenticate = (req, res, next) => {
