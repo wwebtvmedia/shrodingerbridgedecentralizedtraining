@@ -178,6 +178,12 @@ class EnhancedSwarmApp {
         this.ui.incrementSyncCount();
       });
 
+      this.trainer.onResearchResult((peerId, status) => {
+        this.ui.log(`📊 Research: Response from ${peerId} (Loss: ${status.metrics?.loss.toFixed(4) || "N/A"})`);
+        // We can update a more detailed peer list here if needed
+        this.ui.showNotification(`Found neighbor: ${peerId.substring(0, 8)}...`, "info");
+      });
+
       this.trainer.onDatabaseUpdate((stats) => {
         this.ui.log(
           `📊 Database: ${stats.neighbors.count} neighbors, ${stats.results.count} results`,
@@ -592,6 +598,22 @@ class EnhancedSwarmApp {
 const startApp = () => {
   if (window.enhancedApp) {
     console.log("⚠️ App already initialized, skipping...");
+    return;
+  }
+  
+  console.log("🛠️ Creating new EnhancedSwarmApp instance...");
+  window.enhancedApp = new EnhancedSwarmApp();
+};
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", startApp);
+} else {
+  // If we are already loaded or interactive, run immediately
+  startApp();
+}
+
+export { EnhancedSwarmApp };
+..");
     return;
   }
   

@@ -597,6 +597,12 @@ class EnhancedSwarmTrainer {
       await this.database.cleanupOldNeighbors();
     }
 
+    // Periodic status update to server
+    if (this.tunnel) {
+      const stats = this.getMetrics();
+      await this.tunnel.sendStatusUpdate(stats, this.getNeighbors());
+    }
+
     // Broadcast presence
     await this.broadcastPresence();
 
@@ -692,9 +698,51 @@ class EnhancedSwarmTrainer {
     this.callbacks.onSyncEvent = callback;
   }
 
+  onResearchResult(callback) {
+    this.callbacks.onResearchResult = callback;
+  }
+
   onDatabaseUpdate(callback) {
     this.callbacks.onDatabaseUpdate = callback;
   }
 }
 
 export { EnhancedSwarmTrainer };
+{ EnhancedSwarmTrainer };
+.explorationRate = Math.max(0, Math.min(1, rate));
+  }
+
+  setPhase(phase) {
+    if (["vae", "drift", "both", "auto"].includes(phase)) {
+      this.currentPhase = phase;
+    }
+  }
+
+  // Callback setters
+  onEpochComplete(callback) {
+    this.callbacks.onEpochComplete = callback;
+  }
+
+  onNeighborUpdate(callback) {
+    this.callbacks.onNeighborUpdate = callback;
+  }
+
+  onModelShared(callback) {
+    this.callbacks.onModelShared = callback;
+  }
+
+  onModelReceived(callback) {
+    this.callbacks.onModelReceived = callback;
+  }
+
+  onSyncEvent(callback) {
+    this.callbacks.onSyncEvent = callback;
+  }
+
+  onDatabaseUpdate(callback) {
+    this.callbacks.onDatabaseUpdate = callback;
+  }
+}
+
+export { EnhancedSwarmTrainer };
+{ EnhancedSwarmTrainer };

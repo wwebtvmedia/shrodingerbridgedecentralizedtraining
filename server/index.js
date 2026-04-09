@@ -9,11 +9,75 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Simple JSON-based NoSQL storage
+class JSONDatabase {
+  constructor(filename) {
+    this.filepath = path.join(__dirname, `../data/${filename}.json`);
+    this.data = { logs: [], neighbors: {}, models: [] };
+    this.ensureDirectory();
+    this.load();
+  }
+
+  ensureDirectory() {
+    const dir = path.dirname(this.filepath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  }
+
+  load() {
+    try {
+      if (fs.existsSync(this.filepath)) {
+        const raw = fs.readFileSync(this.filepath, "utf8");
+        const parsed = JSON.parse(raw);
+        this.data.logs = parsed.logs || [];
+        this.data.models = parsed.models || [];
+        this.data.neighbors = parsed.neighbors || {};
+      }
+    } catch (e) {
+      console.error(`Failed to load database ${this.filepath}:`, e);
+    }
+  }
+
+  save() {
+    try {
+      this.ensureDirectory();
+      fs.writeFileSync(this.filepath, JSON.stringify(this.data, null, 2));
+    } catch (e) {
+      console.error(`Failed to save database ${this.filepath}:`, e);
+    }
+  }
+
+  log(message, type = "info") {
+    this.data.logs.push({ timestamp: Date.now(), message, type });
+    if (this.data.logs.length > 1000) this.data.logs.shift();
+    this.save();
+  }
+
+  updateNeighbor(peerId, info) {
+    // Sanitize peerId to prevent JSON key injection or traversal-like patterns
+    const safePeerId = String(peerId).replace(/[^a-zA-Z0-9_-]/g, "_");
+    this.data.neighbors[safePeerId] = { ...info, lastSeen: Date.now() };
+    this.save();
+  }
+
+  getNeighbors() {
+    return Object.values(this.data.neighbors);
+  }
+
+  addModel(modelInfo) {
+    this.data.models.push({ ...modelInfo, timestamp: Date.now() });
+    if (this.data.models.length > 100) this.data.models.shift();
+    this.save();
+  }
+}
+
 class ModelConsolidationServer {
   constructor() {
     this.app = express();
     this.server = createServer(this.app);
     this.wss = new WebSocketServer({ server: this.server });
+    this.db = new JSONDatabase("swarm_db");
 
     // Model management
     this.bestModel = null;
@@ -76,7 +140,7 @@ class ModelConsolidationServer {
     this.app.use(cors());
     this.app.use(express.json({ limit: "100mb" })); // For large model uploads
     this.app.use(express.static(path.join(__dirname, "../public")));
-    this.app.use(express.static(path.join(__dirname, ".."))); // Serve root directory
+    // SECURITY: Removed line that serves root directory
   }
 
   setupRoutes() {
@@ -212,19 +276,8 @@ class ModelConsolidationServer {
         lastActivity: Date.now(),
       });
 
-      // Send current best model info
-      if (this.bestModel) {
-        ws.send(
-          JSON.stringify({
-            type: "model_update",
-            model: {
-              loss: this.bestModel.loss,
-              epoch: this.bestModel.epoch,
-              timestamp: this.bestModel.timestamp,
-            },
-          }),
-        );
-      }
+      // PUSH initial data: Best Model + Neighbors
+      this.pushInitialData(ws);
 
       // Handle messages
       ws.on("message", (data) => {
@@ -254,6 +307,27 @@ class ModelConsolidationServer {
     });
   }
 
+  pushInitialData(ws) {
+    const neighbors = this.db.getNeighbors();
+    const message = {
+      type: "initial_sync",
+      bestModel: this.bestModel
+        ? {
+            loss: this.bestModel.loss,
+            epoch: this.bestModel.epoch,
+            metrics: this.bestModel.metrics,
+            timestamp: this.bestModel.timestamp,
+            downloadUrl: "/api/model/download",
+          }
+        : null,
+      neighbors: neighbors.slice(-10), // Latest 10 neighbors
+    };
+
+    if (ws.readyState === ws.OPEN) {
+      ws.send(JSON.stringify(message));
+    }
+  }
+
   handleWebSocketMessage(clientId, message) {
     const client = this.clients.get(clientId);
     if (client) {
@@ -268,17 +342,34 @@ class ModelConsolidationServer {
           lastSeen: Date.now(),
           ws: client.ws,
         });
+        this.db.log(`Training client registered: ${clientId}`);
         console.log(
           `🏋️  Training client registered: ${clientId} (${message.data.name || "unnamed"})`,
         );
         break;
 
       case "heartbeat":
-        // Update training client heartbeat
+      case "status_update":
+        // Update training client heartbeat and record stats
         if (this.trainingClients.has(clientId)) {
           const clientData = this.trainingClients.get(clientId);
           clientData.lastSeen = Date.now();
           clientData.metrics = message.metrics || clientData.metrics;
+
+          // Record neighbors if provided
+          if (message.neighbors && Array.isArray(message.neighbors)) {
+            // SECURITY: Limit number of neighbors recorded to prevent DoS
+            message.neighbors.slice(0, 50).forEach((n) => {
+              if (n.peerId) this.db.updateNeighbor(n.peerId, n);
+            });
+          }
+
+          // Record stats in log
+          if (message.metrics) {
+            this.db.log(
+              `Stats from ${clientId}: loss=${message.metrics.loss}, epoch=${message.metrics.epoch}`,
+            );
+          }
 
           // Send acknowledgment
           client.ws.send(
@@ -287,6 +378,18 @@ class ModelConsolidationServer {
               timestamp: Date.now(),
             }),
           );
+        }
+        break;
+
+      case "final_sync":
+        // Client is closing, record final data
+        this.db.log(
+          `Final sync from ${clientId}: loss=${message.metrics?.loss}`,
+        );
+        if (message.neighbors && Array.isArray(message.neighbors)) {
+          message.neighbors.slice(0, 50).forEach((n) => {
+            if (n.peerId) this.db.updateNeighbor(n.peerId, n);
+          });
         }
         break;
 
@@ -388,6 +491,10 @@ class ModelConsolidationServer {
           sourcePath: modelPath,
         };
 
+        // Record in DB
+        this.db.addModel({ loss, epoch, clientId, size: modelBuffer.length });
+        this.db.log(`New best model accepted from ${clientId}: loss=${loss}`);
+
         // Add to history
         this.modelHistory.push({
           timestamp: new Date(),
@@ -480,6 +587,6 @@ class ModelConsolidationServer {
 
 // Start server
 const server = new ModelConsolidationServer();
-server.start(process.env.PORT || 8080);
+server.start(process.env.PORT || 3001);
 
 export { ModelConsolidationServer };

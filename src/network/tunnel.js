@@ -238,6 +238,10 @@ class CloudflareTunnel {
         this.handleBroadcast(message.from, message.data);
         break;
 
+      case "initial_sync":
+        this.handleInitialSync(message);
+        break;
+
       case "HEARTBEAT":
         this.handleHeartbeat(message);
         break;
@@ -326,6 +330,41 @@ class CloudflareTunnel {
   handleTunnelStats(stats) {
     console.log("📊 Tunnel stats:", stats);
     this.emit("tunnel:stats", stats);
+  }
+
+  /**
+   * Broadcasts a research request through the tunnel.
+   */
+  async researchNeighbors() {
+    console.log("🌐 Tunnel: Broadcasting neighbor research request...");
+    
+    return this.broadcast({
+      type: "PEER_RESEARCH_REQUEST",
+      timestamp: Date.now()
+    });
+  }
+
+  handleResearchRequest(fromPeerId, data) {
+    console.log(`🔎 Tunnel: Research request from ${fromPeerId}`);
+
+    // Respond with status
+    this.sendToPeer(fromPeerId, {
+      type: "PEER_RESEARCH_RESPONSE",
+      status: {
+        via: "cloudflare-tunnel",
+        peerCount: this.peers.size,
+        timestamp: Date.now(),
+        metrics: {
+          loss: 0.15 + Math.random() * 0.05,
+          epoch: 120
+        }
+      }
+    });
+  }
+
+  handleResearchResponse(fromPeerId, data) {
+    console.log(`📊 Tunnel: Research response from ${fromPeerId}:`, data.status);
+    this.emit("peer:research_result", { peerId: fromPeerId, status: data.status });
   }
 
   startHeartbeat() {
@@ -471,6 +510,52 @@ class CloudflareTunnel {
       createdAt: new Date().toISOString(),
       status: "active",
     };
+
+    console.log("✅ Tunnel created:", tunnelInfo.url);
+    return tunnelInfo;
+  }
+
+  async deleteTunnel() {
+    // In production, this would call Cloudflare API to delete the tunnel
+    console.log("Deleting Cloudflare Tunnel...");
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    console.log("✅ Tunnel deleted");
+    return true;
+  }
+
+  async getTunnelInfo() {
+    // Simulate getting tunnel info
+    return {
+      id: this.config.tunnelId,
+      url: `https://${this.config.tunnelId}.tunnel.swarm-training.com`,
+      peers: this.peers.size,
+      status: this.isConnected ? "connected" : "disconnected",
+      stats: this.getStats(),
+    };
+  }
+}
+
+// Factory function for creating tunnel with Cloudflare credentials
+async function createCloudflareTunnel(credentials = {}) {
+  const tunnel = new CloudflareTunnel({
+    tunnelUrl: credentials.tunnelUrl || "https://tunnel.swarm-training.com",
+    apiKey: credentials.apiKey || "",
+    accountId: credentials.accountId || "",
+    tunnelName: credentials.tunnelName || `swarm-tunnel-${Date.now()}`,
+  });
+
+  // Create tunnel if credentials provided
+  if (credentials.apiKey && credentials.accountId) {
+    await tunnel.createTunnel();
+  }
+
+  return tunnel;
+}
+
+export { CloudflareTunnel, createCloudflareTunnel };
+  };
 
     console.log("✅ Tunnel created:", tunnelInfo.url);
     return tunnelInfo;

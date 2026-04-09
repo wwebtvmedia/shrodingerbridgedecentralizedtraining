@@ -1,7 +1,12 @@
-node_modules
+node_modules/
 *.pt
 latest.pt
 models/
 .env
 .env.*
 !.env.template
+data/
+test-research.js
+GEMINI.md
+test-gpu-diagnostic.js
+test-import.js
