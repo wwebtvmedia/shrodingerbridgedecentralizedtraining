@@ -339,18 +339,21 @@ class ModelConsolidationServer {
   async evaluateModel(submission) {
     const { clientId, modelData, loss, epoch, metrics } = submission;
 
+    // Sanitize clientId to prevent path traversal
+    const safeClientId = String(clientId).replace(/[^a-zA-Z0-9_-]/g, "_");
+
     // Simple evaluation: lower loss is better
     const isBetter = !this.bestModel || loss < this.bestModel.loss;
 
     if (isBetter) {
       console.log(
-        `🏆 New best model from ${clientId}: loss=${loss} (previous: ${this.bestModel?.loss || "none"})`,
+        `🏆 New best model from ${safeClientId}: loss=${loss} (previous: ${this.bestModel?.loss || "none"})`,
       );
 
       // Save model to file
       const modelPath = path.join(
         this.modelsDir,
-        `model_${Date.now()}_${clientId}.pt`,
+        `model_${Date.now()}_${safeClientId}.pt`,
       );
       const latestPath = this.latestModelPath;
 
