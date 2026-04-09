@@ -184,6 +184,7 @@ class ModelConsolidationServer {
 
     this.app.get("/", (req, res) => res.sendFile(path.join(__dirname, "../index.html")));
     this.app.get("/enhanced", (req, res) => res.sendFile(path.join(__dirname, "../enhanced-index.html")));
+    this.app.get("/readme.html", (req, res) => res.sendFile(path.join(__dirname, "../readme.html")));
   }
 
   setupWebSocket() {
