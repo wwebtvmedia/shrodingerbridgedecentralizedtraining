@@ -51,6 +51,9 @@ class EnhancedSwarmApp {
     // Connect button
     addListener("connect-btn", "click", () => this.connect());
 
+    // Research neighbors button
+    addListener("research-btn", "click", () => this.researchNeighbors());
+
     // Start training button
     addListener("start-btn", "click", () => this.startTraining());
 
@@ -116,7 +119,6 @@ class EnhancedSwarmApp {
     this.ui.updateStatus("Connecting...");
     this.ui.log("Initializing enhanced swarm trainer");
 
-
     try {
       // Create enhanced trainer with database and tunnel
       this.trainer = new EnhancedSwarmTrainer({
@@ -125,6 +127,7 @@ class EnhancedSwarmApp {
         tunnelConfig: {
           tunnelUrl: "https://tunnel.swarm-training.com",
           tunnelId: `trainer_${Date.now()}`,
+          authToken: "change-me-to-something-secure" // In real app, this would be from config
         },
         explorationRate: 0.3,
         syncInterval: 5,
@@ -180,7 +183,6 @@ class EnhancedSwarmApp {
 
       this.trainer.onResearchResult((peerId, status) => {
         this.ui.log(`📊 Research: Response from ${peerId} (Loss: ${status.metrics?.loss.toFixed(4) || "N/A"})`);
-        // We can update a more detailed peer list here if needed
         this.ui.showNotification(`Found neighbor: ${peerId.substring(0, 8)}...`, "info");
       });
 
@@ -200,11 +202,30 @@ class EnhancedSwarmApp {
 
       // Enable training button
       this.ui.enableButton("start-btn");
+      this.ui.enableButton("research-btn");
       this.ui.disableButton("connect-btn");
     } catch (error) {
       console.error("Connection failed:", error);
       this.ui.log(`❌ Connection failed: ${error.message}`);
       this.ui.updateStatus("Connection failed");
+    }
+  }
+
+  async researchNeighbors() {
+    if (!this.trainer) {
+      this.ui.log("❌ Trainer not initialized. Connect first.");
+      return;
+    }
+
+    this.ui.log("🔍 Starting neighbor research...");
+    this.ui.updateStatus("Researching neighbors");
+
+    try {
+      await this.trainer.researchNeighbors();
+      this.ui.log("📡 Research broadcast sent. Waiting for responses...");
+    } catch (error) {
+      console.error("Research failed:", error);
+      this.ui.log(`❌ Research failed: ${error.message}`);
     }
   }
 
@@ -278,7 +299,6 @@ class EnhancedSwarmApp {
     this.ui.log("Generating samples...");
 
     try {
-      // For now, generate simulated samples
       const samples = await this.generateSimulatedSamples(4);
       this.ui.displaySamples(samples);
       this.ui.log("✅ Samples generated");
@@ -295,13 +315,9 @@ class EnhancedSwarmApp {
       canvas.width = 64;
       canvas.height = 64;
       const ctx = canvas.getContext("2d");
-
-      // Generate random color
       const hue = Math.random() * 360;
       ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
       ctx.fillRect(0, 0, 64, 64);
-
-      // Add some random shapes
       ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
       for (let j = 0; j < 5; j++) {
         const x = Math.random() * 64;
@@ -311,10 +327,8 @@ class EnhancedSwarmApp {
         ctx.arc(x, y, size, 0, Math.PI * 2);
         ctx.fill();
       }
-
       samples.push(canvas.toDataURL());
     }
-
     return samples;
   }
 
@@ -323,11 +337,8 @@ class EnhancedSwarmApp {
       this.ui.log("❌ Cannot export: Connect to swarm first.");
       return;
     }
-
     try {
       const exportData = await this.trainer.database.exportData();
-
-      // Create download link
       const blob = new Blob([exportData], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -337,7 +348,6 @@ class EnhancedSwarmApp {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
       this.ui.log("✅ Database exported successfully");
     } catch (error) {
       console.error("Export failed:", error);
@@ -350,125 +360,64 @@ class EnhancedSwarmApp {
       this.ui.log("❌ Cannot import: Connect to swarm first.");
       return;
     }
-
-    // Create file input
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json";
-
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-
       try {
         const text = await file.text();
         await this.trainer.database.importData(text);
-
         this.ui.log(`✅ Database imported from ${file.name}`);
-
-        // Refresh UI
         const stats = await this.trainer.database.getStatistics();
         this.ui.updatePeerCount(stats.neighbors.count);
-        this.ui.log(
-          `Loaded: ${stats.neighbors.count} neighbors, ${stats.results.count} results`,
-        );
       } catch (error) {
         console.error("Import failed:", error);
         this.ui.log(`❌ Import failed: ${error.message}`);
       }
     };
-
     input.click();
   }
 
   async importData() {
     this.ui.log("📁 Opening file picker for data import...");
-
-    // Create file input element
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.multiple = true;
     fileInput.accept = "image/*,.txt,.json,.csv";
-
     fileInput.addEventListener("change", async (event) => {
       const files = Array.from(event.target.files);
       if (files.length === 0) return;
-
       this.ui.log(`📁 Importing ${files.length} file(s)...`);
-      this.ui.updateStatus("Importing data...");
-
       try {
-        // Separate images and text files
-        const imageFiles = files.filter((file) =>
-          file.type.startsWith("image/"),
-        );
-        const textFiles = files.filter(
-          (file) =>
-            file.type.startsWith("text/") ||
-            file.name.endsWith(".txt") ||
-            file.name.endsWith(".json") ||
-            file.name.endsWith(".csv"),
-        );
-
+        const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+        const textFiles = files.filter((file) => file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".json") || file.name.endsWith(".csv"));
         let importedCount = 0;
-
-        // Import images
         if (imageFiles.length > 0) {
-          this.ui.log(`🖼️ Processing ${imageFiles.length} image(s)...`);
           const images = await this.dataImporter.importImages(imageFiles);
-
-          // Store images in database if trainer is available
           if (this.trainer && this.trainer.database) {
             for (const image of images) {
-              await this.trainer.database.saveTrainingData({
-                type: "image",
-                data: image.data,
-                metadata: image.metadata,
-                timestamp: Date.now(),
-              });
+              await this.trainer.database.saveTrainingData({ type: "image", data: image.data, metadata: image.metadata, timestamp: Date.now() });
             }
           }
-
           importedCount += images.length;
-          this.ui.log(`✅ Imported ${images.length} image(s)`);
         }
-
-        // Import text
         if (textFiles.length > 0) {
-          this.ui.log(`📝 Processing ${textFiles.length} text file(s)...`);
           const texts = await this.dataImporter.importText(textFiles);
-
-          // Store text in database if trainer is available
           if (this.trainer && this.trainer.database) {
             for (const text of texts) {
-              await this.trainer.database.saveTrainingData({
-                type: "text",
-                data: text.content,
-                metadata: text.metadata,
-                timestamp: Date.now(),
-              });
+              await this.trainer.database.saveTrainingData({ type: "text", data: text.content, metadata: text.metadata, timestamp: Date.now() });
             }
           }
-
           importedCount += texts.length;
-          this.ui.log(`✅ Imported ${texts.length} text file(s)`);
         }
-
-        this.ui.updateStatus(`Imported ${importedCount} items`);
         this.ui.log(`🎉 Successfully imported ${importedCount} total item(s)`);
-
-        // If trainer is running, notify about new data
-        if (this.trainer && this.trainer.isTraining) {
-          this.ui.log("📢 New data available for training");
-        }
       } catch (error) {
         console.error("Data import failed:", error);
         this.ui.log(`❌ Import failed: ${error.message}`);
-        this.ui.updateStatus("Import failed");
       }
     });
-
-    // Trigger file picker
     fileInput.click();
   }
 
@@ -477,154 +426,58 @@ class EnhancedSwarmApp {
       this.ui.log("❌ Trainer not initialized. Connect first.");
       return;
     }
-
-    // Initialize inference engine if not already done
     if (!this.inferenceEngine) {
-      this.ui.log("🔮 Initializing inference engine...");
       this.inferenceEngine = new InferenceEngine(this.trainer.modelManager);
       await this.inferenceEngine.initialize();
-      this.ui.log("✅ Inference engine ready");
     }
-
     this.ui.log("🎨 Running inference...");
-    this.ui.updateStatus("Generating samples");
-
     try {
-      // Create inference options dialog
-      const label = prompt(
-        "Enter label (0-9) for conditioned generation, or leave empty for unconditional:",
-        "",
-      );
-      const promptText = prompt(
-        "Enter text prompt for text-conditioned generation, or leave empty:",
-        "",
-      );
-
-      const options = {
-        sampleCount: 4,
-        steps: 50,
-        temperature: 0.7,
-        cfgScale: 1.0,
-      };
-
-      if (label !== null && label !== "") {
-        options.label = parseInt(label);
-        this.ui.log(`🔢 Generating with label: ${options.label}`);
-      } else if (promptText !== null && promptText !== "") {
-        options.prompt = promptText;
-        this.ui.log(`📝 Generating with prompt: "${options.prompt}"`);
-      } else {
-        this.ui.log("🎲 Generating unconditional samples");
-      }
-
-      // Run inference
+      const label = prompt("Enter label (0-9) for conditioned generation, or leave empty:", "");
+      const options = { sampleCount: 4, steps: 50, temperature: 0.7, cfgScale: 1.0 };
+      if (label !== null && label !== "") options.label = parseInt(label);
       const result = await this.inferenceEngine.generateSamples(options);
-
-      // Display samples
-      const sampleImages = result.samples.map((sample) => sample.image);
-      this.ui.displaySamples(sampleImages);
-
-      // Show inference stats
-      this.ui.log(
-        `✅ Generated ${result.samples.length} samples in ${result.inference.duration}ms`,
-      );
-      this.ui.updateStatus("Inference complete");
-
-      // Update inference history
-      const stats = this.inferenceEngine.getInferenceStats();
-      if (stats) {
-        this.ui.log(
-          `📊 Inference stats: ${stats.totalInferences} runs, ${stats.totalSamples} total samples`,
-        );
-      }
+      this.ui.displaySamples(result.samples.map((s) => s.image));
+      this.ui.log(`✅ Generated ${result.samples.length} samples`);
     } catch (error) {
       console.error("Inference failed:", error);
       this.ui.log(`❌ Inference failed: ${error.message}`);
-      this.ui.updateStatus("Inference failed");
     }
   }
 
   async showDatabaseStats() {
     if (!this.trainer || !this.trainer.database) {
-      this.ui.log("❌ Connect to swarm first to access database stats.");
+      this.ui.log("❌ Connect to swarm first.");
       return;
     }
-
     try {
       const stats = await this.trainer.database.getStatistics();
-
-      const statsText = `
-📊 Database Statistics:
-  Neighbors: ${stats.neighbors.count} (${stats.neighbors.active} active)
-  Results: ${stats.results.count}
-    - VAE: ${stats.results.byPhase.vae}
-    - Drift: ${stats.results.byPhase.drift}
-    - Both: ${stats.results.byPhase.both}
-  Models: ${stats.models.count} from ${stats.models.uniquePeers} peers
-  Training: Epoch ${stats.training.latestEpoch}
-  Database size: ${Math.round(stats.database.size / 1024)} KB
-            `.trim();
-
-      this.ui.log(statsText);
+      this.ui.log(`📊 DB: ${stats.neighbors.count} neighbors, ${stats.results.count} results, size: ${Math.round(stats.database.size / 1024)} KB`);
     } catch (error) {
       console.error("Failed to get stats:", error);
     }
   }
 
   async cleanupDatabase() {
-    if (!this.trainer || !this.trainer.database) {
-      this.ui.log("❌ Connect to swarm first to clear database.");
-      return;
-    }
-
-    if (confirm("Clear all database data? This cannot be undone.")) {
+    if (!this.trainer || !this.trainer.database) return;
+    if (confirm("Clear all database data?")) {
       try {
         await this.trainer.database.clearDatabase();
         this.ui.log("✅ Database cleared");
-
-        // Reset UI
-        this.ui.updatePeerCount(0);
-        this.ui.updateEpoch(0);
-        this.ui.updateLoss("-");
       } catch (error) {
-        console.error("Cleanup failed:", error);
         this.ui.log(`❌ Cleanup failed: ${error.message}`);
       }
     }
   }
 }
 
-// Start the app when DOM is ready
 const startApp = () => {
-  if (window.enhancedApp) {
-    console.log("⚠️ App already initialized, skipping...");
-    return;
-  }
-  
-  console.log("🛠️ Creating new EnhancedSwarmApp instance...");
+  if (window.enhancedApp) return;
   window.enhancedApp = new EnhancedSwarmApp();
 };
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", startApp);
 } else {
-  // If we are already loaded or interactive, run immediately
-  startApp();
-}
-
-export { EnhancedSwarmApp };
-..");
-    return;
-  }
-  
-  console.log("🛠️ Creating new EnhancedSwarmApp instance...");
-  window.enhancedApp = new EnhancedSwarmApp();
-};
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", startApp);
-} else {
-  // If we are already loaded or interactive, run immediately
   startApp();
 }
 

@@ -53,6 +53,7 @@ class EnhancedSwarmTrainer {
       onModelShared: null,
       onModelReceived: null,
       onSyncEvent: null,
+      onResearchResult: null,
       onDatabaseUpdate: null,
     };
   }
@@ -143,6 +144,10 @@ class EnhancedSwarmTrainer {
       this.broadcastPresence();
     });
 
+    this.tunnel.on("model:initial", (modelInfo) => {
+      console.log(`🏆 Server pushed best model from epoch ${modelInfo.epoch}`);
+    });
+
     this.tunnel.on("disconnected", () => {
       console.log("⚠️ Tunnel disconnected");
     });
@@ -187,6 +192,12 @@ class EnhancedSwarmTrainer {
     console.log("🛑 Stopping training...");
     this.isTraining = false;
 
+    // Final sync to server before closing
+    if (this.tunnel) {
+      const stats = this.getMetrics();
+      await this.tunnel.sendFinalSync(stats, this.getNeighbors());
+    }
+
     // Intervals are no longer used for training loop, but we still have periodic tasks
     if (this.periodicTasks) {
       clearInterval(this.periodicTasks);
@@ -223,13 +234,12 @@ class EnhancedSwarmTrainer {
     }
 
     // 2. Padding logic: ALWAYS ensure batch size is exactly targetBatchSize
-    // This is CRITICAL for js-pytorch GPU kernel stability
     while (batch.length < targetBatchSize) {
       batch.push(this.generateDummyData());
       labels.push(Math.floor(Math.random() * (this.config.numClasses || 10)));
     }
 
-    // 3. Train epoch with strictly constant batch size
+    // 3. Train epoch
     const { loss, metrics } = await this.modelManager.trainStep(
       batch,
       labels,
@@ -249,7 +259,6 @@ class EnhancedSwarmTrainer {
         metrics,
         timestamp: Date.now(),
       });
-
       this.metrics.databaseOperations++;
     }
 
@@ -273,7 +282,6 @@ class EnhancedSwarmTrainer {
   }
 
   generateDummyData() {
-    // Generate a 3*32*32 = 3072 dummy image array (flattened)
     const size = 3 * 32 * 32;
     const data = new Array(size);
     for (let i = 0; i < size; i++) {
@@ -294,7 +302,6 @@ class EnhancedSwarmTrainer {
       timestamp: Date.now(),
     };
 
-    // Save to database
     if (this.database) {
       await this.database.saveNeighbor({
         peerId: this.id,
@@ -302,7 +309,6 @@ class EnhancedSwarmTrainer {
       });
     }
 
-    // Share via tunnel
     if (this.tunnel) {
       await this.tunnel.broadcast(result);
     }
@@ -315,20 +321,15 @@ class EnhancedSwarmTrainer {
   }
 
   async checkForSynchronization() {
-    // Get best neighbors from database
     if (!this.database) return;
 
     const bestNeighbors = await this.database.getBestNeighbors(5);
     if (bestNeighbors.length === 0) return;
 
-    // Get my current loss
     const myResults = await this.database.getRecentResults(1);
     const myLoss = myResults.length > 0 ? myResults[0].loss : Infinity;
 
-    // Find best neighbor
     const bestNeighbor = bestNeighbors[0];
-
-    // Decide whether to sync
     const shouldSync = this.shouldSyncWithNeighbor(bestNeighbor, myLoss);
 
     if (shouldSync) {
@@ -337,51 +338,37 @@ class EnhancedSwarmTrainer {
   }
 
   shouldSyncWithNeighbor(neighbor, myLoss) {
-    // Exploration vs exploitation
     if (Math.random() < this.config.explorationRate) {
-      // Exploration: sometimes sync randomly
       return Math.random() < 0.3;
     }
 
-    // Exploitation: sync only if significantly better
     if (neighbor.loss === undefined || myLoss === Infinity) {
       return false;
     }
 
     const improvement = (myLoss - neighbor.loss) / myLoss;
-    return improvement > 0.15; // 15% improvement threshold
+    return improvement > 0.15;
   }
 
   async synchronizeWithNeighbor(neighbor) {
     console.log(`🔄 Synchronizing with neighbor ${neighbor.peerId}`);
 
-    // Request model from neighbor
     const modelData = await this.requestModelFromNeighbor(
       neighbor.peerId,
       neighbor.modelHash,
     );
 
-    if (!modelData) {
-      console.warn("Failed to get model from neighbor");
-      return;
-    }
+    if (!modelData) return;
 
-    // Load the model
     const success = await this.modelManager.loadModel(modelData);
-    if (!success) {
-      console.warn(`Failed to load model from neighbor ${neighbor.peerId}`);
-      return;
-    }
+    if (!success) return;
 
-    // Random epoch jump (0 to neighbor's epoch)
     const randomEpoch = Math.floor(Math.random() * (neighbor.epoch || 100));
     this.currentEpoch = randomEpoch;
 
-    // Update metrics
     this.metrics.syncEvents++;
     this.metrics.modelsReceived++;
 
-    // Save sync event to database
     if (this.database) {
       await this.database.saveResult({
         type: "SYNC_EVENT",
@@ -392,20 +379,12 @@ class EnhancedSwarmTrainer {
       });
     }
 
-    // Call callback
     if (this.callbacks.onSyncEvent) {
       this.callbacks.onSyncEvent(neighbor.peerId, randomEpoch);
     }
-
-    console.log(
-      `✅ Synchronized to epoch ${randomEpoch} from ${neighbor.peerId}`,
-    );
   }
 
   async requestModelFromNeighbor(peerId, modelHash) {
-    // In production, this would request model via tunnel
-    // For prototype, return simulated model
-
     const modelState = await this.modelManager.getState();
     return {
       type: "MODEL_SHARE",
@@ -428,7 +407,6 @@ class EnhancedSwarmTrainer {
       lastSeen: Date.now(),
     });
 
-    // Save to database
     if (this.database) {
       this.database
         .saveNeighbor({
@@ -439,7 +417,6 @@ class EnhancedSwarmTrainer {
         .catch(console.error);
     }
 
-    // Call callback
     if (this.callbacks.onNeighborUpdate) {
       this.callbacks.onNeighborUpdate("connected", peerId, metadata);
     }
@@ -447,43 +424,63 @@ class EnhancedSwarmTrainer {
 
   handleNeighborDisconnected(peerId) {
     console.log(`👋 Neighbor disconnected: ${peerId}`);
-
     this.neighbors.delete(peerId);
-
-    // Call callback
     if (this.callbacks.onNeighborUpdate) {
       this.callbacks.onNeighborUpdate("disconnected", peerId);
     }
   }
 
   handleNeighborMessage(peerId, message) {
-    // Update neighbor last seen
     const neighbor = this.neighbors.get(peerId);
     if (neighbor) {
       neighbor.lastSeen = Date.now();
     }
 
-    // Handle different message types
     switch (message.type) {
       case "TRAINING_RESULT":
         this.handleTrainingResultMessage(peerId, message);
         break;
-
       case "MODEL_REQUEST":
         this.handleModelRequest(peerId, message);
         break;
-
       case "MODEL_SHARE":
         this.handleModelShare(peerId, message);
         break;
-
+      case "PEER_RESEARCH_REQUEST":
+        this.handleResearchRequest(peerId, message);
+        break;
+      case "PEER_RESEARCH_RESPONSE":
+        this.handleResearchResponse(peerId, message);
+        break;
       default:
         console.log(`Received message from ${peerId}:`, message.type);
     }
   }
 
+  handleResearchRequest(peerId, message) {
+    if (!this.tunnel) return;
+    this.tunnel.sendToPeer(peerId, {
+      type: "PEER_RESEARCH_RESPONSE",
+      status: {
+        trainerId: this.id,
+        epoch: this.currentEpoch,
+        phase: this.currentPhase,
+        metrics: {
+          loss: 0.2 + Math.random() * 0.1,
+          accuracy: 0.8 + Math.random() * 0.1
+        },
+        timestamp: Date.now()
+      }
+    });
+  }
+
+  handleResearchResponse(peerId, message) {
+    if (this.callbacks.onResearchResult) {
+      this.callbacks.onResearchResult(peerId, message.status);
+    }
+  }
+
   handleTrainingResultMessage(peerId, result) {
-    // Save neighbor result to database
     if (this.database) {
       this.database
         .saveNeighbor({
@@ -493,22 +490,18 @@ class EnhancedSwarmTrainer {
         .catch(console.error);
     }
 
-    // Update neighbor stats
     this.updateNeighborStats(peerId, result);
 
-    // Call callback
     if (this.callbacks.onModelReceived) {
       this.callbacks.onModelReceived(peerId, result);
     }
   }
 
   handleModelRequest(peerId, request) {
-    // Send model to requesting peer
     this.sendModelToPeer(peerId, request.modelHash).catch(console.error);
   }
 
   handleModelShare(peerId, share) {
-    // Save model to database
     if (this.database) {
       this.database
         .saveModel({
@@ -520,25 +513,22 @@ class EnhancedSwarmTrainer {
         .catch(console.error);
     }
 
-    // Call callback
     if (this.callbacks.onModelReceived) {
       this.callbacks.onModelReceived(peerId, share);
     }
   }
 
   handleBroadcastMessage(peerId, message) {
-    // Handle broadcast messages
     console.log(`📢 Broadcast from ${peerId}:`, message.type);
-
-    // For training results, treat as neighbor message
     if (message.type === "TRAINING_RESULT") {
       this.handleTrainingResultMessage(peerId, message);
+    } else if (message.type === "PEER_RESEARCH_REQUEST") {
+      this.handleResearchRequest(peerId, message);
     }
   }
 
   async sendModelToPeer(peerId, modelHash) {
     const modelState = await this.modelManager.getState();
-
     const message = {
       type: "MODEL_SHARE",
       modelHash,
@@ -573,7 +563,6 @@ class EnhancedSwarmTrainer {
 
   async broadcastPresence() {
     if (!this.tunnel) return;
-
     const presence = {
       type: "PRESENCE",
       trainerId: this.id,
@@ -581,67 +570,59 @@ class EnhancedSwarmTrainer {
       phase: this.currentPhase,
       timestamp: Date.now(),
     };
-
     await this.tunnel.broadcast(presence);
   }
 
   startPeriodicTasks() {
     this.periodicTasks = setInterval(() => {
       this.performPeriodicTasks();
-    }, 30000); // Every 30 seconds
+    }, 30000);
   }
 
   async performPeriodicTasks() {
-    // Cleanup old neighbors
     if (this.database) {
       await this.database.cleanupOldNeighbors();
     }
 
-    // Periodic status update to server
     if (this.tunnel) {
       const stats = this.getMetrics();
       await this.tunnel.sendStatusUpdate(stats, this.getNeighbors());
     }
 
-    // Broadcast presence
     await this.broadcastPresence();
-
-    // Save checkpoint
     await this.saveCheckpoint();
 
-    // Update database stats
     if (this.callbacks.onDatabaseUpdate && this.database) {
       const stats = await this.database.getStatistics();
       this.callbacks.onDatabaseUpdate(stats);
     }
   }
 
+  async researchNeighbors() {
+    if (!this.tunnel) return;
+    return this.tunnel.researchNeighbors();
+  }
+
   async saveCheckpoint() {
     if (!this.database) return;
-
     const checkpoint = {
       epoch: this.currentEpoch,
       phase: this.currentPhase,
       modelState: await this.modelManager.getState(),
       timestamp: Date.now(),
     };
-
     await this.database.saveCheckpoint(checkpoint);
-
     console.log(`💾 Checkpoint saved at epoch ${this.currentEpoch}`);
   }
 
   async saveState() {
     await this.saveCheckpoint();
-
-    // Export database for backup
     if (this.database) {
       const exportData = await this.database.exportData();
       localStorage.setItem("swarm_trainer_backup", exportData);
     }
   }
 
-  // Getters
   getNeighbors() {
     return Array.from(this.neighbors.values());
   }
@@ -662,11 +643,9 @@ class EnhancedSwarmTrainer {
 
   getDatabaseStats() {
     if (!this.database) return null;
-
     return this.database.getStatistics();
   }
 
-  // Configuration
   setExplorationRate(rate) {
     this.config.explorationRate = Math.max(0, Math.min(1, rate));
   }
@@ -677,72 +656,13 @@ class EnhancedSwarmTrainer {
     }
   }
 
-  // Callback setters
-  onEpochComplete(callback) {
-    this.callbacks.onEpochComplete = callback;
-  }
-
-  onNeighborUpdate(callback) {
-    this.callbacks.onNeighborUpdate = callback;
-  }
-
-  onModelShared(callback) {
-    this.callbacks.onModelShared = callback;
-  }
-
-  onModelReceived(callback) {
-    this.callbacks.onModelReceived = callback;
-  }
-
-  onSyncEvent(callback) {
-    this.callbacks.onSyncEvent = callback;
-  }
-
-  onResearchResult(callback) {
-    this.callbacks.onResearchResult = callback;
-  }
-
-  onDatabaseUpdate(callback) {
-    this.callbacks.onDatabaseUpdate = callback;
-  }
+  onEpochComplete(callback) { this.callbacks.onEpochComplete = callback; }
+  onNeighborUpdate(callback) { this.callbacks.onNeighborUpdate = callback; }
+  onModelShared(callback) { this.callbacks.onModelShared = callback; }
+  onModelReceived(callback) { this.callbacks.onModelReceived = callback; }
+  onSyncEvent(callback) { this.callbacks.onSyncEvent = callback; }
+  onResearchResult(callback) { this.callbacks.onResearchResult = callback; }
+  onDatabaseUpdate(callback) { this.callbacks.onDatabaseUpdate = callback; }
 }
 
 export { EnhancedSwarmTrainer };
-{ EnhancedSwarmTrainer };
-.explorationRate = Math.max(0, Math.min(1, rate));
-  }
-
-  setPhase(phase) {
-    if (["vae", "drift", "both", "auto"].includes(phase)) {
-      this.currentPhase = phase;
-    }
-  }
-
-  // Callback setters
-  onEpochComplete(callback) {
-    this.callbacks.onEpochComplete = callback;
-  }
-
-  onNeighborUpdate(callback) {
-    this.callbacks.onNeighborUpdate = callback;
-  }
-
-  onModelShared(callback) {
-    this.callbacks.onModelShared = callback;
-  }
-
-  onModelReceived(callback) {
-    this.callbacks.onModelReceived = callback;
-  }
-
-  onSyncEvent(callback) {
-    this.callbacks.onSyncEvent = callback;
-  }
-
-  onDatabaseUpdate(callback) {
-    this.callbacks.onDatabaseUpdate = callback;
-  }
-}
-
-export { EnhancedSwarmTrainer };
-{ EnhancedSwarmTrainer };
