@@ -5,6 +5,7 @@ class CloudflareTunnel {
     this.config = {
       tunnelUrl: config.tunnelUrl || "https://tunnel.swarm-training.com",
       apiKey: config.apiKey || "",
+      authToken: config.authToken || "change-me-to-something-secure",
       tunnelId: config.tunnelId || this.generateTunnelId(),
       reconnectInterval: config.reconnectInterval || 5000,
       maxRetries: config.maxRetries || 3,
@@ -43,6 +44,7 @@ class CloudflareTunnel {
   async connect() {
     if (this.isConnected) return;
 
+    const authUrl = `${this.config.tunnelUrl}?token=${this.config.authToken}`;
     console.log(`🌐 Connecting to Cloudflare Tunnel: ${this.config.tunnelUrl}`);
     this.connectionState = "connecting";
 
