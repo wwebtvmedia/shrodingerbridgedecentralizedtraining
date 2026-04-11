@@ -1,19 +1,19 @@
-// Universal js-pytorch Hardware Accelerator Integration
-// This implementation provides a bridge between the swarm system and js-pytorch (WebTorch)
+// Universal TensorFlow.js Hardware Accelerator Integration
+// This implementation provides a bridge between the swarm system and the real CNN-based models
 
-import { torch } from 'js-pytorch';
+import * as tf from '@tensorflow/tfjs';
 import { EnhancedLabelTrainer } from "./training.js";
 
 export class TorchJSTrainer {
   constructor() {
     this.trainer = null;
     this.isInitialized = false;
-    this.device = 'gpu'; 
+    this.device = 'webgl'; 
     this.status = 'initializing';
 
     // Start initialization
     this.initialize().catch(err => {
-      console.error("❌ TorchJS Initialization Error:", err);
+      console.error("❌ TFJS Initialization Error:", err);
       this.status = 'failed';
     });
   }
@@ -21,19 +21,23 @@ export class TorchJSTrainer {
   async initialize() {
     if (this.isInitialized) return;
 
-    console.log("🔍 Initializing js-pytorch hardware acceleration (GPU)...");
+    console.log("🔍 Initializing TensorFlow.js hardware acceleration...");
     
     try {
-      this.device = 'gpu'; 
+      // Try to use WebGPU if available, fallback to WebGL
+      await tf.ready();
+      
+      this.device = tf.getBackend();
       
       this.trainer = new EnhancedLabelTrainer(this.device);
       this.isInitialized = true;
       this.status = 'ready';
       
       this.updateUIWithDevice("ready", this.device);
-      console.log(`🚀 Swarm AI Engine: Using [JS-PYTORCH / ${this.device.toUpperCase()}] (Hardware Accelerated Training)`);
+      console.log(`🚀 Swarm AI Engine: Using [TensorFlow.js / ${this.device.toUpperCase()}] (Hardware Accelerated Training)`);
+      console.log(`🧠 Architecture: CNN-based (Mirroring enhancedoptimaltransport)`);
     } catch (error) {
-      console.error("❌ js-pytorch initialization failed:", error);
+      console.error("❌ TensorFlow.js initialization failed:", error);
       this.device = 'cpu';
       this.status = 'failed';
       throw error;

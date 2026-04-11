@@ -107,13 +107,16 @@ class SwarmTrainer {
   async trainEpoch() {
     // Generate dummy training data for this epoch
     // In a real application, this would come from a dataset loader
-    const batchSize = 2;
+    const batchSize = CONFIG.BATCH_SIZE || 2;
     const dummyBatch = [];
+    const imgSize = CONFIG.IMG_SIZE || 96;
+    
     for (let i = 0; i < batchSize; i++) {
-      const pixels = new Array(3 * 32 * 32).fill(0).map(() => Math.random() * 2 - 1);
+      // Generate flat array of size IMG_SIZE * IMG_SIZE * 3
+      const pixels = new Array(imgSize * imgSize * 3).fill(0).map(() => Math.random() * 2 - 1);
       dummyBatch.push(pixels);
     }
-    const dummyLabels = new Array(batchSize).fill(0).map(() => Math.floor(Math.random() * 10));
+    const dummyLabels = new Array(batchSize).fill(0).map(() => Math.floor(Math.random() * CONFIG.NUM_CLASSES));
 
     // Train using model manager
     const result = await this.modelManager.trainStep(
@@ -251,21 +254,28 @@ class SwarmTrainer {
   }
 
   arrayToDataURL(pixels) {
+    const imgSize = CONFIG.IMG_SIZE || 96;
     const canvas = document.createElement("canvas");
-    canvas.width = 32;
-    canvas.height = 32;
+    canvas.width = imgSize;
+    canvas.height = imgSize;
     const ctx = canvas.getContext("2d");
-    const imgData = ctx.createImageData(32, 32);
+    const imgData = ctx.createImageData(imgSize, imgSize);
 
-    for (let i = 0; i < 1024; i++) {
-      const r = Math.floor((pixels[i] || 0) * 255);
-      const g = Math.floor((pixels[i + 1024] || 0) * 255);
-      const b = Math.floor((pixels[i + 2048] || 0) * 255);
-      
-      imgData.data[i * 4] = Math.max(0, Math.min(255, r));
-      imgData.data[i * 4 + 1] = Math.max(0, Math.min(255, g));
-      imgData.data[i * 4 + 2] = Math.max(0, Math.min(255, b));
-      imgData.data[i * 4 + 3] = 255;
+    // pixels is [H, W, C] array from tfjs arraySync()
+    for (let y = 0; y < imgSize; y++) {
+      for (let x = 0; x < imgSize; x++) {
+        const i = (y * imgSize + x) * 4;
+        const p = pixels[y][x]; // [R, G, B]
+        
+        const r = Math.floor(((p[0] || 0) + 1) * 127.5);
+        const g = Math.floor(((p[1] || 0) + 1) * 127.5);
+        const b = Math.floor(((p[2] || 0) + 1) * 127.5);
+        
+        imgData.data[i] = Math.max(0, Math.min(255, r));
+        imgData.data[i + 1] = Math.max(0, Math.min(255, g));
+        imgData.data[i + 2] = Math.max(0, Math.min(255, b));
+        imgData.data[i + 3] = 255;
+      }
     }
 
     ctx.putImageData(imgData, 0, 0);

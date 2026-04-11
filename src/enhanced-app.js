@@ -296,32 +296,37 @@ class EnhancedSwarmApp {
       return;
     }
 
-    this.ui.log("Generating samples...");
+    this.ui.log("Generating samples using TensorFlow.js...");
 
     try {
-      const samples = await this.generateSimulatedSamples(4);
+      // Use the trainer's sample generation
+      const samples = await this.trainer.generateSamples(4);
       this.ui.displaySamples(samples);
       this.ui.log("✅ Samples generated");
     } catch (error) {
       console.error("Sample generation failed:", error);
       this.ui.log(`❌ Sample generation failed: ${error.message}`);
+      // Fallback to simulation
+      const simulated = await this.generateSimulatedSamples(4);
+      this.ui.displaySamples(simulated);
     }
   }
 
   async generateSimulatedSamples(count = 4) {
     const samples = [];
+    const imgSize = CONFIG.IMG_SIZE || 96;
     for (let i = 0; i < count; i++) {
       const canvas = document.createElement("canvas");
-      canvas.width = 64;
-      canvas.height = 64;
+      canvas.width = imgSize;
+      canvas.height = imgSize;
       const ctx = canvas.getContext("2d");
       const hue = Math.random() * 360;
       ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
-      ctx.fillRect(0, 0, 64, 64);
+      ctx.fillRect(0, 0, imgSize, imgSize);
       ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
       for (let j = 0; j < 5; j++) {
-        const x = Math.random() * 64;
-        const y = Math.random() * 64;
+        const x = Math.random() * imgSize;
+        const y = Math.random() * imgSize;
         const size = 5 + Math.random() * 15;
         ctx.beginPath();
         ctx.arc(x, y, size, 0, Math.PI * 2);
@@ -427,17 +432,17 @@ class EnhancedSwarmApp {
       return;
     }
     if (!this.inferenceEngine) {
-      this.inferenceEngine = new InferenceEngine(this.trainer.modelManager);
+      this.inferenceEngine = new InferenceEngine();
       await this.inferenceEngine.initialize();
     }
-    this.ui.log("🎨 Running inference...");
+    this.ui.log("🎨 Running SB CNN inference...");
     try {
-      const label = prompt("Enter label (0-9) for conditioned generation, or leave empty:", "");
-      const options = { sampleCount: 4, steps: 50, temperature: 0.7, cfgScale: 1.0 };
+      const label = prompt("Enter label (0-10) for conditioned generation (10=NULL):", "");
+      const options = { sampleCount: 4, steps: 50, temperature: 0.7, cfgScale: CONFIG.CFG_SCALE || 3.0 };
       if (label !== null && label !== "") options.label = parseInt(label);
       const result = await this.inferenceEngine.generateSamples(options);
       this.ui.displaySamples(result.samples.map((s) => s.image));
-      this.ui.log(`✅ Generated ${result.samples.length} samples`);
+      this.ui.log(`✅ Generated ${result.samples.length} samples at 96x96`);
     } catch (error) {
       console.error("Inference failed:", error);
       this.ui.log(`❌ Inference failed: ${error.message}`);
