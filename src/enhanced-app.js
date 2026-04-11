@@ -127,7 +127,7 @@ class EnhancedSwarmApp {
         tunnelConfig: {
           tunnelUrl: "https://tunnel.swarm-training.com",
           tunnelId: `trainer_${Date.now()}`,
-          authToken: "change-me-to-something-secure" // In real app, this would be from config
+          authToken: "swarm-prototype-token-2026" // In real app, this would be from config
         },
         explorationRate: 0.3,
         syncInterval: 5,

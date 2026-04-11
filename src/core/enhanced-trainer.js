@@ -36,6 +36,7 @@ class EnhancedSwarmTrainer {
     // Neighbor management
     this.neighbors = new Map(); // Active neighbors
     this.neighborStats = new Map(); // Statistics per neighbor
+    this.pendingModelRequests = new Map(); // hash -> { resolve, reject, timeout }
 
     // Metrics
     this.metrics = {
@@ -282,7 +283,8 @@ class EnhancedSwarmTrainer {
   }
 
   generateDummyData() {
-    const size = 3 * 32 * 32;
+    const imgSize = CONFIG.IMG_SIZE || 32;
+    const size = 3 * imgSize * imgSize;
     const data = new Array(size);
     for (let i = 0; i < size; i++) {
       data[i] = Math.random() * 2 - 1;
@@ -385,16 +387,31 @@ class EnhancedSwarmTrainer {
   }
 
   async requestModelFromNeighbor(peerId, modelHash) {
-    const modelState = await this.modelManager.getState();
-    return {
-      type: "MODEL_SHARE",
-      modelHash: modelHash || modelState.hash,
-      peerId,
-      loss: 0.3 + Math.random() * 0.2,
-      epoch: 50 + Math.floor(Math.random() * 100),
-      parameters: modelState,
-      timestamp: Date.now(),
-    };
+    if (!this.tunnel) return null;
+
+    console.log(`📡 Requesting model ${modelHash} from ${peerId}`);
+
+    return new Promise((resolve, reject) => {
+      // Set timeout
+      const timeout = setTimeout(() => {
+        if (this.pendingModelRequests.has(modelHash)) {
+          this.pendingModelRequests.delete(modelHash);
+          reject(new Error("Model request timed out"));
+        }
+      }, 30000); // 30 second timeout
+
+      this.pendingModelRequests.set(modelHash, { resolve, reject, timeout });
+
+      this.tunnel.sendToPeer(peerId, {
+        type: "MODEL_REQUEST",
+        modelHash: modelHash,
+        timestamp: Date.now(),
+      }).catch(err => {
+        clearTimeout(timeout);
+        this.pendingModelRequests.delete(modelHash);
+        reject(err);
+      });
+    });
   }
 
   handleNeighborConnected(peerId, metadata) {
@@ -500,9 +517,17 @@ class EnhancedSwarmTrainer {
   handleModelRequest(peerId, request) {
     this.sendModelToPeer(peerId, request.modelHash).catch(console.error);
   }
+handleModelShare(peerId, share) {
+  // Resolve pending requests if any
+  const pending = this.pendingModelRequests.get(share.modelHash);
+  if (pending) {
+    clearTimeout(pending.timeout);
+    this.pendingModelRequests.delete(share.modelHash);
+    pending.resolve(share);
+  }
 
-  handleModelShare(peerId, share) {
-    if (this.database) {
+  if (this.database) {
+...
       this.database
         .saveModel({
           hash: share.modelHash,

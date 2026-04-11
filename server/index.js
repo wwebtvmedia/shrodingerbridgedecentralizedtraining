@@ -87,7 +87,7 @@ class ModelConsolidationServer {
     this.db = new JSONDatabase("swarm_db");
     
     // Auth Token from environment
-    this.authToken = process.env.SECRET_TOKEN || "change-me-to-something-secure";
+    this.authToken = process.env.SECRET_TOKEN || "swarm-prototype-token-2026";
 
     // Model management
     this.bestModel = null;

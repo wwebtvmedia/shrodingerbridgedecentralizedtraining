@@ -49,67 +49,63 @@ class CloudflareTunnel {
     this.connectionState = "connecting";
 
     try {
-      // For prototype, we'll simulate WebSocket connection
-      await this.simulateConnection();
+      return new Promise((resolve, reject) => {
+        const ws = new WebSocket(authUrl);
 
-      this.isConnected = true;
-      this.connectionState = "connected";
-      this.reconnectAttempts = 0;
+        ws.onopen = () => {
+          this.ws = ws;
+          this.isConnected = true;
+          this.connectionState = "connected";
+          this.reconnectAttempts = 0;
 
-      console.log("✅ Connected to Cloudflare Tunnel");
-      this.emit("connected", { tunnelId: this.config.tunnelId });
+          console.log("✅ Connected to Cloudflare Tunnel");
+          this.emit("connected", { tunnelId: this.config.tunnelId });
 
-      // Start heartbeat
-      this.startHeartbeat();
+          // Start heartbeat
+          this.startHeartbeat();
 
-      // Process queued messages
-      this.processMessageQueue();
+          // Process queued messages
+          this.processMessageQueue();
+          resolve();
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = event.data;
+            this.stats.messagesReceived++;
+            this.stats.bytesReceived += data.length;
+            const message = JSON.parse(data);
+            this.handleTunnelMessage(message);
+          } catch (error) {
+            console.error("Error parsing message:", error);
+          }
+        };
+
+        ws.onclose = (event) => {
+          this.isConnected = false;
+          this.connectionState = "disconnected";
+          console.log(`⚠️ Tunnel connection closed (Code: ${event.code})`);
+          this.emit("disconnected");
+          
+          if (event.code !== 1000 && event.code !== 1001) {
+            this.attemptReconnect();
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error("❌ Tunnel connection error:", error);
+          this.connectionState = "error";
+          this.stats.errors++;
+          this.emit("error", { error: "WebSocket Error" });
+          reject(new Error("WebSocket connection failed"));
+        };
+      });
     } catch (error) {
       console.error("❌ Tunnel connection failed:", error);
       this.connectionState = "error";
       this.stats.errors++;
       this.emit("error", { error: error.message });
       await this.attemptReconnect();
-    }
-  }
-
-  async simulateConnection() {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    this.ws = {
-      send: (data) => {
-        console.log("📤 Simulated send:", data.substring(0, 100) + "...");
-        this.stats.messagesSent++;
-        this.stats.bytesSent += data.length;
-        setTimeout(() => this.simulateMessageReceive(data), 50);
-      },
-      close: () => {
-        this.isConnected = false;
-        this.connectionState = "disconnected";
-      },
-      readyState: 1 // OPEN
-    };
-    setTimeout(() => this.simulatePeerDiscovery(), 2000);
-  }
-
-  simulateMessageReceive(data) {
-    try {
-      const message = JSON.parse(data);
-      this.stats.messagesReceived++;
-      this.stats.bytesReceived += data.length;
-      this.handleTunnelMessage(message);
-    } catch (error) {
-      console.error("Error parsing simulated message:", error);
-    }
-  }
-
-  simulatePeerDiscovery() {
-    const peerCount = 2 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < peerCount; i++) {
-      const peerId = `cf-peer-${i}`;
-      this.handlePeerConnected(peerId, {
-        region: ["us-east", "eu-west", "asia-southeast"][i % 3],
-        latency: 50 + Math.random() * 100,
-      });
     }
   }
 
