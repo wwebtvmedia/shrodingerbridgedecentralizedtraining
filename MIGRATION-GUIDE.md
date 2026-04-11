@@ -43,9 +43,25 @@ For 96x96 resolution, hardware acceleration is **mandatory**:
 | Image Size | 32x32 | **96x96** |
 | Latent Space | 64-dim (Flat) | **12x12x8 (4D Tensor)** |
 | Resolution | 1,024 pixels | **9,216 pixels** |
-| Optimization | Adam | **Adam (LR: 0.0002)** |
+| Optimization | Adam | **Adam (LR: 2e-4)** |
+| Adaptation | N/A | **LoRA (Rank: 8, Alpha: 16)** |
 
-## 3. Architecture Benefits
+## 3. Training Paradigm: Three-Phase Evolution
+
+The system now follows a structured Three-Phase training schedule to ensure stable convergence:
+
+1.  **Phase 1: VAE Optimization**: Focuses on learning the latent manifold and reconstruction.
+2.  **Phase 2: Drift Learning**: Freezes the VAE and trains the U-Net drift network to model the Schrödinger Bridge.
+3.  **Phase 3: Joint Refinement**: Co-optimizes both networks with adaptive loss weighting for maximum fidelity.
+
+## 4. Efficiency with LoRA (Low-Rank Adaptation)
+
+To minimize the bandwidth required for P2P synchronization, we have implemented LoRA:
+- **Freezing Base Weights**: The massive 96x96 CNN weights are frozen during swarm sync.
+- **Trainable Adapters**: Only the low-rank matrices (A and B) are updated and shared between peers.
+- **Bandwidth Reduction**: Synchronization is now ~10x faster compared to sharing full model weights.
+
+## 5. Architecture Benefits
 
 ### Why CNN Residual + Axial Attention?
 While MLP-Mixer provided a workaround for missing convolutions, TensorFlow.js supports full convolutional pipelines:

@@ -25,16 +25,19 @@ subject to \( X_0 \sim p_0 \) and \( X_T \sim p_1 \).
 ### Three-Phase Training Architecture
 
 #### Phase 1: Variational Autoencoder (VAE) Training
-
-**Objective**: Learn latent representations and reconstruction capabilities using a **CNN Residual** architecture.
+**Objective**: Learn robust latent representations and reconstruction capabilities using a **CNN Residual** architecture at 96x96 resolution.
 
 #### Phase 2: Drift Network Training
-
-**Objective**: Learn the optimal drift function \( u(x, t) \) using a **U-Net** based trajectory modeling.
+**Objective**: Learn the optimal drift function \( u(x, t) \) using a **U-Net** based trajectory modeling, keeping the VAE manifold fixed.
 
 #### Phase 3: Joint Training (Both)
+**Objective**: Combined loss with adaptive weighting for end-to-end refinement and high-fidelity detail generation.
 
-**Objective**: Combined loss with adaptive weighting.
+### Low-Rank Adaptation (LoRA)
+To enable efficient decentralized training, the system incorporates LoRA for both Dense and Conv2D layers:
+- **Rank-8 Adapters**: Significantly reduces trainable parameters.
+- **Fast Synchronization**: Only LoRA weights are exchanged during peer updates, minimizing network overhead.
+- **Base Model Preservation**: Allows for fine-tuning large pre-trained weights within the browser environment.
 
 ## 🏗️ System Architecture
 
