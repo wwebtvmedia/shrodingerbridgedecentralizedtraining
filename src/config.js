@@ -70,6 +70,12 @@ export const CONFIG = {
   PHASE2_VAE_LR_FACTOR: 0.1,
   PHASE3_VAE_LR_FACTOR: 0.05,
 
+  // LoRA configuration
+  USE_LORA: true,
+  LORA_R: 8,
+  LORA_ALPHA: 16,
+  LORA_DROPOUT: 0.05,
+
   // Temperature annealing
   TEMPERATURE_START: 1.0,
   TEMPERATURE_END: 0.3,

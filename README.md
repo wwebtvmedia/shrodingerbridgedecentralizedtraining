@@ -2,7 +2,7 @@
 
 ## 📖 Abstract
 
-A decentralized, self-organizing swarm training system for Schrödinger Bridge models using **js-pytorch** and peer-to-peer networking. This system implements a novel evolutionary optimization approach where multiple browser clients collaboratively train generative models without any central coordinator, using gossip protocols for model synchronization and adaptive phase management.
+A decentralized, self-organizing swarm training system for Schrödinger Bridge models using **TensorFlow.js** and peer-to-peer networking. This system implements a novel evolutionary optimization approach where multiple browser clients collaboratively train generative models without any central coordinator, using gossip protocols for model synchronization and adaptive phase management. The architecture is now aligned with the latest **CNN-based** PyTorch models (96x96 resolution).
 
 ## 🧮 Mathematical Foundations
 
@@ -26,11 +26,11 @@ subject to \( X_0 \sim p_0 \) and \( X_T \sim p_1 \).
 
 #### Phase 1: Variational Autoencoder (VAE) Training
 
-**Objective**: Learn latent representations and reconstruction capabilities using **MLP-Mixer** architecture.
+**Objective**: Learn latent representations and reconstruction capabilities using a **CNN Residual** architecture.
 
 #### Phase 2: Drift Network Training
 
-**Objective**: Learn the optimal drift function \( u(x, t) \) using **MLP-Mixer** based trajectory modeling.
+**Objective**: Learn the optimal drift function \( u(x, t) \) using a **U-Net** based trajectory modeling.
 
 #### Phase 3: Joint Training (Both)
 
@@ -38,46 +38,50 @@ subject to \( X_0 \sim p_0 \) and \( X_T \sim p_1 \).
 
 ## 🏗️ System Architecture
 
-### MLP-Mixer Architecture
+### CNN Residual Architecture (96x96)
 
-To achieve high-quality generation without convolutional layers (unsupported in some web environments), the system utilizes an **MLP-Mixer** architecture:
+To achieve high-quality generation, the system utilizes a modern convolutional architecture:
 
-1.  **Patchification**: Images (32x32) are divided into 64 patches (4x4 pixels).
-2.  **Token Mixing**: Allows different spatial locations to communicate using Linear layers and Transpositions.
-3.  **Channel Mixing**: Allows different features within the same location to interact.
+1.  **Residual Blocks**: Deep feature extraction with skip connections for stable gradient flow.
+2.  **Spatial Split Attention**: Axial attention mechanism for long-range spatial dependencies.
+3.  **Subpixel Upsampling**: High-fidelity image reconstruction (96x96) using learnable upsampling.
+4.  **Label Conditioning**: FiLM-based modulation for class-conditional generation (10 real classes + 1 NULL class).
 
-This provides the inductive bias of CNNs (spatial locality and weight sharing) using only the primitive operations supported by `js-pytorch`.
+This provides the same inductive biases as state-of-the-art PyTorch models, now optimized for browser execution via **TensorFlow.js**.
 
 ### Core Components
 
 #### 1. **SwarmTrainer** (`src/core/trainer.js`)
 - Manages local training loop with evolutionary optimization.
-- Fetches real training data from IndexedDB batches.
+- Handles 96x96 image data and 4D tensor ([B, H, W, C]) pipelines.
 
 #### 2. **ModelManager** (`src/core/models.js`)
-- Manages **js-pytorch** models and state.
-- Supports 32x32 image input with 64-dimensional latent space.
+- Manages **TensorFlow.js** models and state.
+- Supports 96x96 image input with 12x12x8 latent space (8 channels).
 
 #### 3. **TorchJSTrainer** (`src/torchjs/integration.js`)
-- Provides hardware-accelerated training using WebGL via **js-pytorch**.
-- Maps P2P swarm logic to real tensor operations and backpropagation.
+- Provides hardware-accelerated training using WebGL/WebGPU via **TensorFlow.js**.
+- Maps P2P swarm logic to real CNN operations and backpropagation.
 
 #### 4. **InferenceEngine** (`src/utils/inference.js`)
 - Implements real Schrödinger Bridge sampling (Reverse SDE).
-- Uses iterative drift updates to transform noise into coherent images.
+- Uses iterative drift updates to transform noise into coherent 96x96 images.
 
 ## 🚀 Implementation Details
 
-### js-pytorch Integration
+### TensorFlow.js Integration
 
-The system uses **js-pytorch 0.7.2** for browser-based execution:
+The system uses **TensorFlow.js** for browser-based execution:
 
 ```javascript
-// MLP-Mixer based Model (simplified)
-class LabelConditionedVAE extends torch.nn.Module {
+// CNN-based VAE (simplified)
+export class LabelConditionedVAE {
   constructor() {
-    this.enc_mixer = new MixerBlock(64, 64, 32, 128);
-    this.dec_mixer = new MixerBlock(64, 64, 32, 128);
+    this.encBlocks = [
+      new ResidualBlock(16, 32, 2),
+      new LabelConditionedBlock(32, 32),
+      new SpatialSplitAttention(64, 4)
+    ];
   }
 
   forward(x, labels) {
@@ -91,15 +95,15 @@ class LabelConditionedVAE extends torch.nn.Module {
 ### System Requirements
 
 - **Browser**: Chrome 80+, Firefox 75+, Safari 14+, Edge 80+
-- **Hardware Acceleration**: WebGL enabled for js-pytorch speed.
-- **Memory**: Minimum 2GB RAM.
-- **Storage**: IndexedDB for real training data persistence.
+- **Hardware Acceleration**: WebGL or WebGPU enabled for TensorFlow.js speed.
+- **Memory**: Minimum 4GB RAM (recommended for 96x96 models).
+- **Storage**: IndexedDB for training data persistence.
 
 ### Dependencies
 
 ```json
 {
-  "js-pytorch": "Browser-based PyTorch runtime (WebGL)",
+  "@tensorflow/tfjs": "Hardware-accelerated deep learning in the browser",
   "simple-peer": "WebRTC wrapper for P2P",
   "chart.js": "Real-time visualization",
   "express": "Consolidation server"
@@ -125,6 +129,6 @@ Open http://localhost:3000 in multiple browser windows to start real swarm train
 
 ---
 
-**Note**: This system implements **real model training and inference**. Unlike previous versions, it performs actual gradient descent and SDE-based sampling using **js-pytorch** hardware acceleration.
+**Note**: This system implements **real model training and inference** with a modern CNN architecture. It performs actual gradient descent and SDE-based sampling at 96x96 resolution, mirroring the latest PyTorch implementations.
 
 _Last updated: April 2026_

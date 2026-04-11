@@ -4,6 +4,7 @@
 
 import * as tf from '@tensorflow/tfjs';
 import { CONFIG } from "../config.js";
+import { wrapWithLoRA } from "./lora.js";
 
 /**
  * Residual Block with optional stride and bottleneck
@@ -15,24 +16,24 @@ class ResidualBlock {
     this.inChannels = inChannels;
     this.outChannels = outChannels;
 
-    this.conv1 = tf.layers.conv2d({
+    this.conv1 = wrapWithLoRA(tf.layers.conv2d({
       filters: outChannels,
       kernelSize: 3,
       strides: stride,
       padding: 'same',
       useBias: false,
       name: `${name}/conv1`
-    });
+    }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
     this.bn1 = tf.layers.batchNormalization({ name: `${name}/bn1` });
     
-    this.conv2 = tf.layers.conv2d({
+    this.conv2 = wrapWithLoRA(tf.layers.conv2d({
       filters: outChannels,
       kernelSize: 3,
       strides: 1,
       padding: 'same',
       useBias: false,
       name: `${name}/conv2`
-    });
+    }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
     this.bn2 = tf.layers.batchNormalization({ name: `${name}/bn2` });
 
     if (stride !== 1 || inChannels !== outChannels) {
@@ -138,13 +139,13 @@ class SpatialSplitAttention {
 class LabelConditionedBlock {
   constructor(cIn, cOut, labelDim = 128, name) {
     this.name = name;
-    this.conv1 = tf.layers.conv2d({ filters: cOut, kernelSize: 3, padding: 'same', name: `${name}/conv1` });
-    this.conv2 = tf.layers.conv2d({ filters: cOut, kernelSize: 3, padding: 'same', name: `${name}/conv2` });
+    this.conv1 = wrapWithLoRA(tf.layers.conv2d({ filters: cOut, kernelSize: 3, padding: 'same', name: `${name}/conv1` }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
+    this.conv2 = wrapWithLoRA(tf.layers.conv2d({ filters: cOut, kernelSize: 3, padding: 'same', name: `${name}/conv2` }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
     
-    this.labelProj = tf.layers.dense({ units: cOut * 2, name: `${name}/label_proj` });
+    this.labelProj = wrapWithLoRA(tf.layers.dense({ units: cOut * 2, name: `${name}/label_proj` }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
     
     if (cIn !== cOut) {
-      this.skip = tf.layers.conv2d({ filters: cOut, kernelSize: 1, name: `${name}/skip` });
+      this.skip = wrapWithLoRA(tf.layers.conv2d({ filters: cOut, kernelSize: 1, name: `${name}/skip` }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
     } else {
       this.skip = null;
     }
@@ -167,6 +168,12 @@ class LabelConditionedBlock {
       
       h = tf.leakyRelu(this.conv2.apply(h), 0.1);
       let skip = this.skip ? this.skip.apply(x) : x;
+      
+      // Ensure shapes match
+      if (h.shape[1] !== skip.shape[1] || h.shape[2] !== skip.shape[2]) {
+        skip = tf.image.resizeNearestNeighbor(skip, [h.shape[1], h.shape[2]]);
+      }
+      
       return tf.add(h, skip);
     });
   }
@@ -183,12 +190,12 @@ class SubpixelUpsample {
       size: [upscaleFactor, upscaleFactor],
       name: `${name}/upsample`
     });
-    this.conv = tf.layers.conv2d({
+    this.conv = wrapWithLoRA(tf.layers.conv2d({
       filters: outChannels,
       kernelSize: 3,
       padding: 'same',
       name: `${name}/conv`
-    });
+    }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
   }
 
   forward(x) {
@@ -215,7 +222,7 @@ export class LabelConditionedVAE {
     });
     
     // Encoder
-    this.encIn = tf.layers.conv2d({ filters: 16, kernelSize: 3, padding: 'same', name: 'vae/enc_in' });
+    this.encIn = wrapWithLoRA(tf.layers.conv2d({ filters: 16, kernelSize: 3, padding: 'same', name: 'vae/enc_in' }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
     this.encBlocks = [
       new ResidualBlock(16, 32, 2, 'vae/enc_block0'),           // 96 -> 48
       new LabelConditionedBlock(32, 32, this.labelDim, 'vae/enc_cond0'),
@@ -225,11 +232,11 @@ export class LabelConditionedVAE {
       new ResidualBlock(64, 64, 2, 'vae/enc_block2'),          // 24 -> 12
     ];
     
-    this.zMean = tf.layers.conv2d({ filters: this.latentChannels, kernelSize: 3, padding: 'same', name: 'vae/z_mean' });
-    this.zLogvar = tf.layers.conv2d({ filters: this.latentChannels, kernelSize: 3, padding: 'same', name: 'vae/z_logvar' });
+    this.zMean = wrapWithLoRA(tf.layers.conv2d({ filters: this.latentChannels, kernelSize: 3, padding: 'same', name: 'vae/z_mean' }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
+    this.zLogvar = wrapWithLoRA(tf.layers.conv2d({ filters: this.latentChannels, kernelSize: 3, padding: 'same', name: 'vae/z_logvar' }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
 
     // Decoder
-    this.decIn = tf.layers.conv2d({ filters: 64, kernelSize: 3, padding: 'same', name: 'vae/dec_in' });
+    this.decIn = wrapWithLoRA(tf.layers.conv2d({ filters: 64, kernelSize: 3, padding: 'same', name: 'vae/dec_in' }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
     this.decBlocks = [
       new SubpixelUpsample(64, 64, 2, 'vae/dec_up0'),          // 12 -> 24
       new LabelConditionedBlock(64, 64, this.labelDim, 'vae/dec_cond0'),
@@ -243,7 +250,7 @@ export class LabelConditionedVAE {
       new LabelConditionedBlock(16, 16, this.labelDim, 'vae/dec_cond2'),
     ];
     
-    this.decOut = tf.layers.conv2d({ filters: 3, kernelSize: 3, padding: 'same', name: 'vae/dec_out' });
+    this.decOut = wrapWithLoRA(tf.layers.conv2d({ filters: 3, kernelSize: 3, padding: 'same', name: 'vae/dec_out' }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
   }
 
   getConditioning(labels) {
@@ -356,24 +363,24 @@ export class LabelConditionedDrift {
       name: 'drift/label_emb'
     });
     
-    this.condProj = tf.layers.dense({ units: 256, name: 'drift/cond_proj' });
+    this.condProj = wrapWithLoRA(tf.layers.dense({ units: 256, name: 'drift/cond_proj' }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
     
     // U-Net Structure
-    this.head = tf.layers.conv2d({ filters: 32, kernelSize: 3, padding: 'same', name: 'drift/head' });
+    this.head = wrapWithLoRA(tf.layers.conv2d({ filters: 32, kernelSize: 3, padding: 'same', name: 'drift/head' }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
     
     this.down1 = new LabelConditionedBlock(32, 64, 256, 'drift/down1');
-    this.down2Conv = tf.layers.conv2d({ filters: 64, kernelSize: 4, strides: 2, padding: 'same', name: 'drift/down2_conv' });
+    this.down2Conv = wrapWithLoRA(tf.layers.conv2d({ filters: 64, kernelSize: 4, strides: 2, padding: 'same', name: 'drift/down2_conv' }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
     this.down2Block = new LabelConditionedBlock(64, 64, 256, 'drift/down2_block');
     
     this.mid1 = new LabelConditionedBlock(64, 64, 256, 'drift/mid1');
     this.midAttn = new SpatialSplitAttention(64, 4, 'drift/mid_attn');
     this.mid2 = new LabelConditionedBlock(64, 64, 256, 'drift/mid2');
     
-    this.up2Conv = tf.layers.conv2dTranspose({ filters: 64, kernelSize: 4, strides: 2, padding: 'same', name: 'drift/up2_conv' });
+    this.up2Conv = wrapWithLoRA(tf.layers.conv2dTranspose({ filters: 64, kernelSize: 4, strides: 2, padding: 'same', name: 'drift/up2_conv' }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
     this.up2Block = new LabelConditionedBlock(64, 64, 256, 'drift/up2_block');
     
     this.up1 = new LabelConditionedBlock(64, 32, 256, 'drift/up1');
-    this.tail = tf.layers.conv2d({ filters: this.latentChannels, kernelSize: 3, padding: 'same', name: 'drift/tail' });
+    this.tail = wrapWithLoRA(tf.layers.conv2d({ filters: this.latentChannels, kernelSize: 3, padding: 'same', name: 'drift/tail' }), CONFIG.LORA_R, CONFIG.LORA_ALPHA);
   }
 
   forward(z, t, labels) {
@@ -397,6 +404,10 @@ export class LabelConditionedDrift {
       m = this.mid2.forward(m, cond);
       
       let u2 = this.up2Conv.apply(m);
+      // Ensure u2 shape matches d1 for skip connection
+      if (u2.shape[1] !== d1.shape[1] || u2.shape[2] !== d1.shape[2]) {
+        u2 = tf.image.resizeNearestNeighbor(u2, [d1.shape[1], d1.shape[2]]);
+      }
       u2 = this.up2Block.forward(tf.add(u2, d1), cond);
       
       const u1 = this.up1.forward(u2, cond);

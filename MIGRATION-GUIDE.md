@@ -5,64 +5,65 @@
 
 ---
 
-## 2. AI Engine Migration: WebTorch to js-pytorch
+## 2. AI Engine Migration: js-pytorch to TensorFlow.js (96x96 CNN)
 
 ### What Changed
-The system has evolved from a simulated training environment to a real, hardware-accelerated generative AI trainer.
+The system has evolved from an MLP-Mixer architecture to a state-of-the-art, high-resolution CNN trainer.
 
-- **Engine**: Switched from WebTorch (simulated) to **js-pytorch 0.7.2** (real).
-- **Architecture**: Moved from simple MLPs to **MLP-Mixer** spatial architectures.
-- **Resolution**: Optimized for **32x32** images (3072 features) to fit browser memory.
-- **Training**: Implemented **real backpropagation** and Adam optimization.
-- **Inference**: Implemented **real Schrödinger Bridge SDE sampling** (Reverse Drift).
+- **Engine**: Switched from js-pytorch to **TensorFlow.js** (TFJS) for better performance and GPU utilization.
+- **Architecture**: Moved from MLP-Mixer to **CNN Residual** architectures with **Axial Attention**.
+- **Resolution**: Upgraded from 32x32 to **96x96** images (27,648 features).
+- **Training**: Improved **U-Net** based drift networks for superior generative quality.
+- **Inference**: High-fidelity Schrödinger Bridge sampling with iterative Euler updates.
 
 ### Migration Steps for Developers
 
 #### Step 1: Update Dependencies
-Ensure you have the latest `js-pytorch` package:
+Ensure you have the latest TensorFlow.js packages:
 ```bash
-npm install js-pytorch@0.7.2
+npm install @tensorflow/tfjs
 ```
 
 #### Step 2: Clear Local Database
-Since the model architecture and input dimensions have changed, old checkpoints in IndexedDB will be incompatible.
+Since the model architecture and resolution (96x96) have changed significantly, old checkpoints in IndexedDB/LocalStorage are **incompatible**.
 1. Open the Training Dashboard.
-2. Click **"Clear DB"** in the Local Database panel.
-3. Refresh the page to initialize the new MLP-Mixer weights.
+2. Click **"Clear DB"** or **"Cleanup"** in the Local Database panel.
+3. Refresh the page to initialize the new CNN weights.
 
 #### Step 3: Enable Hardware Acceleration
-For optimal performance, ensure WebGL is enabled in your browser:
+For 96x96 resolution, hardware acceleration is **mandatory**:
 - **Chrome**: `chrome://settings/system` -> "Use graphics acceleration when available".
-- **Firefox**: `about:config` -> `webgl.force-enabled = true`.
+- **WebGL/WebGPU**: TFJS will automatically detect the best available backend.
 
 ### New Model Specifications
 
-| Feature | Old (Simulated) | New (Real) |
-|---------|-----------------|------------|
-| Architecture | Flat MLP | **MLP-Mixer (Patch-based)** |
-| Image Size | 64x64 (Simulated) | **32x32 (Real)** |
-| Latent Space | 8-dim | **64-dim** |
-| Patch Size | N/A | **4x4 pixels** |
-| Optimization | None | **Adam (LR: 0.0002)** |
+| Feature | Old (js-pytorch) | New (TensorFlow.js) |
+|---------|------------------|---------------------|
+| Architecture | MLP-Mixer | **CNN Residual + Attention** |
+| Image Size | 32x32 | **96x96** |
+| Latent Space | 64-dim (Flat) | **12x12x8 (4D Tensor)** |
+| Resolution | 1,024 pixels | **9,216 pixels** |
+| Optimization | Adam | **Adam (LR: 0.0002)** |
 
 ## 3. Architecture Benefits
 
-### Why MLP-Mixer?
-`js-pytorch` does not currently support `Conv2d` layers reliably across all backends. To maintain high image quality, we implemented the **MLP-Mixer** architecture:
-1.  **Spatial Awareness**: By dividing images into patches, the model learns local features.
-2.  **Mixing Layers**: Token-mixing allows spatial communication without convolutions.
-3.  **Stability**: Provides CNN-like performance using only the stable `Linear` primitives of the library.
+### Why CNN Residual + Axial Attention?
+While MLP-Mixer provided a workaround for missing convolutions, TensorFlow.js supports full convolutional pipelines:
+1.  **Inductive Bias**: Convolutions are naturally suited for 96x96 image data.
+2.  **Residual Learning**: Skip connections allow for much deeper and more stable networks.
+3.  **Axial Attention**: Spatial Split Attention enables long-range dependencies without the $O(N^2)$ cost of full self-attention.
+4.  **U-Net Drift**: The U-Net structure in the drift network provides precise multi-scale control over noise transformation.
 
 ## Troubleshooting AI Initialization
 
-### Issue: "TypeError: nn.Conv2d is not a constructor"
-**Cause**: Using an outdated model definition with convolutions not supported by the current runtime.
-**Solution**: Ensure `src/torchjs/models.js` is using the `MixerBlock` implementation.
+### Issue: "ValueError: The first layer in a Sequential model must get an inputShape"
+**Cause**: Incorrect layer initialization in TFJS Sequential models.
+**Solution**: Ensure `inputShape` is provided to the first layer (e.g., `inputShape: [null, null, channels]`).
 
-### Issue: Out of Memory (OOM) in Node.js Tests
-**Cause**: Training on large batches or high resolutions in the Node.js heap.
-**Solution**: The system is now default to 32x32. If running tests manually, use `node --max-old-space-size=4096 test-torchjs.js`.
+### Issue: Out of Memory (OOM) on RPi or Low-End Devices
+**Cause**: 96x96 CNNs require significant VRAM/RAM.
+**Solution**: Reduce `BATCH_SIZE` in `src/config.js` or ensure only one browser tab is active.
 
-### Issue: "Attempting to reshape into invalid shape"
-**Cause**: Dimension mismatch in the data pipeline.
-**Solution**: Verify that your input data is flattened to 3072 features (for 32x32 RGB). The `EnhancedSwarmTrainer` handles this automatically for new imports.
+### Issue: "Cannot compute gradient: gradient function not found for DepthToSpace"
+**Cause**: Some TFJS operations lack gradient support on certain backends.
+**Solution**: The system now uses `UpSampling2d + Conv2d` instead of `DepthToSpace` for improved compatibility.
