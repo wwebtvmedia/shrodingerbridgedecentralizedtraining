@@ -33,6 +33,10 @@ export class TorchJSTrainer {
           // Load seedrandom polyfill if needed
           await this.loadSeedRandomPolyfill();
         }
+        // Also ensure globalThis has seedrandom for TensorFlow.js internal requires
+        if (typeof globalThis !== 'undefined' && typeof globalThis.seedrandom === 'undefined') {
+          globalThis.seedrandom = window.seedrandom;
+        }
       }
       
       // Try to use WebGPU if available, fallback to WebGL
@@ -58,31 +62,72 @@ export class TorchJSTrainer {
   async loadSeedRandomPolyfill() {
     // This is a workaround for the "t.alea is not a function" error
     // In a real implementation, you might load seedrandom from a CDN
-    // For now, we'll just define a minimal polyfill
+    // For now, we'll just define a minimal polyfill that matches the seedrandom v3 API
     if (typeof window !== 'undefined') {
-      window.seedrandom = function(seed) {
-        // Simple polyfill that returns a pseudo-random function
-        let x = 0;
-        if (seed) {
-          // Simple hash-based seed
-          for (let i = 0; i < seed.length; i++) {
-            x = (x << 5) - x + seed.charCodeAt(i);
-            x |= 0;
+      // Define Alea generator class that TensorFlow.js expects
+      class Alea {
+        constructor(seed) {
+          this.seed = seed;
+          let s = 0;
+          if (seed) {
+            for (let i = 0; i < seed.length; i++) {
+              s = (s << 5) - s + seed.charCodeAt(i);
+              s |= 0;
+            }
           }
+          this.s = s;
+          this.c = 1;
         }
-        const random = function() {
-          x = (x * 9301 + 49297) % 233280;
-          return x / 233280;
+        
+        random() {
+          const t = 2091639 * this.s + this.c * 2.3283064365386963e-10;
+          this.s = t | 0;
+          this.c = t - this.s;
+          return this.s / 0x100000000;
+        }
+        
+        int32() {
+          return (this.random() * 0x100000000) | 0;
+        }
+        
+        quick() {
+          return this.random();
+        }
+        
+        double() {
+          return this.random();
+        }
+      }
+      
+      // Main seedrandom function
+      const seedrandom = function(seed, options) {
+        const generator = new Alea(seed);
+        const rng = function() {
+          return generator.random();
         };
-        random.double = random;
-        random.int32 = function() {
-          return Math.floor(random() * 0xFFFFFFFF) | 0;
-        };
-        random.quick = random;
-        random.alea = random;
-        return random;
+        
+        // Copy generator methods
+        rng.int32 = function() { return generator.int32(); };
+        rng.quick = function() { return generator.quick(); };
+        rng.double = function() { return generator.double(); };
+        rng.alea = rng; // Self-reference for compatibility
+        
+        if (options && options.state) {
+          // Handle state restoration if needed
+          generator.s = options.state[0] || 0;
+          generator.c = options.state[1] || 1;
+        }
+        
+        return rng;
       };
-      console.log("✅ seedrandom polyfill loaded");
+      
+      // Add alea method to seedrandom function (as in the real seedrandom library)
+      seedrandom.alea = function(seed, options) {
+        return seedrandom(seed, options);
+      };
+      
+      window.seedrandom = seedrandom;
+      console.log("✅ seedrandom polyfill loaded (with Alea support)");
     }
   }
 

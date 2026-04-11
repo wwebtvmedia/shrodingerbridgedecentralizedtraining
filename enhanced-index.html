@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Enhanced Swarm Schrödinger Bridge Training (js-pytorch)</title>
+    <!-- Load seedrandom globally for TensorFlow.js compatibility -->
+    <script src="https://cdn.jsdelivr.net/npm/seedrandom@3.0.5/seedrandom.min.js"></script>
+    
     <script type="importmap">
       {
         "imports": {
@@ -13,7 +16,8 @@
           "@tensorflow/tfjs-backend-wasm": "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.22.0/+esm",
           "js-pytorch": "/js/js-pytorch-browser.js",
           "chart.js": "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/+esm",
-          "@kurkle/color": "https://cdn.jsdelivr.net/npm/@kurkle/color@0.3.4/+esm"
+          "@kurkle/color": "https://cdn.jsdelivr.net/npm/@kurkle/color@0.3.4/+esm",
+          "seedrandom": "https://cdn.jsdelivr.net/npm/seedrandom@3.0.5/+esm"
         }
       }
     </script>
