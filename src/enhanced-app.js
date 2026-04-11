@@ -125,7 +125,7 @@ class EnhancedSwarmApp {
         useDatabase: true,
         useTunnel: true,
         tunnelConfig: {
-          tunnelUrl: "https://tunnel.swarm-training.com",
+          tunnelUrl: window.location.origin.replace(/^http/, "ws"),
           tunnelId: `trainer_${Date.now()}`,
           authToken: "swarm-prototype-token-2026" // In real app, this would be from config
         },

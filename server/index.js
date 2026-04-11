@@ -249,7 +249,28 @@ class ModelConsolidationServer {
       case "model_update":
         this.handleClientModelUpdate(clientId, message);
         break;
+      case "PEER_MESSAGE":
+        this.relayToPeer(message.to, message);
+        break;
+      case "BROADCAST":
+        this.broadcastToAll(message, clientId);
+        break;
     }
+  }
+
+  relayToPeer(targetId, message) {
+    const target = this.clients.get(targetId);
+    if (target && target.ws.readyState === target.ws.OPEN) {
+      target.ws.send(JSON.stringify(message));
+    }
+  }
+
+  broadcastToAll(message, senderId) {
+    this.clients.forEach((client, id) => {
+      if (id !== senderId && client.ws.readyState === client.ws.OPEN) {
+        client.ws.send(JSON.stringify(message));
+      }
+    });
   }
 
   async handleClientModelUpdate(clientId, message) {
