@@ -527,17 +527,15 @@ handleModelShare(peerId, share) {
   }
 
   if (this.database) {
-...
-      this.database
-        .saveModel({
-          hash: share.modelHash,
-          peerId,
-          data: share.modelData,
-          timestamp: Date.now(),
-        })
-        .catch(console.error);
-    }
-
+    this.database
+      .saveModel({
+        hash: share.modelHash,
+        peerId,
+        data: share.modelData,
+        timestamp: Date.now(),
+      })
+      .catch(console.error);
+  }
     if (this.callbacks.onModelReceived) {
       this.callbacks.onModelReceived(peerId, share);
     }
