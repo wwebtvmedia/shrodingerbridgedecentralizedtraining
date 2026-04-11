@@ -283,7 +283,7 @@ class EnhancedSwarmTrainer {
   }
 
   generateDummyData() {
-    const imgSize = CONFIG.IMG_SIZE || 32;
+    const imgSize = CONFIG.IMG_SIZE || 96;
     const size = 3 * imgSize * imgSize;
     const data = new Array(size);
     for (let i = 0; i < size; i++) {
