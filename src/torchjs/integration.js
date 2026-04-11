@@ -24,6 +24,17 @@ export class TorchJSTrainer {
     console.log("🔍 Initializing TensorFlow.js hardware acceleration...");
     
     try {
+      // Workaround for "t.alea is not a function" error
+      // Ensure seedrandom library is available before tf.ready()
+      if (typeof window !== 'undefined') {
+        // In browser environment, ensure seedrandom is loaded
+        if (typeof window.seedrandom === 'undefined') {
+          console.log("⚠️  seedrandom not found, loading polyfill...");
+          // Load seedrandom polyfill if needed
+          await this.loadSeedRandomPolyfill();
+        }
+      }
+      
       // Try to use WebGPU if available, fallback to WebGL
       await tf.ready();
       
@@ -41,6 +52,37 @@ export class TorchJSTrainer {
       this.device = 'cpu';
       this.status = 'failed';
       throw error;
+    }
+  }
+
+  async loadSeedRandomPolyfill() {
+    // This is a workaround for the "t.alea is not a function" error
+    // In a real implementation, you might load seedrandom from a CDN
+    // For now, we'll just define a minimal polyfill
+    if (typeof window !== 'undefined') {
+      window.seedrandom = function(seed) {
+        // Simple polyfill that returns a pseudo-random function
+        let x = 0;
+        if (seed) {
+          // Simple hash-based seed
+          for (let i = 0; i < seed.length; i++) {
+            x = (x << 5) - x + seed.charCodeAt(i);
+            x |= 0;
+          }
+        }
+        const random = function() {
+          x = (x * 9301 + 49297) % 233280;
+          return x / 233280;
+        };
+        random.double = random;
+        random.int32 = function() {
+          return Math.floor(random() * 0xFFFFFFFF) | 0;
+        };
+        random.quick = random;
+        random.alea = random;
+        return random;
+      };
+      console.log("✅ seedrandom polyfill loaded");
     }
   }
 
