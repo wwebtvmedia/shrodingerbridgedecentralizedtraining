@@ -40,6 +40,8 @@ export class LoRADense extends tf.layers.Layer {
       tf.initializers.zeros()
     );
 
+    this.trainableWeights = [this.loraA, this.loraB];
+
     this.dropout = tf.layers.dropout({ rate: this.loraDropout });
     this.built = true;
   }
@@ -98,6 +100,8 @@ export class LoRAConv2D extends tf.layers.Layer {
       'float32',
       tf.initializers.zeros()
     );
+
+    this.trainableWeights = [this.loraA, this.loraB];
 
     this.dropout = tf.layers.dropout({ rate: this.loraDropout });
     this.built = true;

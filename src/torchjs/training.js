@@ -81,95 +81,82 @@ export class EnhancedLabelTrainer {
 
   async trainStep(batch, labels) {
     const numTensorsStart = tf.memory().numTensors;
+    
+    // Convert to tensors outside of tidy/grads
     const images = tf.tensor(batch).reshape([-1, CONFIG.IMG_SIZE, CONFIG.IMG_SIZE, 3]);
     const labelsTensor = tf.tensor(labels, [labels.length], 'int32');
 
     try {
       if (this.phase === 1) {
         // Phase 1: VAE
-        let lossVal = 0;
-        let metrics = {};
+        const vaeVars = this.getVaeVariables();
+        const gradsObj = tf.variableGrads(() => {
+          return tf.tidy(() => {
+            const [recon, mu, logvar] = this.vae.forward(images, labelsTensor);
+            const recon_loss = tf.losses.meanSquaredError(images, recon);
+            
+            // KL loss
+            const kl_element = tf.add(tf.add(tf.exp(logvar), tf.square(mu)), tf.neg(tf.add(1, logvar)));
+            const kl_loss = tf.mul(0.5, tf.mean(tf.sum(kl_element, [1, 2, 3])));
+            
+            return tf.add(recon_loss, tf.mul(CONFIG.KL_WEIGHT || 0.002, kl_loss));
+          });
+        }, vaeVars);
 
-        const grads = this.opt_vae.computeGradients(() => {
-          const [recon, mu, logvar] = this.vae.forward(images, labelsTensor);
-          const recon_loss = tf.losses.meanSquaredError(images, recon);
-          
-          // KL loss: 0.5 * sum(exp(logvar) + mu^2 - 1 - logvar)
-          const kl_element = tf.add(tf.add(tf.exp(logvar), tf.square(mu)), tf.neg(tf.add(1, logvar)));
-          const kl_loss = tf.mul(0.5, tf.mean(tf.sum(kl_element, [1, 2, 3])));
-          
-          const total_loss = tf.add(recon_loss, tf.mul(CONFIG.KL_WEIGHT || 0.002, kl_loss));
-          
-          lossVal = total_loss.dataSync()[0];
-          metrics = {
-            phase: 'vae',
-            recon_loss: recon_loss.dataSync()[0],
-            kl_loss: kl_loss.dataSync()[0]
-          };
-          
-          return total_loss;
-        });
-
-        this.opt_vae.applyGradients(grads.grads);
+        this.opt_vae.applyGradients(gradsObj.grads);
         
-        // Explicitly dispose of all tensors in the grads object
-        const total_loss = grads.value;
-        tf.dispose(total_loss);
-        Object.values(grads.grads).forEach(t => tf.dispose(t));
+        const lossVal = gradsObj.value.dataSync()[0];
+        tf.dispose(gradsObj);
         
-        return { loss: lossVal, metrics };
+        return { 
+          loss: lossVal, 
+          metrics: { phase: 'vae' } 
+        };
       } else {
         // Phase 2/3: Drift
-        let driftLossVal = 0;
-
-        const grads = this.opt_drift.computeGradients(() => {
-          // Get latents (no grad for VAE in phase 2)
+        const driftVars = this.getDriftVariables();
+        const gradsObj = tf.variableGrads(() => {
           return tf.tidy(() => {
-            const [mu, logvar] = this.vae.encode(images, labelsTensor);
-            const z1 = this.vae.reparameterize(mu, logvar);
-            
-            // Sample t and z0
-            const t = tf.randomUniform([images.shape[0], 1]);
-            const z0 = tf.randomNormal(z1.shape);
-            
-            // Sample zt and target
-            const [mean, var_] = this.ou_ref.bridgeSample(z0, z1, t);
-            const zt = tf.add(mean, tf.mul(tf.randomNormal(mean.shape), tf.sqrt(var_)));
-            const target = tf.sub(z1, z0);
+            // Encapsulate non-gradient parts in nested tidy
+            const [z1, t, z0] = tf.tidy(() => {
+              const [mu, logvar] = this.vae.encode(images, labelsTensor);
+              const z_1 = this.vae.reparameterize(mu, logvar);
+              const _t = tf.randomUniform([images.shape[0], 1]);
+              const _z0 = tf.randomNormal(z_1.shape);
+              return [z_1, _t, _z0];
+            });
+
+            const [zt, target] = tf.tidy(() => {
+              const [mean, var_] = this.ou_ref.bridgeSample(z0, z1, t);
+              const _zt = tf.add(mean, tf.mul(tf.randomNormal(mean.shape), tf.sqrt(var_)));
+              const _target = tf.sub(z1, z0);
+              return [_zt, _target];
+            });
             
             const pred = this.drift.forward(zt, t, labelsTensor);
-            const drift_loss = tf.losses.meanSquaredError(target, pred);
-            
-            driftLossVal = drift_loss.dataSync()[0];
-            return drift_loss;
+            return tf.losses.meanSquaredError(target, pred);
           });
-        });
+        }, driftVars);
 
-        this.opt_drift.applyGradients(grads.grads);
-        
-        // Explicitly dispose of all tensors in the grads object
-        const drift_loss = grads.value;
-        tf.dispose(drift_loss);
-        Object.values(grads.grads).forEach(t => tf.dispose(t));
+        this.opt_drift.applyGradients(gradsObj.grads);
+        const lossVal = gradsObj.value.dataSync()[0];
+        tf.dispose(gradsObj);
         
         if (this.phase === 3) {
-          const vGrads = this.opt_vae.computeGradients(() => {
-            const [recon] = this.vae.forward(images, labelsTensor);
-            return tf.losses.meanSquaredError(images, recon);
-          });
+          const vVars = this.getVaeVariables();
+          const vGrads = tf.variableGrads(() => {
+            return tf.tidy(() => {
+              const [recon] = this.vae.forward(images, labelsTensor);
+              return tf.losses.meanSquaredError(images, recon);
+            });
+          }, vVars);
           this.opt_vae.applyGradients(vGrads.grads);
-          
-          const vLoss = vGrads.value;
-          tf.dispose(vLoss);
-          Object.values(vGrads.grads).forEach(t => tf.dispose(t));
+          tf.dispose(vGrads);
         }
 
         return { 
-          loss: driftLossVal, 
-          metrics: { 
-            phase: this.phase === 2 ? 'drift' : 'both', 
-            drift_loss: driftLossVal 
-          } 
+          loss: lossVal, 
+          metrics: { phase: this.phase === 2 ? 'drift' : 'both' } 
         };
       }
     } finally {
@@ -179,6 +166,58 @@ export class EnhancedLabelTrainer {
         console.warn(`⚠️ Potential memory leak: ${numTensorsEnd - numTensorsStart} tensors not disposed in trainStep.`);
       }
     }
+  }
+
+  // Helper to collect all trainable variables from models
+  getVaeVariables() {
+    const vars = [];
+    // VAE variables
+    [this.vae.labelEmb, this.vae.encIn, this.vae.zMean, this.vae.zLogvar, this.vae.decIn, this.vae.decOut].forEach(layer => {
+      if (layer && layer.trainableWeights) {
+        layer.trainableWeights.forEach(w => vars.push(w.val));
+      }
+    });
+    
+    // Complex blocks
+    this.vae.encBlocks.forEach(block => {
+      if (block.conv1 && block.conv1.trainableWeights) block.conv1.trainableWeights.forEach(w => vars.push(w.val));
+      if (block.conv2 && block.conv2.trainableWeights) block.conv2.trainableWeights.forEach(w => vars.push(w.val));
+      if (block.labelProj && block.labelProj.trainableWeights) block.labelProj.trainableWeights.forEach(w => vars.push(w.val));
+      if (block.skip && block.skip.trainableWeights) block.skip.trainableWeights.forEach(w => vars.push(w.val));
+    });
+
+    this.vae.decBlocks.forEach(block => {
+      if (block.conv && block.conv.trainableWeights) block.conv.trainableWeights.forEach(w => vars.push(w.val));
+      if (block.conv1 && block.conv1.trainableWeights) block.conv1.trainableWeights.forEach(w => vars.push(w.val));
+      if (block.conv2 && block.conv2.trainableWeights) block.conv2.trainableWeights.forEach(w => vars.push(w.val));
+      if (block.labelProj && block.labelProj.trainableWeights) block.labelProj.trainableWeights.forEach(w => vars.push(w.val));
+    });
+
+    return vars;
+  }
+
+  getDriftVariables() {
+    const vars = [];
+    // Drift variables
+    if (this.drift.timeMlp) {
+      this.drift.timeMlp.layers.forEach(l => {
+        if (l.trainableWeights) l.trainableWeights.forEach(w => vars.push(w.val));
+      });
+    }
+    
+    [this.drift.labelEmb, this.drift.condProj, this.drift.head, this.drift.down2Conv, this.drift.up2Conv, this.drift.tail].forEach(layer => {
+      if (layer && layer.trainableWeights) {
+        layer.trainableWeights.forEach(w => vars.push(w.val));
+      }
+    });
+
+    [this.drift.down1, this.drift.down2Block, this.drift.mid1, this.drift.mid2, this.drift.up2Block, this.drift.up1].forEach(block => {
+      if (block.conv1 && block.conv1.trainableWeights) block.conv1.trainableWeights.forEach(w => vars.push(w.val));
+      if (block.conv2 && block.conv2.trainableWeights) block.conv2.trainableWeights.forEach(w => vars.push(w.val));
+      if (block.labelProj && block.labelProj.trainableWeights) block.labelProj.trainableWeights.forEach(w => vars.push(w.val));
+    });
+
+    return vars;
   }
 
   async generateSamples(labels, count = 4) {
