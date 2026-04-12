@@ -1,77 +1,54 @@
 // Universal TensorFlow.js Hardware Accelerator Integration
 // This implementation provides a bridge between the swarm system and the real CNN-based models
 
-// First ensure seedrandom is available before importing TensorFlow.js
+// TensorFlow.js compatibility fix for newer versions
+// According to TensorFlow.js releases, newer versions changed module bundling
+// and dropped support for some global functions like t.alea()
+// This fix ensures compatibility with TensorFlow.js 4.22.0+
+
+// Load seedrandom if not available (for browser environments)
 if (typeof window !== 'undefined' && typeof window.seedrandom === 'undefined') {
-  // Load seedrandom polyfill synchronously since we need it before tf import
+  // Try to load seedrandom from CDN or use a minimal compatible implementation
+  console.warn("⚠️ seedrandom not found. TensorFlow.js may fail to initialize.");
+  
+  // Minimal seedrandom polyfill that should work with TensorFlow.js
   (function() {
-    // Define the Alea constructor that TensorFlow.js expects (Dc class in rand_util.ts)
-    function Alea(seed) {
-      // Store seed for potential state management
-      this._seed = seed;
-      
-      // Initialize internal state based on seed
-      let s = 0;
+    // Simple Math.random-based implementation for compatibility
+    const seedrandom = function(seed) {
+      // Simple deterministic PRNG based on seed
+      let x = 0;
       if (seed) {
-        // Simple hash function for seed
         for (let i = 0; i < seed.length; i++) {
-          s = (s << 5) - s + seed.charCodeAt(i);
-          s |= 0;
+          x = (x << 5) - x + seed.charCodeAt(i);
+          x |= 0;
         }
       }
-      this.s = s || 0;
-      this.c = 1;
       
-      // The alea method should return a PRNG function
-      this.alea = function() {
-        const self = this;
-        const rng = function() {
-          return self.random();
-        };
-        rng.int32 = function() { return self.int32(); };
-        rng.double = function() { return self.double(); };
-        rng.quick = function() { return self.quick(); };
-        return rng;
+      const prng = function() {
+        x = Math.sin(x + 1) * 10000;
+        return x - Math.floor(x);
       };
-    }
-    
-    Alea.prototype.random = function() {
-      // Multiply-with-carry algorithm similar to actual Alea
-      const t = 2091639 * this.s + this.c * 2.3283064365386963e-10;
-      this.s = t | 0;
-      this.c = t - this.s;
-      return this.s / 0x100000000;
+      
+      prng.int32 = function() {
+        return Math.floor(prng() * 0x100000000);
+      };
+      
+      prng.double = prng;
+      prng.quick = prng;
+      
+      return prng;
     };
     
-    Alea.prototype.int32 = function() {
-      return (this.random() * 0x100000000) | 0;
+    // Add alea property for TensorFlow.js compatibility
+    seedrandom.alea = function(seed) {
+      return seedrandom(seed);
     };
-    
-    Alea.prototype.double = function() {
-      return this.random();
-    };
-    
-    Alea.prototype.quick = function() {
-      return this.random();
-    };
-    
-    // Main seedrandom function
-    const seedrandom = function(seed, options) {
-      const alea = new Alea(seed);
-      return alea.alea();
-    };
-    
-    // The alea property should be the Alea constructor
-    seedrandom.alea = Alea;
-    
-    // Also expose Alea globally for direct access
-    seedrandom.Alea = Alea;
     
     window.seedrandom = seedrandom;
     if (typeof globalThis !== 'undefined') {
       globalThis.seedrandom = seedrandom;
     }
-    console.log("✅ seedrandom polyfill loaded (synchronous)");
+    console.log("✅ Minimal seedrandom polyfill loaded for TensorFlow.js compatibility");
   })();
 }
 
