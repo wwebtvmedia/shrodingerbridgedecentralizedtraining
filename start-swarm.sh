@@ -5,6 +5,9 @@
 
 set -e
 
+# Error handling to keep window open
+trap 'echo "❌ An error occurred. Press Enter to close..."; read' ERR
+
 echo "🚀 Launching Swarm Training Node..."
 echo "======================================"
 
