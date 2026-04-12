@@ -311,6 +311,11 @@
       </div>
     </div>
 
+    <script type="module">
+      import seedrandom from 'seedrandom';
+      window.seedrandom = seedrandom;
+      console.log("✅ seedrandom initialized for TensorFlow.js compatibility");
+    </script>
     <script type="module" src="/src/enhanced-app.js"></script>
     <script>
       // Dependency Checker

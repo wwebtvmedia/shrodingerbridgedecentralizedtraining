@@ -1,10 +1,15 @@
 // Universal TensorFlow.js Hardware Accelerator Integration
 // This implementation provides a bridge between the swarm system and the real CNN-based models
 
-// Load seedrandom if not available (for browser environments)
-if (typeof window !== 'undefined' && typeof window.seedrandom === 'undefined') {
-  console.warn("⚠️ window.seedrandom not found. If TensorFlow.js fails with 't.alea is not a function', ensure the importmap or script tags are correctly configured.");
+// Check for seedrandom and wait if not yet available (for browser environments)
+function checkSeedRandom() {
+  if (typeof window !== 'undefined' && typeof window.seedrandom === 'undefined') {
+    // If we're at the top-level load, just log warning
+    // We'll also check again during async initialize()
+    console.warn("⚠️ window.seedrandom not found at module load. If TensorFlow.js fails with 't.alea is not a function', ensure it is loaded before application logic.");
+  }
 }
+checkSeedRandom();
 
 import * as tf from '@tensorflow/tfjs';
 import { EnhancedLabelTrainer } from "./training.js";
