@@ -1,6 +1,80 @@
 // Universal TensorFlow.js Hardware Accelerator Integration
 // This implementation provides a bridge between the swarm system and the real CNN-based models
 
+// First ensure seedrandom is available before importing TensorFlow.js
+if (typeof window !== 'undefined' && typeof window.seedrandom === 'undefined') {
+  // Load seedrandom polyfill synchronously since we need it before tf import
+  (function() {
+    // Define the Alea constructor that TensorFlow.js expects (Dc class in rand_util.ts)
+    function Alea(seed) {
+      // Store seed for potential state management
+      this._seed = seed;
+      
+      // Initialize internal state based on seed
+      let s = 0;
+      if (seed) {
+        // Simple hash function for seed
+        for (let i = 0; i < seed.length; i++) {
+          s = (s << 5) - s + seed.charCodeAt(i);
+          s |= 0;
+        }
+      }
+      this.s = s || 0;
+      this.c = 1;
+      
+      // The alea method should return a PRNG function
+      this.alea = function() {
+        const self = this;
+        const rng = function() {
+          return self.random();
+        };
+        rng.int32 = function() { return self.int32(); };
+        rng.double = function() { return self.double(); };
+        rng.quick = function() { return self.quick(); };
+        return rng;
+      };
+    }
+    
+    Alea.prototype.random = function() {
+      // Multiply-with-carry algorithm similar to actual Alea
+      const t = 2091639 * this.s + this.c * 2.3283064365386963e-10;
+      this.s = t | 0;
+      this.c = t - this.s;
+      return this.s / 0x100000000;
+    };
+    
+    Alea.prototype.int32 = function() {
+      return (this.random() * 0x100000000) | 0;
+    };
+    
+    Alea.prototype.double = function() {
+      return this.random();
+    };
+    
+    Alea.prototype.quick = function() {
+      return this.random();
+    };
+    
+    // Main seedrandom function
+    const seedrandom = function(seed, options) {
+      const alea = new Alea(seed);
+      return alea.alea();
+    };
+    
+    // The alea property should be the Alea constructor
+    seedrandom.alea = Alea;
+    
+    // Also expose Alea globally for direct access
+    seedrandom.Alea = Alea;
+    
+    window.seedrandom = seedrandom;
+    if (typeof globalThis !== 'undefined') {
+      globalThis.seedrandom = seedrandom;
+    }
+    console.log("✅ seedrandom polyfill loaded (synchronous)");
+  })();
+}
+
 import * as tf from '@tensorflow/tfjs';
 import { EnhancedLabelTrainer } from "./training.js";
 
@@ -8,7 +82,7 @@ export class TorchJSTrainer {
   constructor() {
     this.trainer = null;
     this.isInitialized = false;
-    this.device = 'webgl'; 
+    this.device = 'webgl';
     this.status = 'initializing';
 
     // Start initialization
@@ -24,19 +98,12 @@ export class TorchJSTrainer {
     console.log("🔍 Initializing TensorFlow.js hardware acceleration...");
     
     try {
-      // Workaround for "t.alea is not a function" error
-      // Ensure seedrandom library is available before tf.ready()
-      if (typeof window !== 'undefined') {
-        // In browser environment, ensure seedrandom is loaded
-        if (typeof window.seedrandom === 'undefined') {
-          console.log("⚠️  seedrandom not found, loading polyfill...");
-          // Load seedrandom polyfill if needed
-          await this.loadSeedRandomPolyfill();
-        }
-        // Also ensure globalThis has seedrandom for TensorFlow.js internal requires
-        if (typeof globalThis !== 'undefined' && typeof globalThis.seedrandom === 'undefined') {
-          globalThis.seedrandom = window.seedrandom;
-        }
+      // Seedrandom should already be available from synchronous polyfill at top
+      // But double-check for Node.js environment
+      if (typeof window === 'undefined' && typeof globalThis.seedrandom === 'undefined') {
+        // In Node.js, we might need to handle this differently
+        // For now, just log a warning
+        console.log("⚠️  Running in Node.js environment, seedrandom may not be available");
       }
       
       // Try to use WebGPU if available, fallback to WebGL
@@ -59,77 +126,6 @@ export class TorchJSTrainer {
     }
   }
 
-  async loadSeedRandomPolyfill() {
-    // This is a workaround for the "t.alea is not a function" error
-    // TensorFlow.js expects seedrandom.alea to be a constructor function
-    // that can be instantiated with "new" and has an "alea" method
-    if (typeof window !== 'undefined') {
-      // Define the Alea constructor that TensorFlow.js expects (Dc class in rand_util.ts)
-      function Alea(seed) {
-        // Store seed for potential state management
-        this._seed = seed;
-        
-        // Initialize internal state based on seed
-        let s = 0;
-        if (seed) {
-          // Simple hash function for seed
-          for (let i = 0; i < seed.length; i++) {
-            s = (s << 5) - s + seed.charCodeAt(i);
-            s |= 0;
-          }
-        }
-        this.s = s || 0;
-        this.c = 1;
-        
-        // The alea method should return a PRNG function
-        this.alea = function() {
-          const self = this;
-          const rng = function() {
-            return self.random();
-          };
-          rng.int32 = function() { return self.int32(); };
-          rng.double = function() { return self.double(); };
-          rng.quick = function() { return self.quick(); };
-          return rng;
-        };
-      }
-      
-      Alea.prototype.random = function() {
-        // Multiply-with-carry algorithm similar to actual Alea
-        const t = 2091639 * this.s + this.c * 2.3283064365386963e-10;
-        this.s = t | 0;
-        this.c = t - this.s;
-        return this.s / 0x100000000;
-      };
-      
-      Alea.prototype.int32 = function() {
-        return (this.random() * 0x100000000) | 0;
-      };
-      
-      Alea.prototype.double = function() {
-        return this.random();
-      };
-      
-      Alea.prototype.quick = function() {
-        return this.random();
-      };
-      
-      // Main seedrandom function
-      const seedrandom = function(seed, options) {
-        const alea = new Alea(seed);
-        return alea.alea();
-      };
-      
-      // The alea property should be the Alea constructor
-      seedrandom.alea = Alea;
-      
-      // Also expose Alea globally for direct access
-      seedrandom.Alea = Alea;
-      
-      window.seedrandom = seedrandom;
-      console.log("✅ seedrandom polyfill loaded (Alea constructor)");
-    }
-  }
 
   updateUIWithDevice(status, device) {
     if (typeof window !== 'undefined') {
