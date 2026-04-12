@@ -110,7 +110,10 @@ export class EnhancedLabelTrainer {
         });
 
         this.opt_vae.applyGradients(grads.grads);
-        tf.dispose(grads);
+        
+        // Explicitly dispose of all tensors in the grads object
+        tf.dispose(grads.value);
+        Object.values(grads.grads).forEach(t => tf.dispose(t));
         
         return { loss: lossVal, metrics };
       } else {
@@ -141,7 +144,10 @@ export class EnhancedLabelTrainer {
         });
 
         this.opt_drift.applyGradients(grads.grads);
-        tf.dispose(grads);
+        
+        // Explicitly dispose of all tensors in the grads object
+        tf.dispose(grads.value);
+        Object.values(grads.grads).forEach(t => tf.dispose(t));
         
         if (this.phase === 3) {
           const vGrads = this.opt_vae.computeGradients(() => {
@@ -149,7 +155,9 @@ export class EnhancedLabelTrainer {
             return tf.losses.meanSquaredError(images, recon);
           });
           this.opt_vae.applyGradients(vGrads.grads);
-          tf.dispose(vGrads);
+          
+          tf.dispose(vGrads.value);
+          Object.values(vGrads.grads).forEach(t => tf.dispose(t));
         }
 
         return { 
