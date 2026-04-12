@@ -23,6 +23,7 @@
     "@tensorflow/tfjs-node": "^4.21.0",
     "@tensorflow/tfjs-backend-wasm": "^4.21.0",
     "@tensorflow/tfjs-backend-webgpu": "^4.21.0",
+    "seedrandom": "^3.0.5",
     "uuid": "^13.0.0",
     "ws": "^8.14.2"
   },

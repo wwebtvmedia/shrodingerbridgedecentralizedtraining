@@ -1,55 +1,9 @@
 // Universal TensorFlow.js Hardware Accelerator Integration
 // This implementation provides a bridge between the swarm system and the real CNN-based models
 
-// TensorFlow.js compatibility fix for newer versions
-// According to TensorFlow.js releases, newer versions changed module bundling
-// and dropped support for some global functions like t.alea()
-// This fix ensures compatibility with TensorFlow.js 4.22.0+
-
 // Load seedrandom if not available (for browser environments)
 if (typeof window !== 'undefined' && typeof window.seedrandom === 'undefined') {
-  // Try to load seedrandom from CDN or use a minimal compatible implementation
-  console.warn("⚠️ seedrandom not found. TensorFlow.js may fail to initialize.");
-  
-  // Minimal seedrandom polyfill that should work with TensorFlow.js
-  (function() {
-    // Simple Math.random-based implementation for compatibility
-    const seedrandom = function(seed) {
-      // Simple deterministic PRNG based on seed
-      let x = 0;
-      if (seed) {
-        for (let i = 0; i < seed.length; i++) {
-          x = (x << 5) - x + seed.charCodeAt(i);
-          x |= 0;
-        }
-      }
-      
-      const prng = function() {
-        x = Math.sin(x + 1) * 10000;
-        return x - Math.floor(x);
-      };
-      
-      prng.int32 = function() {
-        return Math.floor(prng() * 0x100000000);
-      };
-      
-      prng.double = prng;
-      prng.quick = prng;
-      
-      return prng;
-    };
-    
-    // Add alea property for TensorFlow.js compatibility
-    seedrandom.alea = function(seed) {
-      return seedrandom(seed);
-    };
-    
-    window.seedrandom = seedrandom;
-    if (typeof globalThis !== 'undefined') {
-      globalThis.seedrandom = seedrandom;
-    }
-    console.log("✅ Minimal seedrandom polyfill loaded for TensorFlow.js compatibility");
-  })();
+  console.warn("⚠️ window.seedrandom not found. If TensorFlow.js fails with 't.alea is not a function', ensure the importmap or script tags are correctly configured.");
 }
 
 import * as tf from '@tensorflow/tfjs';
