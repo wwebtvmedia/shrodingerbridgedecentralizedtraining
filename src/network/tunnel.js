@@ -1,4 +1,5 @@
 import { Sanitizer } from "../utils/sanitizer.js";
+import { Validator } from "../utils/validator.js";
 
 class CloudflareTunnel {
   constructor(config = {}) {
@@ -202,6 +203,14 @@ class CloudflareTunnel {
   }
 
   handleTunnelMessage(message) {
+    if (!message || !message.type) return;
+
+    // Strict Whitelisting Validation
+    if (!Validator.validate(message.type, message)) {
+      console.warn(`Tunnel: Rejected malformed or unexpected ${message.type} message.`);
+      return;
+    }
+
     switch (message.type) {
       case "PEER_CONNECTED":
         this.handlePeerConnected(message.peerId, message.metadata);

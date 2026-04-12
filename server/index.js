@@ -240,6 +240,39 @@ class ModelConsolidationServer {
     const client = this.clients.get(clientId);
     if (client) client.lastActivity = Date.now();
 
+    // Strict Whitelisting Validation
+    const VALID_SCHEMAS = {
+      'register_training': { data: 'object', timestamp: 'number' },
+      'status_update': { clientId: 'string', metrics: 'object', neighbors: 'array', timestamp: 'number' },
+      'model_update': { clientId: 'string', modelData: 'string', loss: 'number', epoch: 'number', timestamp: 'number' },
+      'PEER_MESSAGE': { from: 'string', to: 'string', data: 'object', timestamp: 'number', messageId: 'string' },
+      'BROADCAST': { from: 'string', data: 'object', timestamp: 'number', messageId: 'string' }
+    };
+
+    const schema = VALID_SCHEMAS[message.type];
+    if (!schema) {
+      this.db.log(`Rejected unknown message type: ${message.type} from ${ip}`, 'warn');
+      return;
+    }
+
+    // Check types and presence
+    for (const [key, expectedType] of Object.entries(schema)) {
+      const val = message[key];
+      if (val === undefined || (expectedType === 'array' ? !Array.isArray(val) : typeof val !== expectedType)) {
+        this.db.log(`Rejected malformed ${message.type} from ${ip}: invalid field ${key}`, 'warn');
+        return;
+      }
+    }
+
+    // Strict field check (no extra fields)
+    const allowedKeys = new Set([...Object.keys(schema), 'type']);
+    for (const key of Object.keys(message)) {
+      if (!allowedKeys.has(key)) {
+        this.db.log(`Rejected ${message.type} from ${ip}: unexpected field ${key}`, 'warn');
+        return;
+      }
+    }
+
     switch (message.type) {
       case "register_training":
         this.trainingClients.set(clientId, { ...message.data, ip, lastSeen: Date.now(), ws: client.ws });

@@ -3,6 +3,7 @@ import { CloudflareTunnel } from "../network/tunnel.js";
 import { PhaseManager } from "./phase.js";
 import { ModelManager } from "./models.js";
 import { CONFIG } from "../config.js";
+import { Validator } from "../utils/validator.js";
 
 class EnhancedSwarmTrainer {
   constructor(config = {}) {
@@ -452,6 +453,14 @@ class EnhancedSwarmTrainer {
   }
 
   handleNeighborMessage(peerId, message) {
+    if (!message || !message.type) return;
+
+    // Strict Whitelisting Validation
+    if (!Validator.validate(message.type, message)) {
+      console.warn(`Trainer: Rejected malformed or unexpected ${message.type} from ${peerId}`);
+      return;
+    }
+
     const neighbor = this.neighbors.get(peerId);
     if (neighbor) {
       neighbor.lastSeen = Date.now();
@@ -546,6 +555,14 @@ handleModelShare(peerId, share) {
   }
 
   handleBroadcastMessage(peerId, message) {
+    if (!message || !message.type) return;
+
+    // Strict Whitelisting Validation
+    if (!Validator.validate(message.type, message)) {
+      console.warn(`Trainer: Rejected malformed or unexpected broadcast ${message.type} from ${peerId}`);
+      return;
+    }
+
     console.log(`📢 Broadcast from ${peerId}:`, message.type);
     if (message.type === "TRAINING_RESULT") {
       this.handleTrainingResultMessage(peerId, message);
