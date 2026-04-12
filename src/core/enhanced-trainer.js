@@ -140,6 +140,10 @@ class EnhancedSwarmTrainer {
       this.handleBroadcastMessage(data.from, data.data);
     });
 
+    this.tunnel.on("peer:research_result", (data) => {
+      this.handleResearchResponse(data.from, data.data);
+    });
+
     this.tunnel.on("connected", () => {
       console.log("✅ Tunnel connected");
       this.broadcastPresence();

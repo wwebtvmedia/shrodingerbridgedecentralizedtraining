@@ -228,9 +228,11 @@ class CloudflareTunnel {
         this.handleTunnelStats(message);
         break;
       case "PEER_RESEARCH_REQUEST":
+        this.emit("peer:research_request", { from: message.from, data: message.data });
         this.handleResearchRequest(message.from, message.data);
         break;
       case "PEER_RESEARCH_RESPONSE":
+        this.emit("peer:research_result", { from: message.from, data: message.data });
         this.handleResearchResponse(message.from, message.data);
         break;
       default:
@@ -291,6 +293,7 @@ class CloudflareTunnel {
   }
 
   async researchNeighbors() {
+    console.log("🔍 Broadcasting PEER_RESEARCH_REQUEST...");
     return this.broadcast({ type: "PEER_RESEARCH_REQUEST", timestamp: Date.now() });
   }
 
