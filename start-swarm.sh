@@ -13,6 +13,9 @@ echo "======================================"
 
 # 1. Update Codebase
 echo "📥 Pulling latest updates from GitHub..."
+# Discard local changes to prevent pull conflicts
+git reset --hard
+git clean -fd
 git pull origin main
 
 # 2. Install/Update Dependencies
