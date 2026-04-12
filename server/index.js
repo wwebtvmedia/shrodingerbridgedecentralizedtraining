@@ -187,6 +187,11 @@ class ModelConsolidationServer {
     this.app.get("/enhanced", (req, res) => res.sendFile(path.join(__dirname, "../enhanced-index.html")));
     this.app.get("/enhanced-index.html", (req, res) => res.sendFile(path.join(__dirname, "../enhanced-index.html")));
     this.app.get("/readme.html", (req, res) => res.sendFile(path.join(__dirname, "../readme.html")));
+    this.app.get("/beyond-labor.html", (req, res) => res.sendFile(path.join(__dirname, "../beyond-labor.html")));
+    this.app.get("/training-consolidation.html", (req, res) => res.sendFile(path.join(__dirname, "../training-consolidation.html")));
+    this.app.get("/test.html", (req, res) => res.sendFile(path.join(__dirname, "../test.html")));
+    this.app.get("/test-hardware.html", (req, res) => res.sendFile(path.join(__dirname, "../test-hardware.html")));
+    this.app.get("/test-inference.html", (req, res) => res.sendFile(path.join(__dirname, "../test-inference.html")));
   }
 
   setupWebSocket() {
