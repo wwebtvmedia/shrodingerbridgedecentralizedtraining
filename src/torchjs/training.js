@@ -80,6 +80,7 @@ export class EnhancedLabelTrainer {
   }
 
   async trainStep(batch, labels) {
+    const numTensorsStart = tf.memory().numTensors;
     const images = tf.tensor(batch).reshape([-1, CONFIG.IMG_SIZE, CONFIG.IMG_SIZE, 3]);
     const labelsTensor = tf.tensor(labels, [labels.length], 'int32');
 
@@ -112,7 +113,8 @@ export class EnhancedLabelTrainer {
         this.opt_vae.applyGradients(grads.grads);
         
         // Explicitly dispose of all tensors in the grads object
-        tf.dispose(grads.value);
+        const total_loss = grads.value;
+        tf.dispose(total_loss);
         Object.values(grads.grads).forEach(t => tf.dispose(t));
         
         return { loss: lossVal, metrics };
@@ -146,7 +148,8 @@ export class EnhancedLabelTrainer {
         this.opt_drift.applyGradients(grads.grads);
         
         // Explicitly dispose of all tensors in the grads object
-        tf.dispose(grads.value);
+        const drift_loss = grads.value;
+        tf.dispose(drift_loss);
         Object.values(grads.grads).forEach(t => tf.dispose(t));
         
         if (this.phase === 3) {
@@ -156,7 +159,8 @@ export class EnhancedLabelTrainer {
           });
           this.opt_vae.applyGradients(vGrads.grads);
           
-          tf.dispose(vGrads.value);
+          const vLoss = vGrads.value;
+          tf.dispose(vLoss);
           Object.values(vGrads.grads).forEach(t => tf.dispose(t));
         }
 
@@ -170,6 +174,10 @@ export class EnhancedLabelTrainer {
       }
     } finally {
       tf.dispose([images, labelsTensor]);
+      const numTensorsEnd = tf.memory().numTensors;
+      if (numTensorsEnd > numTensorsStart) {
+        console.warn(`⚠️ Potential memory leak: ${numTensorsEnd - numTensorsStart} tensors not disposed in trainStep.`);
+      }
     }
   }
 
