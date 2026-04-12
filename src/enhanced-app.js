@@ -134,7 +134,7 @@ class EnhancedSwarmApp {
       });
 
       // Setup trainer callbacks
-      this.trainer.onEpochComplete((epoch, loss, metrics) => {
+      this.trainer.onEpochComplete(async (epoch, loss, metrics) => {
         this.ui.updateEpoch(epoch);
         this.ui.updateLoss(loss);
         this.ui.updatePhase(this.trainer.currentPhase);
@@ -143,15 +143,17 @@ class EnhancedSwarmApp {
         this.ui.updateLossChart(epoch, loss);
         this.ui.updateDiversityChart(epoch, metrics.diversity || 0.5);
 
-        // Update metrics
+        // Update metrics with database stats
+        const dbStats = await this.trainer.getDatabaseStats();
         this.ui.updateMetrics({
           modelsEvaluated: this.trainer.metrics.modelsReceived,
           syncCount: this.trainer.metrics.syncEvents,
+          dbStats: dbStats
         });
 
         // Log progress
         this.ui.log(
-          `Epoch ${epoch}: loss=${loss.toFixed(4)}, phase=${this.trainer.currentPhase}`,
+          `Epoch ${epoch}: loss=${loss.toFixed(6)}, phase=${this.trainer.currentPhase}`,
         );
       });
 

@@ -44,7 +44,7 @@ class UIManager {
 
     // Clear log
     this.clearLog();
-    this.log("UI initialized");
+    this.log("System initialized and ready.");
   }
 
   initCharts() {
@@ -66,46 +66,29 @@ class UIManager {
               data: [],
               borderColor: "#ea4335", // Google Red
               backgroundColor: "rgba(234, 67, 53, 0.1)",
-              tension: 0.4,
+              tension: 0.2,
               fill: true,
+              pointRadius: 0,
             },
           ],
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           plugins: {
             legend: {
-              labels: {
-                color: "#e0e0e0",
-              },
+              display: false
             },
           },
           scales: {
             x: {
-              title: {
-                display: true,
-                text: "Epoch",
-                color: "#e0e0e0",
-              },
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
-              ticks: {
-                color: "#e0e0e0",
-              },
+              display: false,
+              grid: { display: false }
             },
             y: {
-              title: {
-                display: true,
-                text: "Loss",
-                color: "#e0e0e0",
-              },
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
-              ticks: {
-                color: "#e0e0e0",
-              },
+              beginAtZero: true,
+              grid: { color: "rgba(255, 255, 255, 0.05)" },
+              ticks: { color: "#8d9199", font: { size: 10 } },
             },
           },
         },
@@ -127,48 +110,25 @@ class UIManager {
               data: [],
               borderColor: "#4285f4", // Google Blue
               backgroundColor: "rgba(66, 133, 244, 0.1)",
-              tension: 0.4,
+              tension: 0.2,
               fill: true,
+              pointRadius: 0,
             },
           ],
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           plugins: {
-            legend: {
-              labels: {
-                color: "#e0e0e0",
-              },
-            },
+            legend: { display: false },
           },
           scales: {
-            x: {
-              title: {
-                display: true,
-                text: "Epoch",
-                color: "#e0e0e0",
-              },
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
-              ticks: {
-                color: "#e0e0e0",
-              },
-            },
+            x: { display: false, grid: { display: false } },
             y: {
-              title: {
-                display: true,
-                text: "Diversity",
-                color: "#e0e0e0",
-              },
               min: 0,
               max: 1,
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
-              ticks: {
-                color: "#e0e0e0",
-              },
+              grid: { color: "rgba(255, 255, 255, 0.05)" },
+              ticks: { color: "#8d9199", font: { size: 10 } },
             },
           },
         },
@@ -177,17 +137,11 @@ class UIManager {
   }
 
   updateStatus(status) {
-    const element = document.getElementById("training-phase");
-    if (element) {
-      element.textContent = status;
-
-      // Add color coding
-      element.className = "value";
-      if (status.includes("Connected") || status.includes("Training")) {
-        element.classList.add("status-good");
-      } else if (status.includes("Failed") || status.includes("Error")) {
-        element.classList.add("status-bad");
-      }
+    const textElement = document.getElementById("tunnel-status-text");
+    const indicator = document.querySelector(".status-indicator");
+    if (textElement) {
+      const isConnected = status.toLowerCase().includes("connected") || status.toLowerCase().includes("training");
+      textElement.innerHTML = `<span class="status-indicator ${isConnected ? 'connected' : 'disconnected'}"></span>${status}`;
     }
   }
 
@@ -195,34 +149,11 @@ class UIManager {
     const element = document.getElementById("peer-count");
     if (element) {
       element.textContent = count;
-
-      // Update peer list
-      this.updatePeerList(count);
     }
   }
 
   updatePeerList(count) {
-    const list = document.getElementById("peer-list");
-    if (!list) return;
-
-    list.innerHTML = "";
-
-    // Add simulated peers
-    for (let i = 0; i < count; i++) {
-      const li = document.createElement("li");
-      li.className = "peer-join";
-      li.innerHTML = `
-                <span>Peer ${i + 1}</span>
-                <span class="peer-status">🟢</span>
-            `;
-      list.appendChild(li);
-    }
-
-    // Remove animation class after animation completes
-    setTimeout(() => {
-      const items = list.querySelectorAll(".peer-join");
-      items.forEach((item) => item.classList.remove("peer-join"));
-    }, 1000);
+    // Legacy method, not used in new M3 layout but kept for compatibility
   }
 
   updateEpoch(epoch) {
@@ -236,7 +167,7 @@ class UIManager {
     const element = document.getElementById("best-loss");
     if (element) {
       if (typeof loss === "number") {
-        element.textContent = loss.toFixed(4);
+        element.textContent = loss.toFixed(6);
       } else {
         element.textContent = loss;
       }
@@ -244,63 +175,52 @@ class UIManager {
   }
 
   updatePhase(phase) {
-    const element = document.getElementById("training-phase");
-    if (element) {
-      element.textContent = phase;
-
-      // Update phase buttons
-      document.querySelectorAll(".phase-btn").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.phase === phase);
-      });
-    }
+    // Update labels if needed
+    document.querySelectorAll(".phase-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.phase === phase);
+    });
   }
 
   updateHardwareInfo(state, device) {
     const element = document.getElementById("hardware-state");
     if (element) {
-      // Write both state and acceleration as text (e.g., READY (WEBGPU))
-      const fullStatus = device ? `${state.toUpperCase()} (${device.toUpperCase()})` : state.toUpperCase();
+      const fullStatus = device ? `${device.toUpperCase()}` : state.toUpperCase();
       element.textContent = fullStatus;
       
-      // Color-code based on state and device performance using Google colors
       if (state.toLowerCase().includes("error") || state.toLowerCase().includes("failed")) {
-        element.style.color = "#ea4335"; // Google Red
+        element.style.color = "var(--google-red)";
       } else if (device && (device.toLowerCase().includes("gpu") || device.toLowerCase().includes("webgpu") || device.toLowerCase().includes("webgl"))) {
-        element.style.color = "#34a853"; // Google Green
-      } else if (device && device.toLowerCase().includes("wasm")) {
-        element.style.color = "#4285f4"; // Google Blue
-      } else if (state.toLowerCase().includes("ready")) {
-        element.style.color = "#e0e0e0"; 
+        element.style.color = "var(--google-green)";
       } else {
-        element.style.color = "#fbbc05"; // Google Yellow for Initializing
+        element.style.color = "var(--google-blue)";
       }
     }
   }
 
   updateMetrics(metrics) {
-    // Update models evaluated
-    const modelsElement = document.getElementById("models-evaluated");
-    if (modelsElement && metrics.modelsEvaluated !== undefined) {
-      modelsElement.textContent = metrics.modelsEvaluated;
-    }
-
-    // Update sync count
-    const syncElement = document.getElementById("sync-count");
-    if (syncElement && metrics.syncCount !== undefined) {
-      syncElement.textContent = metrics.syncCount;
+    // Update local database UI if present
+    if (metrics.dbStats) {
+      const ids = {
+        'neighbors': 'db-neighbors',
+        'results': 'db-results',
+        'models': 'db-models',
+        'checkpoints': 'db-checkpoints'
+      };
+      for (const [key, id] of Object.entries(ids)) {
+        const el = document.getElementById(id);
+        if (el && metrics.dbStats[key]) el.textContent = metrics.dbStats[key].count || 0;
+      }
+      const sizeEl = document.getElementById('db-size');
+      if (sizeEl && metrics.dbStats.database) {
+        sizeEl.textContent = `${Math.round(metrics.dbStats.database.size / 1024)} KB`;
+      }
     }
   }
 
   updateLossChart(epoch, loss) {
     if (!this.lossChart) return;
-
     this.lossData.push({ x: epoch, y: loss });
-
-    // Keep only last 100 points
-    if (this.lossData.length > 100) {
-      this.lossData.shift();
-    }
-
+    if (this.lossData.length > 50) this.lossData.shift();
     this.lossChart.data.labels = this.lossData.map((d) => d.x);
     this.lossChart.data.datasets[0].data = this.lossData.map((d) => d.y);
     this.lossChart.update("none");
@@ -308,32 +228,20 @@ class UIManager {
 
   updateDiversityChart(epoch, diversity) {
     if (!this.diversityChart) return;
-
     this.diversityData.push({ x: epoch, y: diversity });
-
-    // Keep only last 100 points
-    if (this.diversityData.length > 100) {
-      this.diversityData.shift();
-    }
-
+    if (this.diversityData.length > 50) this.diversityData.shift();
     this.diversityChart.data.labels = this.diversityData.map((d) => d.x);
-    this.diversityChart.data.datasets[0].data = this.diversityData.map(
-      (d) => d.y,
-    );
+    this.diversityChart.data.datasets[0].data = this.diversityData.map((d) => d.y);
     this.diversityChart.update("none");
   }
 
   displaySamples(samples) {
     const grid = document.getElementById("sample-grid");
     if (!grid) return;
-
     grid.innerHTML = "";
-
-    samples.forEach((sample, index) => {
+    samples.forEach((sample) => {
       const img = document.createElement("img");
       img.src = sample;
-      img.alt = `Sample ${index + 1}`;
-      img.title = `Generated sample`;
       grid.appendChild(img);
     });
   }
@@ -341,140 +249,48 @@ class UIManager {
   log(message) {
     const logElement = document.getElementById("training-log");
     if (!logElement) return;
-
-    const timestamp = new Date().toLocaleTimeString();
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const logEntry = `[${timestamp}] ${message}\n`;
-
     logElement.textContent += logEntry;
-
-    // Auto-scroll to bottom
     logElement.scrollTop = logElement.scrollHeight;
   }
 
   clearLog() {
     const logElement = document.getElementById("training-log");
-    if (logElement) {
-      logElement.textContent = "";
-    }
+    if (logElement) logElement.textContent = "";
   }
 
-  enableButton(buttonId) {
-    const button = document.getElementById(buttonId);
-    if (button) {
-      button.disabled = false;
-    }
-  }
-
-  disableButton(buttonId) {
-    const button = document.getElementById(buttonId);
-    if (button) {
-      button.disabled = true;
-    }
-  }
-
-  incrementSyncCount() {
-    const element = document.getElementById("sync-count");
-    if (element) {
-      const current = parseInt(element.textContent) || 0;
-      element.textContent = current + 1;
-    }
-  }
-
-  incrementModelsEvaluated() {
-    const element = document.getElementById("models-evaluated");
-    if (element) {
-      const current = parseInt(element.textContent) || 0;
-      element.textContent = current + 1;
-    }
-  }
+  enableButton(id) { const el = document.getElementById(id); if (el) el.disabled = false; }
+  disableButton(id) { const el = document.getElementById(id); if (el) el.disabled = true; }
 
   showNotification(message, type = "info") {
-    // Create notification element
     const notification = document.createElement("div");
-    notification.className = `notification notification-${type}`;
+    notification.className = `notification`;
     notification.textContent = message;
-
-    // Style
+    const colors = { info: "#4285f4", success: "#34a853", warning: "#fbbc05", error: "#ea4335" };
     notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            border-radius: 8px;
-            color: white;
-            font-weight: 500;
-            z-index: 1000;
-            animation: slideIn 0.3s ease;
-        `;
-
-    // Type-specific Google colors
-    const colors = {
-      info: "#4285f4", // Google Blue
-      success: "#34a853", // Google Green
-      warning: "#fbbc05", // Google Yellow
-      error: "#ea4335", // Google Red
-    };
-
-    notification.style.background = colors[type] || colors.info;
-
-    // Add to document
+      position: fixed; bottom: 24px; left: 24px; padding: 14px 24px; border-radius: 8px;
+      color: white; font-size: 14px; font-family: 'Google Sans', sans-serif;
+      z-index: 10000; background: ${colors[type] || colors.info};
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4); animation: slideUp 0.3s ease;
+    `;
     document.body.appendChild(notification);
-
-    // Remove after 3 seconds
     setTimeout(() => {
-      notification.style.animation = "slideOut 0.3s ease";
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, 300);
-    }, 3000);
-
-    // Add CSS animations if not already present
-    if (!document.querySelector("#notification-styles")) {
-      const style = document.createElement("style");
-      style.id = "notification-styles";
-      style.textContent = `
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideOut {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(100%); opacity: 0; }
-                }
-            `;
-      document.head.appendChild(style);
-    }
-  }
-
-  updateExplorationRate(rate) {
-    const slider = document.getElementById("exploration-slider");
-    const value = document.getElementById("exploration-value");
-
-    if (slider) {
-      slider.value = Math.round(rate * 100);
-    }
-
-    if (value) {
-      value.textContent = `${Math.round(rate * 100)}%`;
-    }
+      notification.style.animation = "fadeOut 0.3s ease";
+      setTimeout(() => notification.remove(), 300);
+    }, 4000);
   }
 
   showLoading(show = true) {
-    const buttons = document.querySelectorAll(".btn");
-
-    buttons.forEach((button) => {
+    const btns = document.querySelectorAll(".btn");
+    btns.forEach((btn) => {
       if (show) {
-        button.disabled = true;
-        const originalText = button.textContent;
-        button.dataset.originalText = originalText;
-        button.innerHTML = `<span class="loading"></span> ${originalText}`;
-      } else {
-        button.disabled = false;
-        if (button.dataset.originalText) {
-          button.textContent = button.dataset.originalText;
-        }
+        btn.disabled = true;
+        btn.dataset.oldText = btn.innerHTML;
+        btn.innerHTML = '<span class="material-icons-outlined spin" style="font-size: 18px;">sync</span>';
+      } else if (btn.dataset.oldText) {
+        btn.disabled = false;
+        btn.innerHTML = btn.dataset.oldText;
       }
     });
   }

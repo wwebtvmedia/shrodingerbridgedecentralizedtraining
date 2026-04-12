@@ -3,7 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Enhanced Swarm Schrödinger Bridge Training (js-pytorch)</title>
+    <title>Swarm AI Console | Schrödinger Bridge</title>
+    
+    <!-- Google Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&family=Roboto:wght@300;400;500&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+
     <!-- Load seedrandom globally for TensorFlow.js compatibility -->
     <script src="https://cdn.jsdelivr.net/npm/seedrandom@3.0.5/seedrandom.min.js"></script>
     
@@ -21,203 +28,111 @@
         }
       }
     </script>
-    <link rel="stylesheet" href="/css/styles.css" />
-    <style>
-      .header-nav {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-      }
-      .nav-buttons {
-        display: flex;
-        gap: 10px;
-      }
-      .btn-nav {
-        background: #fbbc05; /* Google Yellow */
-        color: #202124;
-        padding: 10px 20px;
-        border-radius: 8px;
-        text-decoration: none;
-        font-weight: 600;
-        font-size: 0.9rem;
-        transition: all 0.3s ease;
-        border: none;
-        cursor: pointer;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-      }
-      .btn-nav:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-        background: #fbd005;
-      }
-      .database-panel {
-        grid-column: span 2;
-      }
-      .database-stats {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 10px;
-        margin-bottom: 15px;
-      }
-      .db-stat {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
-        padding: 10px;
-        text-align: center;
-      }
-      .db-stat .label {
-        font-size: 0.8rem;
-        opacity: 0.7;
-        margin-bottom: 5px;
-      }
-      .db-stat .value {
-        font-size: 1.2rem;
-        font-weight: bold;
-        color: #4285f4;
-      }
-      .tunnel-status {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 10px;
-      }
-      .status-indicator {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: #ea4335; /* Google Red */
-      }
-      .status-indicator.connected {
-        background: #34a853; /* Google Green */
-        animation: pulse 2s infinite;
-      }
-      @keyframes pulse {
-        0% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
-        100% {
-          opacity: 1;
-        }
-      }
-    </style>
+    <link rel="stylesheet" href="/css/styles-google.css" />
   </head>
   <body>
     <!-- Loading Overlay -->
-    <div
-      id="dependency-loader"
-      style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(15, 12, 41, 0.9);
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        backdrop-filter: blur(10px);
-      "
-    >
-      <div
-        class="loading"
-        style="
-          width: 50px;
-          height: 50px;
-          border-width: 5px;
-          margin-bottom: 20px;
-        "
-      ></div>
-      <h2 style="color: white; margin-bottom: 10px">
-        Initializing Schrödinger Bridge Engine...
-      </h2>
-      <p id="loader-status" style="color: #4285f4; opacity: 0.8">
-        Loading js-pytorch (WebTorch) Runtime
-      </p>
+    <div id="dependency-loader" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111315; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+      <div class="loading" style="width: 48px; height: 48px; border: 4px solid rgba(66, 133, 244, 0.1); border-top-color: #4285f4; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 24px;"></div>
+      <h2 style="font-family: 'Google Sans', sans-serif; color: white; font-weight: 400;">Initializing Engine</h2>
+      <p id="loader-status" style="color: #8d9199; font-size: 14px; margin-top: 8px;">Loading WebTorch Runtime...</p>
     </div>
 
     <div class="container">
       <header>
         <div class="header-nav">
-          <h1>🧠 Enhanced Swarm Training</h1>
+          <h1>Swarm AI Console</h1>
           <div class="nav-buttons">
-            <a href="/" class="btn btn-nav"> ← Return to Main Menu </a>
+            <a href="/" class="btn" style="background: var(--surface-variant); color: var(--on-surface);">
+              <span class="material-icons-outlined" style="font-size: 18px; margin-right: 8px;">arrow_back</span>
+              Main Menu
+            </a>
           </div>
         </div>
-        <p class="subtitle">
-          TensorFlow.js + CNN Residual Architecture + Evolutionary Swarm Optimization
-        </p>
+        <p class="subtitle">Schrödinger Bridge Decentralized Training | v0.2.0-Mixer</p>
       </header>
 
       <div class="dashboard">
+        <!-- Network Panel -->
         <div class="panel network-panel">
-          <h2>🌐 Network & Tunnel</h2>
-          <div class="tunnel-status">
-            <div class="status-indicator" id="tunnel-status"></div>
-            <span id="tunnel-status-text">Disconnected</span>
-          </div>
+          <h2><span class="material-icons-outlined">hub</span> Network Status</h2>
           <div class="stats">
             <div class="stat">
-              <span class="label">Connected Peers:</span>
+              <span class="label">Connection</span>
+              <span class="value" id="tunnel-status-text"><span class="status-indicator disconnected"></span>Disconnected</span>
+            </div>
+            <div class="stat">
+              <span class="label">Active Peers</span>
               <span id="peer-count" class="value">0</span>
             </div>
             <div class="stat">
-              <span class="label">Tunnel ID:</span>
-              <span id="tunnel-id" class="value">-</span>
-            </div>
-            <div class="stat">
-              <span class="label">Messages Sent:</span>
-              <span id="messages-sent" class="value">0</span>
-            </div>
-            <div class="stat">
-              <span class="label">Messages Received:</span>
-              <span id="messages-received" class="value">0</span>
-            </div>
-            <div class="stat">
-              <span class="label">Hardware:</span>
-              <span id="hardware-state" class="value">INITIALIZING...</span>
+              <span class="label">Hardware Acceleration</span>
+              <span id="hardware-state" class="value" style="color: var(--google-yellow)">Detecting...</span>
             </div>
           </div>
-          <div class="controls" id="network-controls">
-            <button id="connect-btn" class="btn btn-primary">
-              Connect to Enhanced Swarm
-            </button>
-            <button id="research-btn" class="btn" disabled>
-              Research Neighbors
-            </button>
-            <button id="start-btn" class="btn btn-success" disabled>
-              Start Training
-            </button>
-            <button id="stop-btn" class="btn btn-danger" disabled>
-              Stop Training
-            </button>
+          <div class="controls">
+            <button id="connect-btn" class="btn btn-primary">Connect Swarm</button>
+            <button id="research-btn" class="btn" disabled>Research</button>
           </div>
         </div>
 
+        <!-- Training Panel -->
         <div class="panel training-panel">
-          <h2>📈 Training Metrics</h2>
+          <h2><span class="material-icons-outlined">insights</span> Performance Metrics</h2>
           <div class="charts">
-            <canvas id="loss-chart" width="400" height="200"></canvas>
-            <canvas id="diversity-chart" width="400" height="200"></canvas>
+            <canvas id="loss-chart"></canvas>
+            <canvas id="diversity-chart"></canvas>
           </div>
-          <div class="phase-controls">
-            <h3>Phase Management</h3>
-            <div class="phase-buttons">
-              <button class="phase-btn" data-phase="vae">VAE (MLP-Mixer)</button>
-              <button class="phase-btn" data-phase="drift">Drift (Trajectory)</button>
-              <button class="phase-btn" data-phase="both">Both</button>
-              <button class="phase-btn" data-phase="auto">Auto</button>
-            </div>
+          <div class="phase-buttons">
+            <button class="phase-btn" data-phase="vae">VAE Phase</button>
+            <button class="phase-btn" data-phase="drift">Drift Phase</button>
+            <button class="phase-btn" data-phase="both">Combined</button>
+            <button class="phase-btn" data-phase="auto">Automatic</button>
           </div>
         </div>
 
+        <!-- Swarm Intelligence -->
+        <div class="panel swarm-panel">
+          <h2><span class="material-icons-outlined">psychology</span> Swarm Intelligence</h2>
+          <div class="stats">
+            <div class="stat">
+              <span class="label">Current Epoch</span>
+              <span id="current-epoch" class="value">0</span>
+            </div>
+            <div class="stat">
+              <span class="label">Best Recorded Loss</span>
+              <span id="best-loss" class="value">N/A</span>
+            </div>
+            <div class="stat">
+              <span class="label">Synchronizations</span>
+              <span id="sync-count" class="value">0</span>
+            </div>
+          </div>
+          <div style="margin-top: 16px;">
+            <span class="label" style="font-size: 12px; color: var(--on-surface-variant);">Exploration Rate: <span id="exploration-value">30%</span></span>
+            <input type="range" id="exploration-slider" min="0" max="100" value="30" />
+          </div>
+          <div class="controls">
+            <button id="start-btn" class="btn btn-success" disabled>Start Training</button>
+            <button id="stop-btn" class="btn btn-danger" disabled>Stop Training</button>
+          </div>
+        </div>
+
+        <!-- Visualization -->
+        <div class="panel visualization-panel">
+          <h2><span class="material-icons-outlined">visibility</span> Generative Output</h2>
+          <div class="sample-grid" id="sample-grid">
+            <!-- Generated samples -->
+          </div>
+          <div class="controls">
+            <button id="generate-btn" class="btn">Generate</button>
+            <button id="inference-btn" class="btn btn-primary">Run Inference</button>
+          </div>
+        </div>
+
+        <!-- Database -->
         <div class="panel database-panel">
-          <h2>💾 Local Database</h2>
+          <h2><span class="material-icons-outlined">storage</span> Local Database</h2>
           <div class="database-stats">
             <div class="db-stat">
               <div class="label">Neighbors</div>
@@ -236,77 +151,23 @@
               <div id="db-checkpoints" class="value">0</div>
             </div>
             <div class="db-stat">
-              <div class="label">DB Size</div>
+              <div class="label">Storage Size</div>
               <div id="db-size" class="value">0 KB</div>
             </div>
           </div>
-          <div class="controls" id="database-controls">
-            <button id="export-btn" class="btn">Export DB</button>
-            <button id="import-btn" class="btn">Import DB</button>
-            <button id="stats-btn" class="btn">Database Stats</button>
-            <button id="data-import-btn" class="btn btn-primary">
-              Import Data
-            </button>
-            <button id="cleanup-btn" class="btn btn-danger">Clear DB</button>
+          <div class="controls">
+            <button id="data-import-btn" class="btn btn-primary">Import Data</button>
+            <button id="export-btn" class="btn">Export Backup</button>
+            <button id="cleanup-btn" class="btn btn-danger" style="background: transparent; color: var(--google-red); border: 1px solid var(--google-red);">Wipe Database</button>
           </div>
         </div>
 
-        <div class="panel swarm-panel">
-          <h2>🐝 Swarm Intelligence</h2>
-          <div class="swarm-stats">
-            <div class="stat">
-              <span class="label">Current Epoch:</span>
-              <span id="current-epoch" class="value">0</span>
-            </div>
-            <div class="stat">
-              <span class="label">Training Phase:</span>
-              <span id="training-phase" class="value">Initializing</span>
-            </div>
-            <div class="stat">
-              <span class="label">Best Loss:</span>
-              <span id="best-loss" class="value">-</span>
-            </div>
-            <div class="stat">
-              <span class="label">Models Evaluated:</span>
-              <span id="models-evaluated" class="value">0</span>
-            </div>
-            <div class="stat">
-              <span class="label">Synchronizations:</span>
-              <span id="sync-count" class="value">0</span>
-            </div>
-            <div class="stat">
-              <span class="label">Exploration Rate:</span>
-              <input
-                type="range"
-                id="exploration-slider"
-                min="0"
-                max="100"
-                value="30"
-              />
-              <span id="exploration-value">30%</span>
-            </div>
+        <!-- Log Panel -->
+        <div class="panel log-panel">
+          <h2><span class="material-icons-outlined">terminal</span> System Logs</h2>
+          <div class="log-container">
+            <pre id="training-log"></pre>
           </div>
-        </div>
-
-        <div class="panel visualization-panel">
-          <h2>🖼️ Generated Samples</h2>
-          <div class="sample-grid" id="sample-grid">
-            <!-- Generated samples will appear here -->
-          </div>
-          <div class="generation-controls">
-            <button id="generate-btn" class="btn">Generate Samples</button>
-            <button id="inference-btn" class="btn btn-primary">
-              Run SB Inference
-            </button>
-            <button id="refresh-btn" class="btn">Refresh Stats</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="log-panel">
-        <h2>📝 Enhanced Training Log</h2>
-        <div class="log-container">
-          <pre id="training-log"></pre>
         </div>
       </div>
     </div>
@@ -314,58 +175,31 @@
     <script type="module">
       import seedrandom from 'seedrandom';
       window.seedrandom = seedrandom;
-      console.log("✅ seedrandom initialized for TensorFlow.js compatibility");
+      console.log("✅ seedrandom initialized");
     </script>
     <script type="module" src="/src/enhanced-app.js"></script>
     <script>
-      // Dependency Checker
       (function checkDependencies() {
         const loader = document.getElementById("dependency-loader");
         const statusText = document.getElementById("loader-status");
         let attempts = 0;
-
         const check = setInterval(() => {
           attempts++;
-
-          // Check if App is initialized
           if (window.enhancedApp && window.enhancedApp.isInitialized) {
             clearInterval(check);
             const device = window.tfjsTrainer?.device || "WEBGL";
-            statusText.innerHTML = `STATE: <span style="color: #34a853">READY</span> | ACCELERATION: <span style="color: #4285f4">${device.toUpperCase()}</span>`;
+            statusText.innerHTML = `STATE: READY | ACCELERATION: ${device.toUpperCase()}`;
             setTimeout(() => {
               loader.style.opacity = "0";
               setTimeout(() => (loader.style.display = "none"), 500);
-            }, 1000);
-            console.log("✅ Swarm AI App initialized successfully");
-          } else {
-            const device = window.tfjsTrainer?.device || "DETECTING...";
-            statusText.innerHTML = `STATE: <span style="color: #fbbc05">INITIALIZING</span> | ACCELERATION: <span style="color: #4285f4">${device.toUpperCase()}</span><br><small style="opacity: 0.5">(Attempt ${attempts}/300)</small>`;
+            }, 800);
           }
-
-          if (attempts >= 300) {
-            clearInterval(check);
-            statusText.style.color = "#fbbc05";
-            statusText.textContent =
-              "Warning: App initialization taking longer than expected. Swarm features may be limited.";
-            setTimeout(() => {
-              loader.style.opacity = "0";
-              setTimeout(() => (loader.style.display = "none"), 500);
-            }, 2000);
-            console.warn("⚠️ App initialization timeout. Please check console for errors.");
-          }
+          if (attempts >= 300) clearInterval(check);
         }, 1000);
       })();
-
-      // Update database stats periodically
-      setInterval(() => {
-        if (
-          window.enhancedApp &&
-          window.enhancedApp.trainer &&
-          window.enhancedApp.trainer.database
-        ) {
-          window.enhancedApp.showDatabaseStats().catch(() => {});
-        }
-      }, 30000);
     </script>
+    <style>
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
   </body>
 </html>
