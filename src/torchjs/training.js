@@ -14,9 +14,14 @@ class OUReference {
 
   bridgeSample(z0, z1, t) {
     return tf.tidy(() => {
-      // t is [B, 1]
-      const exp_neg_theta_t = tf.exp(tf.mul(t, -this.theta));
-      const exp_neg_theta_1_t = tf.exp(tf.mul(tf.sub(1, t), -this.theta));
+      // Ensure t can broadcast with z0/z1 which are typically [B, H, W, C]
+      let t_bc = t;
+      if (t.shape.length === 2 && z0.shape.length === 4) {
+        t_bc = t.reshape([t.shape[0], 1, 1, 1]);
+      }
+
+      const exp_neg_theta_t = tf.exp(tf.mul(t_bc, -this.theta));
+      const exp_neg_theta_1_t = tf.exp(tf.mul(tf.sub(1, t_bc), -this.theta));
       const exp_neg_theta = Math.exp(-this.theta);
 
       const denominator = 1 - exp_neg_theta ** 2;
