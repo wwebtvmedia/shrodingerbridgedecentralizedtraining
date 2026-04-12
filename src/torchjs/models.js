@@ -163,7 +163,9 @@ class LabelConditionedBlock {
         const scaleReshaped = tf.reshape(scale, [scale.shape[0], 1, 1, scale.shape[1]]);
         const shiftReshaped = tf.reshape(shift, [shift.shape[0], 1, 1, shift.shape[1]]);
         
-        h = tf.add(tf.mul(h, tf.add(1, scaleReshaped)), shiftReshaped);
+        // Use local variable to avoid multiple references
+        const modulated = tf.add(tf.mul(h, tf.add(1, scaleReshaped)), shiftReshaped);
+        h = modulated;
       }
       
       h = tf.leakyRelu(this.conv2.apply(h), 0.1);
@@ -386,31 +388,35 @@ export class LabelConditionedDrift {
   forward(z, t, labels) {
     return tf.tidy(() => {
       // Time and Label Conditioning
-      const tEmb = this.timeMlp.apply(this.timeEmbed.forward(t));
+      const t_f = this.timeEmbed.forward(t);
+      const tEmb = this.timeMlp.apply(t_f);
       let lEmb = this.labelEmb.apply(labels);
       if (lEmb.shape.length === 3) lEmb = tf.squeeze(lEmb, [1]);
       
-      const cond = this.condProj.apply(tf.concat([tEmb, lEmb], -1));
+      const cond_input = tf.concat([tEmb, lEmb], -1);
+      const cond = this.condProj.apply(cond_input);
       
       // U-Net
       const h0 = this.head.apply(z);
       const d1 = this.down1.forward(h0, cond);
       
-      let d2 = this.down2Conv.apply(d1);
-      d2 = this.down2Block.forward(d2, cond);
+      const d2_c = this.down2Conv.apply(d1);
+      const d2 = this.down2Block.forward(d2_c, cond);
       
-      let m = this.mid1.forward(d2, cond);
-      m = this.midAttn.forward(m);
-      m = this.mid2.forward(m, cond);
+      const m1 = this.mid1.forward(d2, cond);
+      const m_a = this.midAttn.forward(m1);
+      const m = this.mid2.forward(m_a, cond);
       
       let u2 = this.up2Conv.apply(m);
       // Ensure u2 shape matches d1 for skip connection
       if (u2.shape[1] !== d1.shape[1] || u2.shape[2] !== d1.shape[2]) {
         u2 = tf.image.resizeNearestNeighbor(u2, [d1.shape[1], d1.shape[2]]);
       }
-      u2 = this.up2Block.forward(tf.add(u2, d1), cond);
       
-      const u1 = this.up1.forward(u2, cond);
+      const u2_input = tf.add(u2, d1);
+      const u2_b = this.up2Block.forward(u2_input, cond);
+      
+      const u1 = this.up1.forward(u2_b, cond);
       return this.tail.apply(u1);
     });
   }

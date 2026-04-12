@@ -80,21 +80,17 @@ export class EnhancedLabelTrainer {
   }
 
   async trainStep(batch, labels) {
-    return tf.tidy(() => {
-      // Convert input to TFJS tensors
-      // batch is likely flat [B, 3*96*96], reshape to [B, 96, 96, 3]
-      const images = tf.tensor(batch).reshape([-1, CONFIG.IMG_SIZE, CONFIG.IMG_SIZE, 3]);
-      const labelsTensor = tf.tensor(labels, [labels.length], 'int32');
+    const images = tf.tensor(batch).reshape([-1, CONFIG.IMG_SIZE, CONFIG.IMG_SIZE, 3]);
+    const labelsTensor = tf.tensor(labels, [labels.length], 'int32');
 
+    try {
       if (this.phase === 1) {
         // Phase 1: VAE
         let lossVal = 0;
-        let reconLossVal = 0;
-        let klLossVal = 0;
+        let metrics = {};
 
         const grads = this.opt_vae.computeGradients(() => {
           const [recon, mu, logvar] = this.vae.forward(images, labelsTensor);
-          
           const recon_loss = tf.losses.meanSquaredError(images, recon);
           
           // KL loss: 0.5 * sum(exp(logvar) + mu^2 - 1 - logvar)
@@ -104,56 +100,56 @@ export class EnhancedLabelTrainer {
           const total_loss = tf.add(recon_loss, tf.mul(CONFIG.KL_WEIGHT || 0.002, kl_loss));
           
           lossVal = total_loss.dataSync()[0];
-          reconLossVal = recon_loss.dataSync()[0];
-          klLossVal = kl_loss.dataSync()[0];
+          metrics = {
+            phase: 'vae',
+            recon_loss: recon_loss.dataSync()[0],
+            kl_loss: kl_loss.dataSync()[0]
+          };
           
           return total_loss;
         });
 
         this.opt_vae.applyGradients(grads.grads);
+        tf.dispose(grads);
         
-        return { 
-          loss: lossVal, 
-          metrics: { 
-            phase: 'vae', 
-            recon_loss: reconLossVal, 
-            kl_loss: klLossVal 
-          } 
-        };
+        return { loss: lossVal, metrics };
       } else {
         // Phase 2/3: Drift
         let driftLossVal = 0;
 
         const grads = this.opt_drift.computeGradients(() => {
           // Get latents (no grad for VAE in phase 2)
-          const [mu, logvar] = this.vae.encode(images, labelsTensor);
-          const z1 = this.vae.reparameterize(mu, logvar);
-          
-          // Sample t and z0
-          const t = tf.randomUniform([images.shape[0], 1]);
-          const z0 = tf.randomNormal(z1.shape);
-          
-          // Sample zt and target
-          const [mean, var_] = this.ou_ref.bridgeSample(z0, z1, t);
-          const zt = tf.add(mean, tf.mul(tf.randomNormal(mean.shape), tf.sqrt(var_)));
-          const target = tf.sub(z1, z0);
-          
-          const pred = this.drift.forward(zt, t, labelsTensor);
-          const drift_loss = tf.losses.meanSquaredError(target, pred);
-          
-          driftLossVal = drift_loss.dataSync()[0];
-          return drift_loss;
+          return tf.tidy(() => {
+            const [mu, logvar] = this.vae.encode(images, labelsTensor);
+            const z1 = this.vae.reparameterize(mu, logvar);
+            
+            // Sample t and z0
+            const t = tf.randomUniform([images.shape[0], 1]);
+            const z0 = tf.randomNormal(z1.shape);
+            
+            // Sample zt and target
+            const [mean, var_] = this.ou_ref.bridgeSample(z0, z1, t);
+            const zt = tf.add(mean, tf.mul(tf.randomNormal(mean.shape), tf.sqrt(var_)));
+            const target = tf.sub(z1, z0);
+            
+            const pred = this.drift.forward(zt, t, labelsTensor);
+            const drift_loss = tf.losses.meanSquaredError(target, pred);
+            
+            driftLossVal = drift_loss.dataSync()[0];
+            return drift_loss;
+          });
         });
 
         this.opt_drift.applyGradients(grads.grads);
+        tf.dispose(grads);
         
         if (this.phase === 3) {
-          // Also update VAE in phase 3
           const vGrads = this.opt_vae.computeGradients(() => {
             const [recon] = this.vae.forward(images, labelsTensor);
             return tf.losses.meanSquaredError(images, recon);
           });
           this.opt_vae.applyGradients(vGrads.grads);
+          tf.dispose(vGrads);
         }
 
         return { 
@@ -164,7 +160,9 @@ export class EnhancedLabelTrainer {
           } 
         };
       }
-    });
+    } finally {
+      tf.dispose([images, labelsTensor]);
+    }
   }
 
   async generateSamples(labels, count = 4) {
