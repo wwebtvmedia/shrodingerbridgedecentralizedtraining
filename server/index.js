@@ -205,13 +205,15 @@ class ModelConsolidationServer {
       }
 
       const clientId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      this.clients.set(clientId, { ws, connectedAt: new Date(), lastActivity: Date.now() });
+      const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+      
+      this.clients.set(clientId, { ws, ip: clientIp, connectedAt: new Date(), lastActivity: Date.now() });
       this.pushInitialData(ws);
 
       ws.on("message", (data) => {
         try {
           const message = JSON.parse(data.toString());
-          this.handleWebSocketMessage(clientId, message);
+          this.handleWebSocketMessage(clientId, message, clientIp);
         } catch (error) {
           console.error("❌ WS Error:", error);
         }
@@ -234,21 +236,32 @@ class ModelConsolidationServer {
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(message));
   }
 
-  handleWebSocketMessage(clientId, message) {
+  handleWebSocketMessage(clientId, message, ip) {
     const client = this.clients.get(clientId);
     if (client) client.lastActivity = Date.now();
 
     switch (message.type) {
       case "register_training":
-        this.trainingClients.set(clientId, { ...message.data, lastSeen: Date.now(), ws: client.ws });
-        this.db.log(`Client registered: ${clientId}`);
+        this.trainingClients.set(clientId, { ...message.data, ip, lastSeen: Date.now(), ws: client.ws });
+        this.db.updateNeighbor(clientId, { ...message.data, ip, peerId: clientId });
+        this.db.log(`Client registered: ${clientId} from IP: ${ip}`);
         break;
       case "status_update":
         if (this.trainingClients.has(clientId)) {
           const clientData = this.trainingClients.get(clientId);
           clientData.lastSeen = Date.now();
-          if (message.neighbors) message.neighbors.slice(0, 50).forEach(n => n.peerId && this.db.updateNeighbor(n.peerId, n));
-          if (message.metrics) this.db.log(`Stats ${clientId}: loss=${message.metrics.loss}`);
+          clientData.ip = ip; // Update IP if it changed
+          
+          if (message.neighbors) {
+            message.neighbors.slice(0, 50).forEach(n => {
+              if (n.peerId) this.db.updateNeighbor(n.peerId, { ...n, discoveredVia: clientId });
+            });
+          }
+          
+          if (message.metrics) {
+            this.db.log(`Stats ${clientId} (${ip}): loss=${message.metrics.loss}`);
+            this.db.updateNeighbor(clientId, { metrics: message.metrics, ip, lastSeen: Date.now() });
+          }
         }
         break;
       case "model_update":
