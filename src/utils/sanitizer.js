@@ -35,7 +35,7 @@ export const Sanitizer = {
    */
   sanitizeString(str) {
     if (typeof str !== "string") return str;
-    
+
     return str
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
@@ -54,5 +54,5 @@ export const Sanitizer = {
     if (safe.loss !== undefined) safe.loss = parseFloat(safe.loss) || 0;
     if (safe.epoch !== undefined) safe.epoch = parseInt(safe.epoch) || 0;
     return safe;
-  }
+  },
 };

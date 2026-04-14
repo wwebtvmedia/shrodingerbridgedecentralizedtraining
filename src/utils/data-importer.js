@@ -199,12 +199,20 @@ class DataImporter {
 
   tokenizeText(text) {
     // Simple tokenization for prototype
-    // In production, would use proper tokenizer
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(text);
+
+    // Pad or truncate to fixed length for NeuralTokenizer (e.g. 128)
+    const maxLen = 128;
+    const paddedBytes = new Uint8Array(maxLen);
+    paddedBytes.set(bytes.slice(0, maxLen));
+
     return {
       words: text.toLowerCase().match(/\b\w+\b/g) || [],
       characters: text.length,
       sentences: text.split(/[.!?]+/).filter((s) => s.trim() !== ""),
       tokens: Math.ceil(text.length / 4), // Rough estimate
+      bytes: Array.from(paddedBytes), // Convert to array for serialization
     };
   }
 

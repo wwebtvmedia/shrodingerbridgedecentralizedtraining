@@ -4,16 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Swarm AI Console | Schrödinger Bridge</title>
-    
+
     <!-- Google Fonts & Icons -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&family=Roboto:wght@300;400;500&family=Roboto+Mono&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&family=Roboto:wght@300;400;500&family=Roboto+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+      rel="stylesheet"
+    />
 
     <!-- Load seedrandom globally for TensorFlow.js compatibility -->
     <script src="https://cdn.jsdelivr.net/npm/seedrandom@3.0.5/seedrandom.min.js"></script>
-    
+
     <script type="importmap">
       {
         "imports": {
@@ -32,10 +38,49 @@
   </head>
   <body>
     <!-- Loading Overlay -->
-    <div id="dependency-loader" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #111315; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-      <div class="loading" style="width: 48px; height: 48px; border: 4px solid rgba(66, 133, 244, 0.1); border-top-color: #4285f4; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 24px;"></div>
-      <h2 style="font-family: 'Google Sans', sans-serif; color: white; font-weight: 400;">Initializing Engine</h2>
-      <p id="loader-status" style="color: #8d9199; font-size: 14px; margin-top: 8px;">Loading WebTorch Runtime...</p>
+    <div
+      id="dependency-loader"
+      style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #111315;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      "
+    >
+      <div
+        class="loading"
+        style="
+          width: 48px;
+          height: 48px;
+          border: 4px solid rgba(66, 133, 244, 0.1);
+          border-top-color: #4285f4;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-bottom: 24px;
+        "
+      ></div>
+      <h2
+        style="
+          font-family: &quot;Google Sans&quot;, sans-serif;
+          color: white;
+          font-weight: 400;
+        "
+      >
+        Initializing Engine
+      </h2>
+      <p
+        id="loader-status"
+        style="color: #8d9199; font-size: 14px; margin-top: 8px"
+      >
+        Loading WebTorch Runtime...
+      </p>
     </div>
 
     <div class="container">
@@ -43,23 +88,41 @@
         <div class="header-nav">
           <h1>Swarm AI Console</h1>
           <div class="nav-buttons">
-            <a href="/" class="btn" style="background: var(--surface-variant); color: var(--on-surface);">
-              <span class="material-icons-outlined" style="font-size: 18px; margin-right: 8px;">arrow_back</span>
+            <a
+              href="/"
+              class="btn"
+              style="
+                background: var(--surface-variant);
+                color: var(--on-surface);
+              "
+            >
+              <span
+                class="material-icons-outlined"
+                style="font-size: 18px; margin-right: 8px"
+                >arrow_back</span
+              >
               Main Menu
             </a>
           </div>
         </div>
-        <p class="subtitle">Schrödinger Bridge Decentralized Training | v0.2.0-Mixer</p>
+        <p class="subtitle">
+          Schrödinger Bridge Decentralized Training | v0.2.0-Mixer
+        </p>
       </header>
 
       <div class="dashboard">
         <!-- Network Panel -->
         <div class="panel network-panel">
-          <h2><span class="material-icons-outlined">hub</span> Network Status</h2>
+          <h2>
+            <span class="material-icons-outlined">hub</span> Network Status
+          </h2>
           <div class="stats">
             <div class="stat">
               <span class="label">Connection</span>
-              <span class="value" id="tunnel-status-text"><span class="status-indicator disconnected"></span>Disconnected</span>
+              <span class="value" id="tunnel-status-text"
+                ><span class="status-indicator disconnected"></span
+                >Disconnected</span
+              >
             </div>
             <div class="stat">
               <span class="label">Active Peers</span>
@@ -67,18 +130,28 @@
             </div>
             <div class="stat">
               <span class="label">Hardware Acceleration</span>
-              <span id="hardware-state" class="value" style="color: var(--google-yellow)">Detecting...</span>
+              <span
+                id="hardware-state"
+                class="value"
+                style="color: var(--google-yellow)"
+                >Detecting...</span
+              >
             </div>
           </div>
           <div class="controls">
-            <button id="connect-btn" class="btn btn-primary">Connect Swarm</button>
+            <button id="connect-btn" class="btn btn-primary">
+              Connect Swarm
+            </button>
             <button id="research-btn" class="btn" disabled>Research</button>
           </div>
         </div>
 
         <!-- Training Panel -->
         <div class="panel training-panel">
-          <h2><span class="material-icons-outlined">insights</span> Performance Metrics</h2>
+          <h2>
+            <span class="material-icons-outlined">insights</span> Performance
+            Metrics
+          </h2>
           <div class="charts">
             <canvas id="loss-chart"></canvas>
             <canvas id="diversity-chart"></canvas>
@@ -93,7 +166,10 @@
 
         <!-- Swarm Intelligence -->
         <div class="panel swarm-panel">
-          <h2><span class="material-icons-outlined">psychology</span> Swarm Intelligence</h2>
+          <h2>
+            <span class="material-icons-outlined">psychology</span> Swarm
+            Intelligence
+          </h2>
           <div class="stats">
             <div class="stat">
               <span class="label">Current Epoch</span>
@@ -108,31 +184,52 @@
               <span id="sync-count" class="value">0</span>
             </div>
           </div>
-          <div style="margin-top: 16px;">
-            <span class="label" style="font-size: 12px; color: var(--on-surface-variant);">Exploration Rate: <span id="exploration-value">30%</span></span>
-            <input type="range" id="exploration-slider" min="0" max="100" value="30" />
+          <div style="margin-top: 16px">
+            <span
+              class="label"
+              style="font-size: 12px; color: var(--on-surface-variant)"
+              >Exploration Rate: <span id="exploration-value">30%</span></span
+            >
+            <input
+              type="range"
+              id="exploration-slider"
+              min="0"
+              max="100"
+              value="30"
+            />
           </div>
           <div class="controls">
-            <button id="start-btn" class="btn btn-success" disabled>Start Training</button>
-            <button id="stop-btn" class="btn btn-danger" disabled>Stop Training</button>
+            <button id="start-btn" class="btn btn-success" disabled>
+              Start Training
+            </button>
+            <button id="stop-btn" class="btn btn-danger" disabled>
+              Stop Training
+            </button>
           </div>
         </div>
 
         <!-- Visualization -->
         <div class="panel visualization-panel">
-          <h2><span class="material-icons-outlined">visibility</span> Generative Output</h2>
+          <h2>
+            <span class="material-icons-outlined">visibility</span> Generative
+            Output
+          </h2>
           <div class="sample-grid" id="sample-grid">
             <!-- Generated samples -->
           </div>
           <div class="controls">
             <button id="generate-btn" class="btn">Generate</button>
-            <button id="inference-btn" class="btn btn-primary">Run Inference</button>
+            <button id="inference-btn" class="btn btn-primary">
+              Run Inference
+            </button>
           </div>
         </div>
 
         <!-- Database -->
         <div class="panel database-panel">
-          <h2><span class="material-icons-outlined">storage</span> Local Database</h2>
+          <h2>
+            <span class="material-icons-outlined">storage</span> Local Database
+          </h2>
           <div class="database-stats">
             <div class="db-stat">
               <div class="label">Neighbors</div>
@@ -156,15 +253,29 @@
             </div>
           </div>
           <div class="controls">
-            <button id="data-import-btn" class="btn btn-primary">Import Data</button>
+            <button id="data-import-btn" class="btn btn-primary">
+              Import Data
+            </button>
             <button id="export-btn" class="btn">Export Backup</button>
-            <button id="cleanup-btn" class="btn btn-danger" style="background: transparent; color: var(--google-red); border: 1px solid var(--google-red);">Wipe Database</button>
+            <button
+              id="cleanup-btn"
+              class="btn btn-danger"
+              style="
+                background: transparent;
+                color: var(--google-red);
+                border: 1px solid var(--google-red);
+              "
+            >
+              Wipe Database
+            </button>
           </div>
         </div>
 
         <!-- Log Panel -->
         <div class="panel log-panel">
-          <h2><span class="material-icons-outlined">terminal</span> System Logs</h2>
+          <h2>
+            <span class="material-icons-outlined">terminal</span> System Logs
+          </h2>
           <div class="log-container">
             <pre id="training-log"></pre>
           </div>
@@ -173,7 +284,7 @@
     </div>
 
     <script type="module">
-      import seedrandom from 'seedrandom';
+      import seedrandom from "seedrandom";
       window.seedrandom = seedrandom;
       console.log("✅ seedrandom initialized");
     </script>
@@ -199,7 +310,11 @@
       })();
     </script>
     <style>
-      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
     </style>
   </body>
 </html>

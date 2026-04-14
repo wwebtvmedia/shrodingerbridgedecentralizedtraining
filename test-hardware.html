@@ -1,111 +1,137 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TFJS Accelerator Detection Test</title>
     <style>
-        body { font-family: monospace; background: #121212; color: #00ff00; padding: 20px; line-height: 1.5; }
-        .success { color: #00ff00; }
-        .error { color: #ff0000; }
-        .warning { color: #ffff00; }
-        .info { color: #00ffff; }
-        .status-box { border: 1px solid #333; padding: 10px; margin-bottom: 20px; background: #1a1a1a; }
-        h1 { color: #fff; border-bottom: 1px solid #333; padding-bottom: 10px; }
+      body {
+        font-family: monospace;
+        background: #121212;
+        color: #00ff00;
+        padding: 20px;
+        line-height: 1.5;
+      }
+      .success {
+        color: #00ff00;
+      }
+      .error {
+        color: #ff0000;
+      }
+      .warning {
+        color: #ffff00;
+      }
+      .info {
+        color: #00ffff;
+      }
+      .status-box {
+        border: 1px solid #333;
+        padding: 10px;
+        margin-bottom: 20px;
+        background: #1a1a1a;
+      }
+      h1 {
+        color: #fff;
+        border-bottom: 1px solid #333;
+        padding-bottom: 10px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>🚀 TFJS Accelerator Detection Test</h1>
-    
+
     <div class="status-box">
-        <div>STATE: <span id="state">INITIALIZING...</span></div>
-        <div>ACTIVE DEVICE: <span id="device">DETECTING...</span></div>
+      <div>STATE: <span id="state">INITIALIZING...</span></div>
+      <div>ACTIVE DEVICE: <span id="device">DETECTING...</span></div>
     </div>
 
     <div id="log"></div>
 
     <script type="importmap">
-        {
-          "imports": {
-            "@tensorflow/tfjs": "https://esm.sh/@tensorflow/tfjs@4.21.0",
-            "@tensorflow/tfjs-backend-wasm": "https://esm.sh/@tensorflow/tfjs-backend-wasm@4.21.0",
-            "@tensorflow/tfjs-backend-webgpu": "https://esm.sh/@tensorflow/tfjs-backend-webgpu@4.21.0",
-            "seedrandom": "https://esm.sh/seedrandom@3.0.5"
-          }
+      {
+        "imports": {
+          "@tensorflow/tfjs": "https://esm.sh/@tensorflow/tfjs@4.21.0",
+          "@tensorflow/tfjs-backend-wasm": "https://esm.sh/@tensorflow/tfjs-backend-wasm@4.21.0",
+          "@tensorflow/tfjs-backend-webgpu": "https://esm.sh/@tensorflow/tfjs-backend-webgpu@4.21.0",
+          "seedrandom": "https://esm.sh/seedrandom@3.0.5"
         }
+      }
     </script>
 
     <script type="module">
-        const logEl = document.getElementById('log');
-        const stateEl = document.getElementById('state');
-        const deviceEl = document.getElementById('device');
+      const logEl = document.getElementById("log");
+      const stateEl = document.getElementById("state");
+      const deviceEl = document.getElementById("device");
 
-        function log(msg, type = 'info') {
-            const div = document.createElement('div');
-            div.className = type;
-            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            logEl.appendChild(div);
-            console.log(msg);
-        }
+      function log(msg, type = "info") {
+        const div = document.createElement("div");
+        div.className = type;
+        div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logEl.appendChild(div);
+        console.log(msg);
+      }
 
-        async function runTest() {
-            log("Starting probe...", 'info');
-            
+      async function runTest() {
+        log("Starting probe...", "info");
+
+        try {
+          log("Importing @tensorflow/tfjs...", "info");
+          const tf = await import("@tensorflow/tfjs");
+          log(`TFJS Version: ${tf.version_core}`, "success");
+
+          const backends = ["webgpu", "webgl", "wasm", "cpu"];
+
+          for (const backend of backends) {
+            log(`Probing backend: ${backend.toUpperCase()}...`, "info");
+
             try {
-                log("Importing @tensorflow/tfjs...", 'info');
-                const tf = await import("@tensorflow/tfjs");
-                log(`TFJS Version: ${tf.version_core}`, 'success');
+              if (backend === "wasm") {
+                log("Loading WASM backend...", "info");
+                await import("@tensorflow/tfjs-backend-wasm");
+              } else if (backend === "webgpu") {
+                log("Loading WebGPU backend...", "info");
+                await import("@tensorflow/tfjs-backend-webgpu");
+              }
 
-                const backends = ['webgpu', 'webgl', 'wasm', 'cpu'];
-                
-                for (const backend of backends) {
-                    log(`Probing backend: ${backend.toUpperCase()}...`, 'info');
-                    
-                    try {
-                        if (backend === 'wasm') {
-                            log("Loading WASM backend...", 'info');
-                            await import("@tensorflow/tfjs-backend-wasm");
-                        } else if (backend === 'webgpu') {
-                            log("Loading WebGPU backend...", 'info');
-                            await import("@tensorflow/tfjs-backend-webgpu");
-                        }
+              const hasBackend = tf.findBackend(backend);
+              log(
+                `- Registered: ${!!hasBackend}`,
+                hasBackend ? "success" : "warning",
+              );
 
-                        const hasBackend = tf.findBackend(backend);
-                        log(`- Registered: ${!!hasBackend}`, hasBackend ? 'success' : 'warning');
-                        
-                        if (hasBackend) {
-                            log(`- Attempting to set backend to ${backend}...`, 'info');
-                            await tf.setBackend(backend);
-                            await tf.ready();
-                            log(`- SUCCESS: ${backend} is active`, 'success');
-                            
-                            deviceEl.textContent = backend.toUpperCase();
-                            deviceEl.style.color = '#4285f4';
-                            
-                            // Simple computation test
-                            const a = tf.tensor1d([1, 2, 3]);
-                            const b = tf.tensor1d([4, 5, 6]);
-                            const result = a.add(b);
-                            log(`- Computation test: ${result.dataSync()}`, 'success');
-                            tf.dispose([a, b, result]);
-                            
-                            stateEl.textContent = 'READY';
-                            stateEl.style.color = '#34a853';
-                        }
-                    } catch (e) {
-                        log(`- Failed to use ${backend}: ${e.message}`, 'error');
-                    }
-                }
+              if (hasBackend) {
+                log(`- Attempting to set backend to ${backend}...`, "info");
+                await tf.setBackend(backend);
+                await tf.ready();
+                log(`- SUCCESS: ${backend} is active`, "success");
 
-                log("Probe complete.", 'success');
-            } catch (error) {
-                log(`CRITICAL ERROR: ${error.message}`, 'error');
-                stateEl.textContent = 'FAILED';
-                stateEl.style.color = '#ea4335';
+                deviceEl.textContent = backend.toUpperCase();
+                deviceEl.style.color = "#4285f4";
+
+                // Simple computation test
+                const a = tf.tensor1d([1, 2, 3]);
+                const b = tf.tensor1d([4, 5, 6]);
+                const result = a.add(b);
+                log(`- Computation test: ${result.dataSync()}`, "success");
+                tf.dispose([a, b, result]);
+
+                stateEl.textContent = "READY";
+                stateEl.style.color = "#34a853";
+              }
+            } catch (e) {
+              log(`- Failed to use ${backend}: ${e.message}`, "error");
             }
-        }
+          }
 
-        runTest();
+          log("Probe complete.", "success");
+        } catch (error) {
+          log(`CRITICAL ERROR: ${error.message}`, "error");
+          stateEl.textContent = "FAILED";
+          stateEl.style.color = "#ea4335";
+        }
+      }
+
+      runTest();
     </script>
-</body>
+  </body>
 </html>

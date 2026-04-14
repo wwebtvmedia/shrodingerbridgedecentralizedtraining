@@ -110,26 +110,34 @@ class SwarmTrainer {
     const batchSize = CONFIG.BATCH_SIZE || 2;
     const dummyBatch = [];
     const imgSize = CONFIG.IMG_SIZE || 96;
-    
+
     for (let i = 0; i < batchSize; i++) {
       // Generate flat array of size IMG_SIZE * IMG_SIZE * 3
-      const pixels = new Array(imgSize * imgSize * 3).fill(0).map(() => Math.random() * 2 - 1);
+      const pixels = new Array(imgSize * imgSize * 3)
+        .fill(0)
+        .map(() => Math.random() * 2 - 1);
       dummyBatch.push(pixels);
     }
-    const dummyLabels = new Array(batchSize).fill(0).map(() => Math.floor(Math.random() * CONFIG.NUM_CLASSES));
+    const dummyLabels = new Array(batchSize)
+      .fill(0)
+      .map(() => Math.floor(Math.random() * CONFIG.NUM_CLASSES));
 
     // Train using model manager
     const result = await this.modelManager.trainStep(
       dummyBatch,
       dummyLabels,
-      this.currentPhase === "auto" ? this.phaseManager.determinePhase(this.currentEpoch) : this.currentPhase
+      this.currentPhase === "auto"
+        ? this.phaseManager.determinePhase(this.currentEpoch)
+        : this.currentPhase,
     );
 
     const metrics = {
-      diversity: result.metrics.kl_loss ? (1 / (1 + result.metrics.kl_loss)) : 0.5,
+      diversity: result.metrics.kl_loss
+        ? 1 / (1 + result.metrics.kl_loss)
+        : 0.5,
       reconstruction: result.metrics.recon_loss || result.loss,
       kl_divergence: result.metrics.kl_loss || 0,
-      ...result.metrics
+      ...result.metrics,
     };
 
     return { loss: result.loss, metrics };
@@ -238,15 +246,20 @@ class SwarmTrainer {
   }
 
   async generateSamples(count = 4) {
-    console.log(`🎨 Generating ${count} real samples using hardware acceleration...`);
-    
+    console.log(
+      `🎨 Generating ${count} real samples using hardware acceleration...`,
+    );
+
     try {
       // Use the underlying trainer for sample generation
       const { tfjsTrainer } = await import("../torchjs/integration.js");
-      const samples = await tfjsTrainer.generateSamples([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], count);
-      
+      const samples = await tfjsTrainer.generateSamples(
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        count,
+      );
+
       // Convert flattened arrays back to data URLs for the UI
-      return samples.map(pixels => this.arrayToDataURL(pixels));
+      return samples.map((pixels) => this.arrayToDataURL(pixels));
     } catch (error) {
       console.error("Sample generation failed:", error);
       return [];
@@ -266,11 +279,11 @@ class SwarmTrainer {
       for (let x = 0; x < imgSize; x++) {
         const i = (y * imgSize + x) * 4;
         const p = pixels[y][x]; // [R, G, B]
-        
+
         const r = Math.floor(((p[0] || 0) + 1) * 127.5);
         const g = Math.floor(((p[1] || 0) + 1) * 127.5);
         const b = Math.floor(((p[2] || 0) + 1) * 127.5);
-        
+
         imgData.data[i] = Math.max(0, Math.min(255, r));
         imgData.data[i + 1] = Math.max(0, Math.min(255, g));
         imgData.data[i + 2] = Math.max(0, Math.min(255, b));

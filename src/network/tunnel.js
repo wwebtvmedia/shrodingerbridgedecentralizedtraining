@@ -87,7 +87,7 @@ class CloudflareTunnel {
           this.connectionState = "disconnected";
           console.log(`⚠️ Tunnel connection closed (Code: ${event.code})`);
           this.emit("disconnected");
-          
+
           if (event.code !== 1000 && event.code !== 1001) {
             this.attemptReconnect();
           }
@@ -181,7 +181,7 @@ class CloudflareTunnel {
       clientId: this.config.tunnelId,
       metrics: Sanitizer.sanitizeMetrics(metrics),
       neighbors: neighbors ? Sanitizer.sanitize(neighbors) : this.getPeers(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
     this.ws.send(message);
   }
@@ -196,7 +196,7 @@ class CloudflareTunnel {
       clientId: this.config.tunnelId,
       metrics: Sanitizer.sanitizeMetrics(metrics),
       neighbors: neighbors ? Sanitizer.sanitize(neighbors) : this.getPeers(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
     this.ws.send(message);
     console.log("📤 Final sync sent to server");
@@ -207,7 +207,9 @@ class CloudflareTunnel {
 
     // Strict Whitelisting Validation
     if (!Validator.validate(message.type, message)) {
-      console.warn(`Tunnel: Rejected malformed or unexpected ${message.type} message.`);
+      console.warn(
+        `Tunnel: Rejected malformed or unexpected ${message.type} message.`,
+      );
       return;
     }
 
@@ -237,15 +239,22 @@ class CloudflareTunnel {
         this.handleTunnelStats(message);
         break;
       case "PEER_RESEARCH_REQUEST":
-        this.emit("peer:research_request", { from: message.from, data: message.data });
+        this.emit("peer:research_request", {
+          from: message.from,
+          data: message.data,
+        });
         this.handleResearchRequest(message.from, message.data);
         break;
       case "PEER_RESEARCH_RESPONSE":
-        this.emit("peer:research_result", { from: message.from, data: message.data });
+        this.emit("peer:research_result", {
+          from: message.from,
+          data: message.data,
+        });
         this.handleResearchResponse(message.from, message.data);
         break;
       default:
-        if (message && message.type) console.warn(`Unknown tunnel message type: ${message.type}`);
+        if (message && message.type)
+          console.warn(`Unknown tunnel message type: ${message.type}`);
     }
   }
 
@@ -255,7 +264,9 @@ class CloudflareTunnel {
       this.emit("model:initial", message.bestModel);
     }
     if (message.neighbors && message.neighbors.length > 0) {
-      message.neighbors.forEach(n => this.handlePeerConnected(n.peerId, n.metadata || n));
+      message.neighbors.forEach((n) =>
+        this.handlePeerConnected(n.peerId, n.metadata || n),
+      );
     }
   }
 
@@ -264,7 +275,11 @@ class CloudflareTunnel {
     console.log(`👋 Peer connected via tunnel: ${peerId}`);
     this.peers.set(peerId, {
       connection: null,
-      metadata: { ...metadata, connectedAt: Date.now(), via: "cloudflare-tunnel" },
+      metadata: {
+        ...metadata,
+        connectedAt: Date.now(),
+        via: "cloudflare-tunnel",
+      },
     });
     this.stats.connections++;
     this.emit("peer:connected", { peerId, metadata });
@@ -289,11 +304,13 @@ class CloudflareTunnel {
   handleHeartbeat(message) {
     this.connectionState = "connected";
     if (this.ws) {
-      this.ws.send(JSON.stringify({
-        type: "HEARTBEAT_RESPONSE",
-        tunnelId: this.config.tunnelId,
-        timestamp: Date.now(),
-      }));
+      this.ws.send(
+        JSON.stringify({
+          type: "HEARTBEAT_RESPONSE",
+          tunnelId: this.config.tunnelId,
+          timestamp: Date.now(),
+        }),
+      );
     }
   }
 
@@ -303,28 +320,40 @@ class CloudflareTunnel {
 
   async researchNeighbors() {
     console.log("🔍 Broadcasting PEER_RESEARCH_REQUEST...");
-    return this.broadcast({ type: "PEER_RESEARCH_REQUEST", timestamp: Date.now() });
+    return this.broadcast({
+      type: "PEER_RESEARCH_REQUEST",
+      timestamp: Date.now(),
+    });
   }
 
   handleResearchRequest(fromPeerId, data) {
     this.sendToPeer(fromPeerId, {
       type: "PEER_RESEARCH_RESPONSE",
-      status: { via: "cloudflare-tunnel", peerCount: this.peers.size, timestamp: Date.now() }
+      status: {
+        via: "cloudflare-tunnel",
+        peerCount: this.peers.size,
+        timestamp: Date.now(),
+      },
     });
   }
 
   handleResearchResponse(fromPeerId, data) {
-    this.emit("peer:research_result", { peerId: fromPeerId, status: data.status });
+    this.emit("peer:research_result", {
+      peerId: fromPeerId,
+      status: data.status,
+    });
   }
 
   startHeartbeat() {
     this.heartbeatInterval = setInterval(() => {
       if (this.isConnected && this.ws) {
-        this.ws.send(JSON.stringify({
-          type: "HEARTBEAT",
-          tunnelId: this.config.tunnelId,
-          timestamp: Date.now(),
-        }));
+        this.ws.send(
+          JSON.stringify({
+            type: "HEARTBEAT",
+            tunnelId: this.config.tunnelId,
+            timestamp: Date.now(),
+          }),
+        );
       }
     }, 30000);
   }
@@ -334,7 +363,11 @@ class CloudflareTunnel {
     this.reconnectAttempts++;
     const delay = this.config.reconnectInterval * this.reconnectAttempts;
     setTimeout(async () => {
-      try { await this.connect(); } catch (error) { console.error("Reconnection failed:", error); }
+      try {
+        await this.connect();
+      } catch (error) {
+        console.error("Reconnection failed:", error);
+      }
     }, delay);
   }
 
@@ -368,15 +401,24 @@ class CloudflareTunnel {
     if (!this.eventListeners.has(event)) return;
     const listeners = this.eventListeners.get(event);
     for (const listener of listeners) {
-      try { listener(data); } catch (error) { console.error(`Error in event listener for ${event}:`, error); }
+      try {
+        listener(data);
+      } catch (error) {
+        console.error(`Error in event listener for ${event}:`, error);
+      }
     }
   }
 
   getPeers() {
-    return Array.from(this.peers.entries()).map(([peerId, info]) => ({ peerId, ...info.metadata }));
+    return Array.from(this.peers.entries()).map(([peerId, info]) => ({
+      peerId,
+      ...info.metadata,
+    }));
   }
 
-  getPeerCount() { return this.peers.size; }
+  getPeerCount() {
+    return this.peers.size;
+  }
 }
 
 async function createCloudflareTunnel(credentials = {}) {

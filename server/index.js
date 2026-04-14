@@ -58,7 +58,7 @@ class JSONDatabase {
   updateNeighbor(peerId, info) {
     const safePeerId = String(peerId).replace(/[^a-zA-Z0-9_-]/g, "_");
     this.data.neighbors[safePeerId] = { ...info, lastSeen: Date.now() };
-    
+
     // Cap neighbors at 100 entries
     const keys = Object.keys(this.data.neighbors);
     if (keys.length > 100) {
@@ -85,7 +85,7 @@ class ModelConsolidationServer {
     this.server = createServer(this.app);
     this.wss = new WebSocketServer({ server: this.server });
     this.db = new JSONDatabase("swarm_db");
-    
+
     // Auth Token from environment
     this.authToken = process.env.SECRET_TOKEN || "swarm-prototype-token-2026";
 
@@ -145,7 +145,7 @@ class ModelConsolidationServer {
     this.app.use(express.json({ limit: "100mb" }));
     this.app.use(express.static(path.join(__dirname, "../public")));
     this.app.use("/src", express.static(path.join(__dirname, "../src")));
-    
+
     // Auth Middleware
     this.authenticate = (req, res, next) => {
       const authHeader = req.headers.authorization;
@@ -178,36 +178,65 @@ class ModelConsolidationServer {
 
     this.app.post("/api/model/submit", this.authenticate, async (req, res) => {
       const { clientId, modelData, loss, epoch } = req.body;
-      const isBetter = await this.evaluateModel({ clientId, modelData, loss, epoch });
+      const isBetter = await this.evaluateModel({
+        clientId,
+        modelData,
+        loss,
+        epoch,
+      });
       if (isBetter) this.broadcastNewBestModel();
       res.json({ accepted: true, isBest: isBetter });
     });
 
-    this.app.get("/", (req, res) => res.sendFile(path.join(__dirname, "../index.html")));
-    this.app.get("/enhanced", (req, res) => res.sendFile(path.join(__dirname, "../enhanced-index.html")));
-    this.app.get("/enhanced-index.html", (req, res) => res.sendFile(path.join(__dirname, "../enhanced-index.html")));
-    this.app.get("/readme.html", (req, res) => res.sendFile(path.join(__dirname, "../readme.html")));
-    this.app.get("/beyond-labor.html", (req, res) => res.sendFile(path.join(__dirname, "../beyond-labor.html")));
-    this.app.get("/training-consolidation.html", (req, res) => res.sendFile(path.join(__dirname, "../training-consolidation.html")));
-    this.app.get("/test.html", (req, res) => res.sendFile(path.join(__dirname, "../test.html")));
-    this.app.get("/test-hardware.html", (req, res) => res.sendFile(path.join(__dirname, "../test-hardware.html")));
-    this.app.get("/test-inference.html", (req, res) => res.sendFile(path.join(__dirname, "../test-inference.html")));
+    this.app.get("/", (req, res) =>
+      res.sendFile(path.join(__dirname, "../index.html")),
+    );
+    this.app.get("/enhanced", (req, res) =>
+      res.sendFile(path.join(__dirname, "../enhanced-index.html")),
+    );
+    this.app.get("/enhanced-index.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../enhanced-index.html")),
+    );
+    this.app.get("/readme.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../readme.html")),
+    );
+    this.app.get("/beyond-labor.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../beyond-labor.html")),
+    );
+    this.app.get("/training-consolidation.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../training-consolidation.html")),
+    );
+    this.app.get("/test.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../test.html")),
+    );
+    this.app.get("/test-hardware.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../test-hardware.html")),
+    );
+    this.app.get("/test-inference.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../test-inference.html")),
+    );
   }
 
   setupWebSocket() {
     this.wss.on("connection", (ws, req) => {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const token = url.searchParams.get("token");
-      
+
       if (token !== this.authToken) {
         ws.close(4001, "Unauthorized");
         return;
       }
 
       const clientId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-      
-      this.clients.set(clientId, { ws, ip: clientIp, connectedAt: new Date(), lastActivity: Date.now() });
+      const clientIp =
+        req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+
+      this.clients.set(clientId, {
+        ws,
+        ip: clientIp,
+        connectedAt: new Date(),
+        lastActivity: Date.now(),
+      });
       this.pushInitialData(ws);
 
       ws.on("message", (data) => {
@@ -230,7 +259,9 @@ class ModelConsolidationServer {
     const neighbors = this.db.getNeighbors();
     const message = {
       type: "initial_sync",
-      bestModel: this.bestModel ? { loss: this.bestModel.loss, epoch: this.bestModel.epoch } : null,
+      bestModel: this.bestModel
+        ? { loss: this.bestModel.loss, epoch: this.bestModel.epoch }
+        : null,
       neighbors: neighbors.slice(-10),
     };
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(message));
@@ -242,41 +273,86 @@ class ModelConsolidationServer {
 
     // Strict Whitelisting Validation
     const VALID_SCHEMAS = {
-      'register_training': { data: 'object', timestamp: 'number' },
-      'status_update': { clientId: 'string', metrics: 'object', neighbors: 'array', timestamp: 'number' },
-      'model_update': { clientId: 'string', modelData: 'string', loss: 'number', epoch: 'number', timestamp: 'number' },
-      'PEER_MESSAGE': { from: 'string', to: 'string', data: 'object', timestamp: 'number', messageId: 'string' },
-      'BROADCAST': { from: 'string', data: 'object', timestamp: 'number', messageId: 'string' }
+      register_training: { data: "object", timestamp: "number" },
+      status_update: {
+        clientId: "string",
+        metrics: "object",
+        neighbors: "array",
+        timestamp: "number",
+      },
+      model_update: {
+        clientId: "string",
+        modelData: "string",
+        loss: "number",
+        epoch: "number",
+        timestamp: "number",
+      },
+      PEER_MESSAGE: {
+        from: "string",
+        to: "string",
+        data: "object",
+        timestamp: "number",
+        messageId: "string",
+      },
+      BROADCAST: {
+        from: "string",
+        data: "object",
+        timestamp: "number",
+        messageId: "string",
+      },
     };
 
     const schema = VALID_SCHEMAS[message.type];
     if (!schema) {
-      this.db.log(`Rejected unknown message type: ${message.type} from ${ip}`, 'warn');
+      this.db.log(
+        `Rejected unknown message type: ${message.type} from ${ip}`,
+        "warn",
+      );
       return;
     }
 
     // Check types and presence
     for (const [key, expectedType] of Object.entries(schema)) {
       const val = message[key];
-      if (val === undefined || (expectedType === 'array' ? !Array.isArray(val) : typeof val !== expectedType)) {
-        this.db.log(`Rejected malformed ${message.type} from ${ip}: invalid field ${key}`, 'warn');
+      if (
+        val === undefined ||
+        (expectedType === "array"
+          ? !Array.isArray(val)
+          : typeof val !== expectedType)
+      ) {
+        this.db.log(
+          `Rejected malformed ${message.type} from ${ip}: invalid field ${key}`,
+          "warn",
+        );
         return;
       }
     }
 
     // Strict field check (no extra fields)
-    const allowedKeys = new Set([...Object.keys(schema), 'type']);
+    const allowedKeys = new Set([...Object.keys(schema), "type"]);
     for (const key of Object.keys(message)) {
       if (!allowedKeys.has(key)) {
-        this.db.log(`Rejected ${message.type} from ${ip}: unexpected field ${key}`, 'warn');
+        this.db.log(
+          `Rejected ${message.type} from ${ip}: unexpected field ${key}`,
+          "warn",
+        );
         return;
       }
     }
 
     switch (message.type) {
       case "register_training":
-        this.trainingClients.set(clientId, { ...message.data, ip, lastSeen: Date.now(), ws: client.ws });
-        this.db.updateNeighbor(clientId, { ...message.data, ip, peerId: clientId });
+        this.trainingClients.set(clientId, {
+          ...message.data,
+          ip,
+          lastSeen: Date.now(),
+          ws: client.ws,
+        });
+        this.db.updateNeighbor(clientId, {
+          ...message.data,
+          ip,
+          peerId: clientId,
+        });
         this.db.log(`Client registered: ${clientId} from IP: ${ip}`);
         break;
       case "status_update":
@@ -284,16 +360,26 @@ class ModelConsolidationServer {
           const clientData = this.trainingClients.get(clientId);
           clientData.lastSeen = Date.now();
           clientData.ip = ip; // Update IP if it changed
-          
+
           if (message.neighbors) {
-            message.neighbors.slice(0, 50).forEach(n => {
-              if (n.peerId) this.db.updateNeighbor(n.peerId, { ...n, discoveredVia: clientId });
+            message.neighbors.slice(0, 50).forEach((n) => {
+              if (n.peerId)
+                this.db.updateNeighbor(n.peerId, {
+                  ...n,
+                  discoveredVia: clientId,
+                });
             });
           }
-          
+
           if (message.metrics) {
-            this.db.log(`Stats ${clientId} (${ip}): loss=${message.metrics.loss}`);
-            this.db.updateNeighbor(clientId, { metrics: message.metrics, ip, lastSeen: Date.now() });
+            this.db.log(
+              `Stats ${clientId} (${ip}): loss=${message.metrics.loss}`,
+            );
+            this.db.updateNeighbor(clientId, {
+              metrics: message.metrics,
+              ip,
+              lastSeen: Date.now(),
+            });
           }
         }
         break;
@@ -335,13 +421,26 @@ class ModelConsolidationServer {
     const isBetter = !this.bestModel || loss < this.bestModel.loss;
 
     if (isBetter) {
-      const modelPath = path.join(this.modelsDir, `model_${Date.now()}_${safeClientId}.pt`);
+      const modelPath = path.join(
+        this.modelsDir,
+        `model_${Date.now()}_${safeClientId}.pt`,
+      );
       try {
-        let modelBuffer = Buffer.from(modelData.startsWith("data:") ? modelData.split(",")[1] : modelData, "base64");
+        let modelBuffer = Buffer.from(
+          modelData.startsWith("data:") ? modelData.split(",")[1] : modelData,
+          "base64",
+        );
         fs.writeFileSync(modelPath, modelBuffer);
         fs.writeFileSync(this.latestModelPath, modelBuffer);
 
-        this.bestModel = { path: this.latestModelPath, size: modelBuffer.length, timestamp: new Date(), loss, epoch, clientId };
+        this.bestModel = {
+          path: this.latestModelPath,
+          size: modelBuffer.length,
+          timestamp: new Date(),
+          loss,
+          epoch,
+          clientId,
+        };
         this.db.addModel({ loss, epoch, clientId });
         this.db.log(`New best model: ${loss}`);
         return true;
@@ -354,8 +453,17 @@ class ModelConsolidationServer {
 
   broadcastNewBestModel() {
     if (!this.bestModel) return;
-    const msg = JSON.stringify({ type: "new_best_model", model: { loss: this.bestModel.loss, epoch: this.bestModel.epoch, clientId: this.bestModel.clientId } });
-    this.clients.forEach(c => c.ws.readyState === c.ws.OPEN && c.ws.send(msg));
+    const msg = JSON.stringify({
+      type: "new_best_model",
+      model: {
+        loss: this.bestModel.loss,
+        epoch: this.bestModel.epoch,
+        clientId: this.bestModel.clientId,
+      },
+    });
+    this.clients.forEach(
+      (c) => c.ws.readyState === c.ws.OPEN && c.ws.send(msg),
+    );
   }
 
   startModelEvaluation() {
@@ -372,7 +480,9 @@ class ModelConsolidationServer {
   }
 
   start(port = 3001) {
-    this.server.listen(port, "0.0.0.0", () => console.log(`🚀 Server running on port ${port}`));
+    this.server.listen(port, "0.0.0.0", () =>
+      console.log(`🚀 Server running on port ${port}`),
+    );
   }
 }
 

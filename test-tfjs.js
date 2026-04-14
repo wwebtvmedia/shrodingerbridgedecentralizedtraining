@@ -15,9 +15,7 @@ async function testTFJSIntegration() {
     console.log(`   - Phase: ${state.phase}`);
     console.log(`   - Device: ${state.device}`);
   } catch (error) {
-    console.log(
-      `   ❌ TFJS Trainer initialization failed: ${error.message}`,
-    );
+    console.log(`   ❌ TFJS Trainer initialization failed: ${error.message}`);
   }
 
   console.log("\n2. Testing ModelManager integration...");
@@ -34,8 +32,8 @@ async function testTFJSIntegration() {
   console.log("\n3. Testing training step...");
   try {
     // Create mock batch data (2 samples of 96x96x3)
-    const mockBatch = Array.from({ length: 2 }, () => 
-      Array.from({ length: 96 * 96 * 3 }, () => Math.random() * 2 - 1)
+    const mockBatch = Array.from({ length: 2 }, () =>
+      Array.from({ length: 96 * 96 * 3 }, () => Math.random() * 2 - 1),
     );
     const mockLabels = [0, 1];
 
@@ -45,7 +43,6 @@ async function testTFJSIntegration() {
     console.log(`   - Loss: ${result.loss}`);
     console.log(`   - Phase: ${result.metrics.phase}`);
     console.log(`   - Using TFJS: ${result.usingTorchJS}`); // name is still result.usingTorchJS in model manager
-
   } catch (error) {
     console.log(`   ❌ Training step failed: ${error.message}`);
     console.error(error);
@@ -55,7 +52,9 @@ async function testTFJSIntegration() {
   try {
     const samples = await tfjsTrainer.generateSamples([0, 1, 2, 3], 4);
     console.log(`   ✅ Generated ${samples.length} samples`);
-    console.log(`   - Sample shape: [${samples.length}, ${samples[0].length}, ${samples[0][0].length}, ${samples[0][0][0].length}]`);
+    console.log(
+      `   - Sample shape: [${samples.length}, ${samples[0].length}, ${samples[0][0].length}, ${samples[0][0][0].length}]`,
+    );
   } catch (error) {
     console.log(`   ❌ Sample generation failed: ${error.message}`);
   }

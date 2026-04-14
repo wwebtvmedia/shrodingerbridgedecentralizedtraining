@@ -227,15 +227,17 @@ class EnhancedSwarmTrainer {
     const targetBatchSize = this.config.batchSize || 16;
     let batch = [];
     let labels = [];
-    
+
     // 1. Fetch data from database
     if (this.database) {
       const trainingData = await this.database.getTrainingData(targetBatchSize);
       if (trainingData && trainingData.length > 0) {
-        batch = trainingData.map(item => {
-          return item.data && Array.isArray(item.data) ? item.data : this.generateDummyData();
+        batch = trainingData.map((item) => {
+          return item.data && Array.isArray(item.data)
+            ? item.data
+            : this.generateDummyData();
         });
-        labels = trainingData.map(item => item.metadata?.label || 0);
+        labels = trainingData.map((item) => item.metadata?.label || 0);
       }
     }
 
@@ -407,15 +409,17 @@ class EnhancedSwarmTrainer {
 
       this.pendingModelRequests.set(modelHash, { resolve, reject, timeout });
 
-      this.tunnel.sendToPeer(peerId, {
-        type: "MODEL_REQUEST",
-        modelHash: modelHash,
-        timestamp: Date.now(),
-      }).catch(err => {
-        clearTimeout(timeout);
-        this.pendingModelRequests.delete(modelHash);
-        reject(err);
-      });
+      this.tunnel
+        .sendToPeer(peerId, {
+          type: "MODEL_REQUEST",
+          modelHash: modelHash,
+          timestamp: Date.now(),
+        })
+        .catch((err) => {
+          clearTimeout(timeout);
+          this.pendingModelRequests.delete(modelHash);
+          reject(err);
+        });
     });
   }
 
@@ -457,7 +461,9 @@ class EnhancedSwarmTrainer {
 
     // Strict Whitelisting Validation
     if (!Validator.validate(message.type, message)) {
-      console.warn(`Trainer: Rejected malformed or unexpected ${message.type} from ${peerId}`);
+      console.warn(
+        `Trainer: Rejected malformed or unexpected ${message.type} from ${peerId}`,
+      );
       return;
     }
 
@@ -497,10 +503,10 @@ class EnhancedSwarmTrainer {
         phase: this.currentPhase,
         metrics: {
           loss: 0.2 + Math.random() * 0.1,
-          accuracy: 0.8 + Math.random() * 0.1
+          accuracy: 0.8 + Math.random() * 0.1,
         },
-        timestamp: Date.now()
-      }
+        timestamp: Date.now(),
+      },
     });
   }
 
@@ -530,25 +536,25 @@ class EnhancedSwarmTrainer {
   handleModelRequest(peerId, request) {
     this.sendModelToPeer(peerId, request.modelHash).catch(console.error);
   }
-handleModelShare(peerId, share) {
-  // Resolve pending requests if any
-  const pending = this.pendingModelRequests.get(share.modelHash);
-  if (pending) {
-    clearTimeout(pending.timeout);
-    this.pendingModelRequests.delete(share.modelHash);
-    pending.resolve(share);
-  }
+  handleModelShare(peerId, share) {
+    // Resolve pending requests if any
+    const pending = this.pendingModelRequests.get(share.modelHash);
+    if (pending) {
+      clearTimeout(pending.timeout);
+      this.pendingModelRequests.delete(share.modelHash);
+      pending.resolve(share);
+    }
 
-  if (this.database) {
-    this.database
-      .saveModel({
-        hash: share.modelHash,
-        peerId,
-        data: share.modelData,
-        timestamp: Date.now(),
-      })
-      .catch(console.error);
-  }
+    if (this.database) {
+      this.database
+        .saveModel({
+          hash: share.modelHash,
+          peerId,
+          data: share.modelData,
+          timestamp: Date.now(),
+        })
+        .catch(console.error);
+    }
     if (this.callbacks.onModelReceived) {
       this.callbacks.onModelReceived(peerId, share);
     }
@@ -559,7 +565,9 @@ handleModelShare(peerId, share) {
 
     // Strict Whitelisting Validation
     if (!Validator.validate(message.type, message)) {
-      console.warn(`Trainer: Rejected malformed or unexpected broadcast ${message.type} from ${peerId}`);
+      console.warn(
+        `Trainer: Rejected malformed or unexpected broadcast ${message.type} from ${peerId}`,
+      );
       return;
     }
 
@@ -700,13 +708,27 @@ handleModelShare(peerId, share) {
     }
   }
 
-  onEpochComplete(callback) { this.callbacks.onEpochComplete = callback; }
-  onNeighborUpdate(callback) { this.callbacks.onNeighborUpdate = callback; }
-  onModelShared(callback) { this.callbacks.onModelShared = callback; }
-  onModelReceived(callback) { this.callbacks.onModelReceived = callback; }
-  onSyncEvent(callback) { this.callbacks.onSyncEvent = callback; }
-  onResearchResult(callback) { this.callbacks.onResearchResult = callback; }
-  onDatabaseUpdate(callback) { this.callbacks.onDatabaseUpdate = callback; }
+  onEpochComplete(callback) {
+    this.callbacks.onEpochComplete = callback;
+  }
+  onNeighborUpdate(callback) {
+    this.callbacks.onNeighborUpdate = callback;
+  }
+  onModelShared(callback) {
+    this.callbacks.onModelShared = callback;
+  }
+  onModelReceived(callback) {
+    this.callbacks.onModelReceived = callback;
+  }
+  onSyncEvent(callback) {
+    this.callbacks.onSyncEvent = callback;
+  }
+  onResearchResult(callback) {
+    this.callbacks.onResearchResult = callback;
+  }
+  onDatabaseUpdate(callback) {
+    this.callbacks.onDatabaseUpdate = callback;
+  }
 }
 
 export { EnhancedSwarmTrainer };

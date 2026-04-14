@@ -4,7 +4,7 @@
   --google-red: #ea4335;
   --google-yellow: #fbbc05;
   --google-green: #34a853;
-  
+
   /* Material Design 3 Dark Theme Palette */
   --surface: #1a1c1e;
   --on-surface: #e2e2e6;
@@ -19,9 +19,11 @@
   --error: #ffb4ab;
   --outline: #8d9199;
   --background: #111315;
-  
-  --elevation-1: 0 1px 3px 1px rgba(0,0,0,0.15), 0 1px 2px 0 rgba(0,0,0,0.3);
-  --elevation-2: 0 2px 6px 2px rgba(0,0,0,0.15), 0 1px 2px 0 rgba(0,0,0,0.3);
+
+  --elevation-1:
+    0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --elevation-2:
+    0 2px 6px 2px rgba(0, 0, 0, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
 }
 
 * {
@@ -31,7 +33,12 @@
 }
 
 body {
-  font-family: 'Roboto', 'Google Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    "Roboto",
+    "Google Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   background-color: var(--background);
   color: var(--on-surface);
   line-height: 1.5;
@@ -58,7 +65,7 @@ header {
 }
 
 h1 {
-  font-family: 'Google Sans', sans-serif;
+  font-family: "Google Sans", sans-serif;
   font-size: 28px;
   font-weight: 400;
   color: var(--primary);
@@ -85,7 +92,9 @@ h1 {
   padding: 24px;
   box-shadow: var(--elevation-1);
   border: 1px solid transparent;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .panel:hover {
@@ -94,7 +103,7 @@ h1 {
 }
 
 .panel h2 {
-  font-family: 'Google Sans', sans-serif;
+  font-family: "Google Sans", sans-serif;
   font-size: 18px;
   font-weight: 500;
   margin-bottom: 20px;
@@ -104,11 +113,21 @@ h1 {
   gap: 12px;
 }
 
-.network-panel { grid-column: span 4; }
-.training-panel { grid-column: span 8; }
-.database-panel { grid-column: span 12; }
-.swarm-panel { grid-column: span 6; }
-.visualization-panel { grid-column: span 6; }
+.network-panel {
+  grid-column: span 4;
+}
+.training-panel {
+  grid-column: span 8;
+}
+.database-panel {
+  grid-column: span 12;
+}
+.swarm-panel {
+  grid-column: span 6;
+}
+.visualization-panel {
+  grid-column: span 6;
+}
 
 /* Stats Display */
 .stats {
@@ -134,7 +153,7 @@ h1 {
   font-size: 16px;
   font-weight: 500;
   color: var(--google-blue);
-  font-family: 'Roboto Mono', monospace;
+  font-family: "Roboto Mono", monospace;
 }
 
 /* Controls & Buttons */
@@ -150,11 +169,13 @@ h1 {
   padding: 0 24px;
   border-radius: 20px;
   border: none;
-  font-family: 'Google Sans', sans-serif;
+  font-family: "Google Sans", sans-serif;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s, box-shadow 0.2s;
+  transition:
+    background-color 0.2s,
+    box-shadow 0.2s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -233,7 +254,7 @@ canvas {
 }
 
 .db-stat {
-  background-color: rgba(255,255,255,0.04);
+  background-color: rgba(255, 255, 255, 0.04);
   padding: 16px;
   border-radius: 12px;
   text-align: center;
@@ -251,7 +272,7 @@ canvas {
   padding: 16px;
   height: 240px;
   overflow-y: auto;
-  font-family: 'Roboto Mono', monospace;
+  font-family: "Roboto Mono", monospace;
   font-size: 12px;
   color: #00ff00;
 }
@@ -286,12 +307,19 @@ input[type="range"] {
   margin-right: 8px;
 }
 
-.status-indicator.connected { background-color: var(--google-green); }
-.status-indicator.disconnected { background-color: var(--google-red); }
+.status-indicator.connected {
+  background-color: var(--google-green);
+}
+.status-indicator.disconnected {
+  background-color: var(--google-red);
+}
 
 /* Responsive */
 @media (max-width: 1024px) {
-  .network-panel, .training-panel, .swarm-panel, .visualization-panel {
+  .network-panel,
+  .training-panel,
+  .swarm-panel,
+  .visualization-panel {
     grid-column: span 12;
   }
   .charts {

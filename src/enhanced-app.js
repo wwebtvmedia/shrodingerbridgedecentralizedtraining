@@ -12,7 +12,7 @@ class EnhancedSwarmApp {
     this.isInitialized = false;
 
     // Start initialization
-    this.init().catch(err => {
+    this.init().catch((err) => {
       console.error("Failed to initialize app:", err);
     });
   }
@@ -29,7 +29,7 @@ class EnhancedSwarmApp {
 
     // Set initialized state
     this.isInitialized = true;
-    
+
     // Update UI
     this.ui.updateStatus("Ready to connect");
     this.ui.enableButton("connect-btn");
@@ -127,7 +127,7 @@ class EnhancedSwarmApp {
         tunnelConfig: {
           tunnelUrl: window.location.origin.replace(/^http/, "ws"),
           tunnelId: `trainer_${Date.now()}`,
-          authToken: "swarm-prototype-token-2026" // In real app, this would be from config
+          authToken: "swarm-prototype-token-2026", // In real app, this would be from config
         },
         explorationRate: 0.3,
         syncInterval: 5,
@@ -148,7 +148,7 @@ class EnhancedSwarmApp {
         this.ui.updateMetrics({
           modelsEvaluated: this.trainer.metrics.modelsReceived,
           syncCount: this.trainer.metrics.syncEvents,
-          dbStats: dbStats
+          dbStats: dbStats,
         });
 
         // Log progress
@@ -184,8 +184,13 @@ class EnhancedSwarmApp {
       });
 
       this.trainer.onResearchResult((peerId, status) => {
-        this.ui.log(`📊 Research: Response from ${peerId} (Loss: ${status.metrics?.loss.toFixed(4) || "N/A"})`);
-        this.ui.showNotification(`Found neighbor: ${peerId.substring(0, 8)}...`, "info");
+        this.ui.log(
+          `📊 Research: Response from ${peerId} (Loss: ${status.metrics?.loss.toFixed(4) || "N/A"})`,
+        );
+        this.ui.showNotification(
+          `Found neighbor: ${peerId.substring(0, 8)}...`,
+          "info",
+        );
       });
 
       this.trainer.onDatabaseUpdate((stats) => {
@@ -278,7 +283,9 @@ class EnhancedSwarmApp {
 
   setTrainingPhase(phase) {
     if (!this.trainer) {
-      this.ui.log("❌ Cannot change phase: Trainer not initialized. Connect first.");
+      this.ui.log(
+        "❌ Cannot change phase: Trainer not initialized. Connect first.",
+      );
       return;
     }
 
@@ -398,14 +405,27 @@ class EnhancedSwarmApp {
       if (files.length === 0) return;
       this.ui.log(`📁 Importing ${files.length} file(s)...`);
       try {
-        const imageFiles = files.filter((file) => file.type.startsWith("image/"));
-        const textFiles = files.filter((file) => file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".json") || file.name.endsWith(".csv"));
+        const imageFiles = files.filter((file) =>
+          file.type.startsWith("image/"),
+        );
+        const textFiles = files.filter(
+          (file) =>
+            file.type.startsWith("text/") ||
+            file.name.endsWith(".txt") ||
+            file.name.endsWith(".json") ||
+            file.name.endsWith(".csv"),
+        );
         let importedCount = 0;
         if (imageFiles.length > 0) {
           const images = await this.dataImporter.importImages(imageFiles);
           if (this.trainer && this.trainer.database) {
             for (const image of images) {
-              await this.trainer.database.saveTrainingData({ type: "image", data: image.data, metadata: image.metadata, timestamp: Date.now() });
+              await this.trainer.database.saveTrainingData({
+                type: "image",
+                data: image.data,
+                metadata: image.metadata,
+                timestamp: Date.now(),
+              });
             }
           }
           importedCount += images.length;
@@ -414,7 +434,12 @@ class EnhancedSwarmApp {
           const texts = await this.dataImporter.importText(textFiles);
           if (this.trainer && this.trainer.database) {
             for (const text of texts) {
-              await this.trainer.database.saveTrainingData({ type: "text", data: text.content, metadata: text.metadata, timestamp: Date.now() });
+              await this.trainer.database.saveTrainingData({
+                type: "text",
+                data: text.content,
+                metadata: text.metadata,
+                timestamp: Date.now(),
+              });
             }
           }
           importedCount += texts.length;
@@ -439,8 +464,16 @@ class EnhancedSwarmApp {
     }
     this.ui.log("🎨 Running SB CNN inference...");
     try {
-      const label = prompt("Enter label (0-10) for conditioned generation (10=NULL):", "");
-      const options = { sampleCount: 4, steps: 50, temperature: 0.7, cfgScale: CONFIG.CFG_SCALE || 3.0 };
+      const label = prompt(
+        "Enter label (0-10) for conditioned generation (10=NULL):",
+        "",
+      );
+      const options = {
+        sampleCount: 4,
+        steps: 50,
+        temperature: 0.7,
+        cfgScale: CONFIG.CFG_SCALE || 3.0,
+      };
       if (label !== null && label !== "") options.label = parseInt(label);
       const result = await this.inferenceEngine.generateSamples(options);
       this.ui.displaySamples(result.samples.map((s) => s.image));
@@ -458,7 +491,9 @@ class EnhancedSwarmApp {
     }
     try {
       const stats = await this.trainer.database.getStatistics();
-      this.ui.log(`📊 DB: ${stats.neighbors.count} neighbors, ${stats.results.count} results, size: ${Math.round(stats.database.size / 1024)} KB`);
+      this.ui.log(
+        `📊 DB: ${stats.neighbors.count} neighbors, ${stats.results.count} results, size: ${Math.round(stats.database.size / 1024)} KB`,
+      );
     } catch (error) {
       console.error("Failed to get stats:", error);
     }

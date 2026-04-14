@@ -37,7 +37,9 @@ async function testTorchJSIntegration() {
     // 2 samples of 3*96*96 = 27648 (matching CONFIG.IMG_SIZE = 96)
     const mockBatch = [];
     for (let b = 0; b < 2; b++) {
-      const pixels = new Array(3 * 96 * 96).fill(0).map(() => Math.random() * 2 - 1);
+      const pixels = new Array(3 * 96 * 96)
+        .fill(0)
+        .map(() => Math.random() * 2 - 1);
       mockBatch.push(pixels);
     }
     const mockLabels = [0, 1];

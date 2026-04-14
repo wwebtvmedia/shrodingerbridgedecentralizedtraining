@@ -330,13 +330,13 @@ class PeerNetwork {
    */
   async researchNeighbors() {
     console.log("🔍 Broadcasting neighbor research request...");
-    
+
     const message = {
       type: "PEER_RESEARCH_REQUEST",
       id: uuidv4(),
       from: this.id,
       timestamp: Date.now(),
-      ttl: this.config.gossipTTL
+      ttl: this.config.gossipTTL,
     };
 
     // Use gossip to reach all reachable peers
@@ -362,12 +362,12 @@ class PeerNetwork {
         metrics: {
           loss: 0.25 + Math.random() * 0.1,
           epoch: 100,
-          accuracy: 0.85
-        }
-      }
+          accuracy: 0.85,
+        },
+      },
     };
 
-    // Send directly back to requester if we have a channel, 
+    // Send directly back to requester if we have a channel,
     // otherwise it would need to be routed back
     this.sendToPeer(peerId, response);
 
@@ -375,14 +375,17 @@ class PeerNetwork {
     if (message.ttl > 0) {
       this.forwardMessage({
         ...message,
-        ttl: message.ttl - 1
+        ttl: message.ttl - 1,
       });
     }
   }
 
   handleResearchResponse(peerId, message) {
-    console.log(`📊 Received research response from ${peerId}:`, message.status);
-    
+    console.log(
+      `📊 Received research response from ${peerId}:`,
+      message.status,
+    );
+
     // If there's a specific callback for research results
     if (this.onResearchResult) {
       this.onResearchResult(peerId, message.status);

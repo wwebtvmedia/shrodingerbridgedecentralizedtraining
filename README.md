@@ -25,16 +25,21 @@ subject to \( X_0 \sim p_0 \) and \( X_T \sim p_1 \).
 ### Three-Phase Training Architecture
 
 #### Phase 1: Variational Autoencoder (VAE) Training
+
 **Objective**: Learn robust latent representations and reconstruction capabilities using a **CNN Residual** architecture at 96x96 resolution.
 
 #### Phase 2: Drift Network Training
+
 **Objective**: Learn the optimal drift function \( u(x, t) \) using a **U-Net** based trajectory modeling, keeping the VAE manifold fixed.
 
 #### Phase 3: Joint Training (Both)
+
 **Objective**: Combined loss with adaptive weighting for end-to-end refinement and high-fidelity detail generation.
 
 ### Low-Rank Adaptation (LoRA)
+
 To enable efficient decentralized training, the system incorporates LoRA for both Dense and Conv2D layers:
+
 - **Rank-8 Adapters**: Significantly reduces trainable parameters.
 - **Fast Synchronization**: Only LoRA weights are exchanged during peer updates, minimizing network overhead.
 - **Base Model Preservation**: Allows for fine-tuning large pre-trained weights within the browser environment.
@@ -55,18 +60,22 @@ This provides the same inductive biases as state-of-the-art PyTorch models, now 
 ### Core Components
 
 #### 1. **SwarmTrainer** (`src/core/trainer.js`)
+
 - Manages local training loop with evolutionary optimization.
 - Handles 96x96 image data and 4D tensor ([B, H, W, C]) pipelines.
 
 #### 2. **ModelManager** (`src/core/models.js`)
+
 - Manages **TensorFlow.js** models and state.
 - Supports 96x96 image input with 12x12x8 latent space (8 channels).
 
 #### 3. **TorchJSTrainer** (`src/torchjs/integration.js`)
+
 - Provides hardware-accelerated training using WebGL/WebGPU via **TensorFlow.js**.
 - Maps P2P swarm logic to real CNN operations and backpropagation.
 
 #### 4. **InferenceEngine** (`src/utils/inference.js`)
+
 - Implements real Schrödinger Bridge sampling (Reverse SDE).
 - Uses iterative drift updates to transform noise into coherent 96x96 images.
 
@@ -83,7 +92,7 @@ export class LabelConditionedVAE {
     this.encBlocks = [
       new ResidualBlock(16, 32, 2),
       new LabelConditionedBlock(32, 32),
-      new SpatialSplitAttention(64, 4)
+      new SpatialSplitAttention(64, 4),
     ];
   }
 

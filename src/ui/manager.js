@@ -77,13 +77,13 @@ class UIManager {
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              display: false
+              display: false,
             },
           },
           scales: {
             x: {
               display: false,
-              grid: { display: false }
+              grid: { display: false },
             },
             y: {
               beginAtZero: true,
@@ -140,8 +140,10 @@ class UIManager {
     const textElement = document.getElementById("tunnel-status-text");
     const indicator = document.querySelector(".status-indicator");
     if (textElement) {
-      const isConnected = status.toLowerCase().includes("connected") || status.toLowerCase().includes("training");
-      textElement.innerHTML = `<span class="status-indicator ${isConnected ? 'connected' : 'disconnected'}"></span>${status}`;
+      const isConnected =
+        status.toLowerCase().includes("connected") ||
+        status.toLowerCase().includes("training");
+      textElement.innerHTML = `<span class="status-indicator ${isConnected ? "connected" : "disconnected"}"></span>${status}`;
     }
   }
 
@@ -184,12 +186,22 @@ class UIManager {
   updateHardwareInfo(state, device) {
     const element = document.getElementById("hardware-state");
     if (element) {
-      const fullStatus = device ? `${device.toUpperCase()}` : state.toUpperCase();
+      const fullStatus = device
+        ? `${device.toUpperCase()}`
+        : state.toUpperCase();
       element.textContent = fullStatus;
-      
-      if (state.toLowerCase().includes("error") || state.toLowerCase().includes("failed")) {
+
+      if (
+        state.toLowerCase().includes("error") ||
+        state.toLowerCase().includes("failed")
+      ) {
         element.style.color = "var(--google-red)";
-      } else if (device && (device.toLowerCase().includes("gpu") || device.toLowerCase().includes("webgpu") || device.toLowerCase().includes("webgl"))) {
+      } else if (
+        device &&
+        (device.toLowerCase().includes("gpu") ||
+          device.toLowerCase().includes("webgpu") ||
+          device.toLowerCase().includes("webgl"))
+      ) {
         element.style.color = "var(--google-green)";
       } else {
         element.style.color = "var(--google-blue)";
@@ -201,16 +213,17 @@ class UIManager {
     // Update local database UI if present
     if (metrics.dbStats) {
       const ids = {
-        'neighbors': 'db-neighbors',
-        'results': 'db-results',
-        'models': 'db-models',
-        'checkpoints': 'db-checkpoints'
+        neighbors: "db-neighbors",
+        results: "db-results",
+        models: "db-models",
+        checkpoints: "db-checkpoints",
       };
       for (const [key, id] of Object.entries(ids)) {
         const el = document.getElementById(id);
-        if (el && metrics.dbStats[key]) el.textContent = metrics.dbStats[key].count || 0;
+        if (el && metrics.dbStats[key])
+          el.textContent = metrics.dbStats[key].count || 0;
       }
-      const sizeEl = document.getElementById('db-size');
+      const sizeEl = document.getElementById("db-size");
       if (sizeEl && metrics.dbStats.database) {
         sizeEl.textContent = `${Math.round(metrics.dbStats.database.size / 1024)} KB`;
       }
@@ -231,7 +244,9 @@ class UIManager {
     this.diversityData.push({ x: epoch, y: diversity });
     if (this.diversityData.length > 50) this.diversityData.shift();
     this.diversityChart.data.labels = this.diversityData.map((d) => d.x);
-    this.diversityChart.data.datasets[0].data = this.diversityData.map((d) => d.y);
+    this.diversityChart.data.datasets[0].data = this.diversityData.map(
+      (d) => d.y,
+    );
     this.diversityChart.update("none");
   }
 
@@ -249,7 +264,12 @@ class UIManager {
   log(message) {
     const logElement = document.getElementById("training-log");
     if (!logElement) return;
-    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const timestamp = new Date().toLocaleTimeString("en-US", {
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
     const logEntry = `[${timestamp}] ${message}\n`;
     logElement.textContent += logEntry;
     logElement.scrollTop = logElement.scrollHeight;
@@ -260,14 +280,25 @@ class UIManager {
     if (logElement) logElement.textContent = "";
   }
 
-  enableButton(id) { const el = document.getElementById(id); if (el) el.disabled = false; }
-  disableButton(id) { const el = document.getElementById(id); if (el) el.disabled = true; }
+  enableButton(id) {
+    const el = document.getElementById(id);
+    if (el) el.disabled = false;
+  }
+  disableButton(id) {
+    const el = document.getElementById(id);
+    if (el) el.disabled = true;
+  }
 
   showNotification(message, type = "info") {
     const notification = document.createElement("div");
     notification.className = `notification`;
     notification.textContent = message;
-    const colors = { info: "#4285f4", success: "#34a853", warning: "#fbbc05", error: "#ea4335" };
+    const colors = {
+      info: "#4285f4",
+      success: "#34a853",
+      warning: "#fbbc05",
+      error: "#ea4335",
+    };
     notification.style.cssText = `
       position: fixed; bottom: 24px; left: 24px; padding: 14px 24px; border-radius: 8px;
       color: white; font-size: 14px; font-family: 'Google Sans', sans-serif;
@@ -287,7 +318,8 @@ class UIManager {
       if (show) {
         btn.disabled = true;
         btn.dataset.oldText = btn.innerHTML;
-        btn.innerHTML = '<span class="material-icons-outlined spin" style="font-size: 18px;">sync</span>';
+        btn.innerHTML =
+          '<span class="material-icons-outlined spin" style="font-size: 18px;">sync</span>';
       } else if (btn.dataset.oldText) {
         btn.disabled = false;
         btn.innerHTML = btn.dataset.oldText;

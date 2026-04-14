@@ -36,10 +36,10 @@ export class ModelManager {
         };
         this.isInitialized = true;
         this.state.torchjs_initialized = true;
-        
+
         // Initial hash
         await this.updateModelHash();
-        
+
         console.log("✅ Model manager initialized with js-pytorch");
       } else {
         throw new Error("Trainer not initialized");
@@ -50,19 +50,51 @@ export class ModelManager {
     }
   }
 
-  async trainStep(batch, labels, phase = 1) {
+  async trainStep(batch, labels, textBytes = null, phase = 1) {
     if (!this.isInitialized) await this.initialize();
+
+    // Support legacy calls where textBytes might be the phase
+    let actualTextBytes = textBytes;
+    let actualPhase = phase;
+
+    if (typeof textBytes === "string" || typeof textBytes === "number") {
+      actualPhase = textBytes;
+      actualTextBytes = null;
+    }
 
     try {
       // Ensure phase is numeric for TorchJS
       let phaseNum = 1;
-      if (phase === "vae" || phase === 1) phaseNum = 1;
-      else if (phase === "drift" || phase === 2) phaseNum = 2;
-      else if (phase === "both" || phase === 3) phaseNum = 3;
+      if (actualPhase === "vae" || actualPhase === 1) phaseNum = 1;
+      else if (actualPhase === "drift" || actualPhase === 2) phaseNum = 2;
+      else if (actualPhase === "both" || actualPhase === 3) phaseNum = 3;
 
       tfjsTrainer.setPhase(phaseNum);
 
-      const result = await tfjsTrainer.trainStep(batch, labels);
+      // Pre-process labels if they are objects (common in this codebase)
+      const numericLabels = Array.isArray(labels)
+        ? labels.map((l) => (typeof l === "object" ? l.class : l))
+        : labels;
+
+      // Validate textBytes format (should be array of arrays if provided)
+      let processedTextBytes = actualTextBytes;
+      if (
+        actualTextBytes &&
+        Array.isArray(actualTextBytes) &&
+        !Array.isArray(actualTextBytes[0])
+      ) {
+        // If it's a flat array, wrap it as a single sample batch or assume it's invalid
+        console.warn(
+          "⚠️  textBytes provided as flat array, wrapping in batch of 1",
+        );
+        processedTextBytes = [actualTextBytes];
+      }
+
+      const result = await tfjsTrainer.trainStep(
+        batch,
+        numericLabels,
+        processedTextBytes,
+      );
 
       // Update local hash after training
       await this.updateModelHash();
@@ -84,10 +116,15 @@ export class ModelManager {
       // Get real weights for hash
       const checkpoint = await tfjsTrainer.saveCheckpoint();
       // Use small part of VAE params for stable but unique hash
-      const sample = checkpoint.vae_params && checkpoint.vae_params[0] ? 
-                     checkpoint.vae_params[0].slice(0, 10) : [Math.random()];
-      
-      const sum = sample.reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
+      const sample =
+        checkpoint.vae_params && checkpoint.vae_params[0]
+          ? checkpoint.vae_params[0].slice(0, 10)
+          : [Math.random()];
+
+      const sum = sample.reduce(
+        (a, b) => a + (typeof b === "number" ? b : 0),
+        0,
+      );
       const avg = sample.length > 0 ? sum / sample.length : 0;
 
       this.state.hash = `model_${Math.abs(avg).toFixed(8).replace(".", "")}_${Date.now().toString().slice(-4)}`;
@@ -106,7 +143,7 @@ export class ModelManager {
   async getState() {
     // CRITICAL: Get real weights from TorchJS for sharing
     const checkpoint = await tfjsTrainer.saveCheckpoint();
-    
+
     return {
       parameters: checkpoint, // This contains vae_params and drift_params
       hash: this.state.hash || `gen_${Date.now()}`,
@@ -123,11 +160,13 @@ export class ModelManager {
       // Load real weights into TorchJS
       // Handle various nesting levels of parameters
       const params = state.parameters?.parameters || state.parameters || state;
-      
+
       if (params && (params.vae_params || params.drift_params)) {
         await tfjsTrainer.loadCheckpoint(params);
       } else {
-        console.warn("⚠️ No valid parameters found in state to load into TorchJS");
+        console.warn(
+          "⚠️ No valid parameters found in state to load into TorchJS",
+        );
       }
 
       this.state.hash = state.hash || state.modelHash;
@@ -157,7 +196,13 @@ export class ModelManager {
       const state = modelData.parameters || modelData.modelData || modelData;
 
       // Validate state
-      if (!state || (!state.hash && !state.modelHash && !state.parameters && !state.vae_params)) {
+      if (
+        !state ||
+        (!state.hash &&
+          !state.modelHash &&
+          !state.parameters &&
+          !state.vae_params)
+      ) {
         console.error("Invalid model data received:", modelData);
         throw new Error("Invalid model data");
       }

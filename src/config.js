@@ -1,6 +1,8 @@
 // Configuration constants for Schrödinger Bridge training
 // Adapted from ../enhancedoptimaltransport/config.py
 
+import * as tf from "@tensorflow/tfjs";
+
 export const CONFIG = {
   // Dataset configuration
   DATASET_NAME: "STL10",
@@ -144,11 +146,11 @@ export function setTrainingPhase(epoch) {
 }
 
 export function klDivergenceSpatial(mu, logvar) {
-  // KL divergence with free bits
-  const kl = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp());
-  const kl_sum = kl.sum([1, 2, 3]); // sum over spatial dimensions
-  const kl_clamped = kl_sum.max(CONFIG.FREE_BITS);
-  return kl_clamped.mean();
+  // KL divergence: 0.5 * (exp(logvar) + mu^2 - 1 - logvar)
+  const kl = tf.mul(0.5, tf.sub(tf.add(tf.exp(logvar), tf.square(mu)), tf.add(1, logvar)));
+  const kl_sum = tf.sum(kl, [1, 2, 3]); // sum over spatial dimensions
+  const kl_clamped = tf.maximum(kl_sum, CONFIG.FREE_BITS);
+  return tf.mean(kl_clamped);
 }
 
 export function calcSNR(real, recon) {
