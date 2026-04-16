@@ -233,6 +233,15 @@ class ModelConsolidationServer {
     this.app.get("/positional-encoding", (req, res) =>
       res.sendFile(path.join(__dirname, "../demotokenizer/codage_posembedded.html")),
     );
+    this.app.get("/display-3d", (req, res) =>
+      res.sendFile(path.join(__dirname, "../demotokenizer/display_3d.html")),
+    );
+    this.app.get("/rag-demo", (req, res) =>
+      res.sendFile(path.join(__dirname, "../demotokenizer/ragchromadbwithprev.html")),
+    );
+    this.app.get("/scroll-screen", (req, res) =>
+      res.sendFile(path.join(__dirname, "../demotokenizer/scrolscreen.html")),
+    );
     this.app.get("/training-consolidation.html", (req, res) =>
       res.sendFile(path.join(__dirname, "../training-consolidation.html")),
     );
