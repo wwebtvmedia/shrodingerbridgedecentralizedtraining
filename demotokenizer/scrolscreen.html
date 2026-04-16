@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Le langage est un univers fascinant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      font-family: "Segoe UI", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7fa;
+      color: #2d3748;
+      display: flex; flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 1rem 2rem; background-color: #6a1b9a; color: #fff;
+      flex-wrap: wrap; box-shadow: 0 2px 8px rgba(0,83,159,0.08);
+      justify-content: flex-start;
+    }
+    header img {
+      flex-shrink: 0; height: 40px; margin-right: 1rem; cursor: pointer; user-select: none;
+    }
+    #load-text-btn {
+      background-color: #8e24aa; border: none; color: #fff;
+      padding: 0.5rem 1.2rem; border-radius: 4px; cursor: pointer;
+      font-weight: 600; font-size: 1rem; transition: background-color 0.3s;
+      margin-left: 1rem;
+    }
+    #load-text-btn:hover {
+      background-color: #ab47bc;
+    }
+    main {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden; background-color: #fff;
+      box-shadow: inset 0 0 10px #e2e8f0;
+      min-height: 0;
+    }
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      background-color: #121212;
+      min-height: 0;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    footer[role="contentinfo"] {
+      background-color: #6a1b9a; color: #fff; text-align: center;
+      padding: 1rem 0; font-size: 0.95rem; margin-top: auto;
+    }
+    footer[role="contentinfo"] a {
+      color: #ffeb3b; text-decoration: underline;
+    }
+    #loadingOverlay {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      font-size: 1.2rem;
+      z-index: 10;
+    }
+    #file-input {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span style="font-weight: bold; font-size: 1.5rem; color: #ffeb3b; margin-right: 1rem; font-family: Segoe UI, sans-serif;">WEBTVMEDIA.NET</span>
+    <button id="load-text-btn">Charger le texte</button>
+    <input type="file" id="file-input" accept=".txt" />
+  </header>
+  <main>
+    <div id="canvas-container">
+      <div id="loadingOverlay">Chargement du texte...</div>
+    </div>
+  </main>
+  <footer role="contentinfo">
+    © 2024 WEBTVMEDIA.NET. <a href="https://webtvmedia.net/">En savoir plus</a>
+  </footer>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadTextBtn = document.getElementById('load-text-btn');
+    const fileInput = document.getElementById('file-input');
+    const canvasContainer = document.getElementById('canvas-container');
+
+    // Scene setup
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+
+    // Caméra
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.z = 250;
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+    canvasContainer.appendChild(renderer.domElement);
+
+    // Controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // Lumières
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(10, 10, 10);
+    scene.add(directionalLight);
+
+    // Variables pour le texte
+    let textPlane = null;
+    let scrollSpeed = 0.05; // Vitesse de défilement lente
+  const visibleTop = 120;
+  const visibleBottom = -120;
+  const pageHeight = visibleTop - visibleBottom;
+    let isScrolling = false; // État du défilement
+    let currentText = ''; // Texte chargé depuis le fichier
+  let touchGestureStart = null;
+  let lastTouchY = 0;
+
+    // Fonction pour créer le texte défilant
+    function createScrollingText(text) {
+      if (textPlane) {
+        scene.remove(textPlane);
+        textPlane.geometry.dispose();
+        if (textPlane.material.map) textPlane.material.map.dispose();
+        textPlane.material.dispose();
+        textPlane = null;
+      }
+
+      if (!text) {
+        loadingOverlay.textContent = 'Aucun texte chargé';
+        loadingOverlay.style.display = 'block';
+        return;
+      }
+
+      const lines = text.split('\n');
+      const fontSize = 40; // Taille de police augmentée
+      const lineHeightPx = 45; // Hauteur de ligne augmentée
+      const margin = 40; // Marge
+      const numLines = lines.length;
+      const contentHeightPx = numLines * lineHeightPx + 2 * margin;
+
+      const textCanvas = document.createElement('canvas');
+      textCanvas.width = canvasContainer.clientWidth * 2; // Largeur maximale
+      textCanvas.height = contentHeightPx; // Hauteur exacte
+      const context = textCanvas.getContext('2d');
+
+      context.fillStyle = 'black'; // Fond noir
+      context.fillRect(0, 0, textCanvas.width, textCanvas.height);
+      context.fillStyle = 'white'; // Texte blanc
+      context.font = `${fontSize}px Arial`;
+      context.textAlign = 'left';
+
+      let yPx = margin + fontSize;
+      lines.forEach((line) => {
+        context.fillText(line, margin, yPx);
+        yPx += lineHeightPx;
+      });
+
+      const texture = new THREE.CanvasTexture(textCanvas);
+      const textPlaneWidth = canvasContainer.clientWidth / 2; // Largeur maximisée
+      const pxPerUnit = textCanvas.width / textPlaneWidth;
+      const planeHeight = textCanvas.height / pxPerUnit;
+
+      const geometry = new THREE.PlaneGeometry(textPlaneWidth, planeHeight);
+      const material = new THREE.MeshStandardMaterial({ map: texture, side: THREE.DoubleSide, transparent: true });
+      textPlane = new THREE.Mesh(geometry, material);
+      textPlane.position.set(0, visibleBottom - planeHeight / 2, 0);
+      scene.add(textPlane);
+
+      loadingOverlay.style.display = 'none';
+    }
+
+    // Réinitialiser le défilement du texte
+    function resetTextScroll() {
+      if (textPlane) {
+        const planeHeight = textPlane.geometry.parameters.height;
+        textPlane.position.y = visibleBottom - planeHeight / 2;
+      }
+    }
+
+    function clampTextPosition() {
+      if (!textPlane) { return; }
+      const planeHeight = textPlane.geometry.parameters.height;
+      const maxY = visibleTop + planeHeight / 2;
+      const minY = visibleBottom - planeHeight / 2;
+      if (textPlane.position.y > maxY) {
+        textPlane.position.y = maxY;
+      }
+      if (textPlane.position.y < minY) {
+        textPlane.position.y = minY;
+      }
+    }
+
+    // Basculer l'état du défilement
+    function toggleScroll() {
+      isScrolling = !isScrolling;
+    }
+
+    function pageForward() {
+      if (!textPlane) { return; }
+      isScrolling = false;
+      textPlane.position.y += pageHeight;
+      clampTextPosition();
+    }
+
+    function pageBackward() {
+      if (!textPlane) { return; }
+      isScrolling = false;
+      textPlane.position.y -= pageHeight;
+      clampTextPosition();
+    }
+
+    // Gestion du bouton pour ouvrir le sélecteur de fichier
+    loadTextBtn.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    // Gestion du chargement du fichier texte
+    fileInput.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        loadingOverlay.textContent = 'Chargement du fichier...';
+        loadingOverlay.style.display = 'block';
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          currentText = e.target.result;
+          createScrollingText(currentText);
+          resetTextScroll();
+          isScrolling = true; // Démarrer le défilement
+          fileInput.value = ''; // Réinitialiser l'input pour permettre de recharger le même fichier
+        };
+        reader.onerror = () => {
+          loadingOverlay.textContent = 'Erreur lors du chargement du fichier';
+          setTimeout(() => {
+            loadingOverlay.style.display = 'none';
+          }, 2000);
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    // Gestion de la barre d'espace et du clic/tap
+    document.addEventListener('keydown', (event) => {
+      if (event.code === 'Space') {
+        event.preventDefault();
+        toggleScroll();
+      }
+    });
+
+    canvasContainer.addEventListener('click', () => {
+      toggleScroll();
+    });
+
+    // Gestion du défilement manuel (molette ou tactile)
+
+    // Molette de la souris
+    canvasContainer.addEventListener('wheel', (event) => {
+      if (textPlane) {
+        event.preventDefault();
+        const delta = event.deltaY * 0.5; // Sensibilité du défilement
+        textPlane.position.y -= delta;
+        clampTextPosition();
+      }
+    });
+
+    // Événements tactiles
+    canvasContainer.addEventListener('touchstart', (event) => {
+      if (event.touches.length === 1) {
+        const { clientX, clientY } = event.touches[0];
+        touchGestureStart = { x: clientX, y: clientY, time: performance.now() };
+        lastTouchY = clientY;
+      }
+    });
+
+    canvasContainer.addEventListener('touchmove', (event) => {
+      if (textPlane && event.touches.length === 1) {
+        event.preventDefault();
+        const touchY = event.touches[0].clientY;
+        const delta = (lastTouchY - touchY) * 0.5; // Sensibilité du glissement
+        textPlane.position.y += delta;
+        clampTextPosition();
+        lastTouchY = touchY;
+      }
+    });
+
+    canvasContainer.addEventListener('touchend', (event) => {
+      if (!touchGestureStart || event.changedTouches.length === 0) {
+        touchGestureStart = null;
+        return;
+      }
+
+      const { clientX, clientY } = event.changedTouches[0];
+      const dx = clientX - touchGestureStart.x;
+      const dy = clientY - touchGestureStart.y;
+      const duration = performance.now() - touchGestureStart.time;
+
+      const isHorizontalSwipe = Math.abs(dx) > 60 && Math.abs(dy) < 50 && duration < 700;
+
+      if (isHorizontalSwipe) {
+        if (dx < 0) {
+          pageForward();
+        } else {
+          pageBackward();
+        }
+      }
+
+      touchGestureStart = null;
+    });
+
+    // Animation
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+
+      if (textPlane && isScrolling) {
+        textPlane.position.y += scrollSpeed;
+        const planeHeight = textPlane.geometry.parameters.height;
+        if (textPlane.position.y > visibleTop + planeHeight / 2) {
+          textPlane.position.y = visibleBottom - planeHeight / 2;
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Gestion du redimensionnement
+    window.addEventListener('resize', () => {
+      camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+      if (textPlane && currentText) {
+        createScrollingText(currentText); // Recréer le texte pour ajuster à la nouvelle taille
+        resetTextScroll();
+      }
+    });
+
+    // Lancer l'animation
+    animate();
+  </script>
+</body>
+</html>

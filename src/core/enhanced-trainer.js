@@ -372,8 +372,8 @@ class EnhancedSwarmTrainer {
     const success = await this.modelManager.loadModel(modelData);
     if (!success) return;
 
-    const randomEpoch = Math.floor(Math.random() * (neighbor.epoch || 100));
-    this.currentEpoch = randomEpoch;
+    // Synchronize to the neighbor's actual epoch
+    this.currentEpoch = neighbor.epoch || 0;
 
     this.metrics.syncEvents++;
     this.metrics.modelsReceived++;

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Le langage est un univers fascinant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      font-family: "Segoe UI", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7fa;
+      color: #2d3748;
+      display: flex; flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 1rem 2rem; background-color: #6a1b9a; color: #fff;
+      flex-wrap: wrap; box-shadow: 0 2px 8px rgba(0,83,159,0.08);
+      justify-content: flex-start;
+    }
+    header img {
+      flex-shrink: 0; height: 40px; margin-right: 1rem; cursor: pointer; user-select: none;
+    }
+    #switch-scene-btn {
+      background-color: #8e24aa; border: none; color: #fff;
+      padding: 0.5rem 1.2rem; border-radius: 4px; cursor: pointer;
+      font-weight: 600; font-size: 1rem; transition: background-color 0.3s;
+      margin-left: 1rem;
+    }
+    #switch-scene-btn:hover {
+      background-color: #ab47bc;
+    }
+    main {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden; background-color: #fff;
+      box-shadow: inset 0 0 10px #e2e8f0;
+      min-height: 0;
+    }
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      background-color: #121212;
+      min-height: 0;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    footer[role="contentinfo"] {
+      background-color: #6a1b9a; color: #fff; text-align: center;
+      padding: 1rem 0; font-size: 0.95rem; margin-top: auto;
+    }
+    footer[role="contentinfo"] a {
+      color: #ffeb3b; text-decoration: underline;
+    }
+    #loadingOverlay {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      font-size: 1.2rem;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span style="font-weight: bold; font-size: 1.5rem; color: #ffeb3b; margin-right: 1rem; font-family: Segoe UI, sans-serif;">WEBTVMEDIA.NET</span>
+    <button id="switch-scene-btn" type="button">Changer de scène</button>
+  </header>
+  <main>
+    <div id="canvas-container">
+      <div id="loadingOverlay">Loading font and rendering...</div>
+    </div>
+  </main>
+  <footer role="contentinfo">
+    © 2024 WEBTVMEDIA.NET. <a href="https://webtvmedia.net/">En savoir plus</a>
+  </footer>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+    import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+
+    const loadingOverlay = document.getElementById('loadingOverlay');
+
+    // Texte initial affiché
+    let textToDisplay = 'Explorer le monde des mots qui s’orientent et s’attirent';
+
+    // Variables globales pour le mesh et la police
+    let textMesh = null;
+    let loadedFont = null;
+
+    // Scene setup
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+
+    // Caméra
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.z = 250;
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({antialias: true});
+    const canvasContainer = document.getElementById('canvas-container');
+    renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+    canvasContainer.appendChild(renderer.domElement);
+
+    // Controls
+  const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // Lumières
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(10, 10, 10);
+    scene.add(directionalLight);
+
+    // Presentation mode variables
+    let mode = 'text';
+    let currentSlide = 0;
+    let slideGroup = null;
+    let imagePlane = null;
+    let textPlane = null;
+    let scrollSpeed = 0.05; // Very slow scroll speed
+    const visibleTop = 120;
+    const visibleBottom = -120;
+
+    // Arrays for slides: images and associated texts
+    const slideImages = [
+      "./images/slide1.png",
+      "./images/slide2.png",
+      "./images/slide3.png",
+      "./images/slide4.png",
+      "./images/slide5.png",
+      "./images/slide6.png",
+      "./images/slide7.png",
+      "./images/slide8.png"  
+    ];  
+  
+    const slideTexts = [
+      "L’ordinateur brille par sa maîtrise des nombres,\nrésolvant des calculs complexes\navec une rapidité et une précision inégalées.\nMais le langage humain, riche de subtilités,\nd’ambiguïtés et de nuances infinies,\nreste pour la machine un mystère complexe.\nPour surmonter cette limite, des programmes\nont été conçus pour décoder mots,\nphrases et idées, captant ainsi\nles nuances du langage humain.",
+      "Les LLM, intelligences artificielles modernes,\nsont entraînés à comprendre et générer\nle langage humain. En analysant d’immenses textes,\nils saisissent le sens des mots selon leur contexte,\nrépondent aux questions, rédigent des textes\net transforment l’interaction homme-machine.\nCes modèles rendent la communication\nplus naturelle et efficace,\naméliorant notre rapport à la technologie.",
+      "Le langage humain est souvent ambigu :\nun mot ou une phrase peut porter\nplusieurs sens selon les mots qui le précèdent\net le suivent. Un mot change de signification\ndans une phrase, et la phrase varie\nselon l’ordre de ses mots. Pour mieux comprendre,\nles machines décomposent les termes\nen racines, préfixes ou suffixes,\net construisent une représentation contextuelle,\nsaisissant pleinement le sens lié à cette structure.",
+      "Pour comprendre le langage, l’ordinateur\nne lit pas les phrases comme un tout,\nmais les fragmente en unités appelées tokens :\nmots entiers, morceaux ou caractères isolés.\nCette approche révèle les motifs répétitifs,\nfacilitant l’apprentissage du langage.\nL’algorithme BPE (Byte Pair Encoding)\nregroupe les paires fréquentes de signes\npour former des unités significatives,\ncréant un vocabulaire adapté aux mots courants\ncomme aux termes rares ou nouveaux.",
+      "Comprendre le langage va au-delà\nde la division en tokens : il faut\nsaisir leur sens dans leur contexte.\nL’embedding encode chaque token\nen un vecteur numérique, tenant compte\ndes mots qui l’entourent. L’algorithme CBOW\nprédit un mot central à partir de son entourage,\napprenant ainsi les relations entre tokens.\nCes vecteurs capturent le sens contextuel,\nenrichissant la compréhension des liens sémantiques.",
+      "Un embedding est une représentation vectorielle\nqui encode le sens d’un mot selon son contexte.\nDans un espace multidimensionnel, les mots\nde contextes similaires ont des vecteurs proches.\nSubstituer un mot tout en préservant le sens\naligne leurs vecteurs. Des transitions,\ncomme de « roi » à « reine » ou de « frère » à « sœur »,\nsuivent un motif vectoriel cohérent,\nrévélant les relations grammaticales et sémantiques.",
+      "Dans les LLM, le codage en position enrichit\nla compréhension en captant l’ordre des mots.\nLes fonctions périodiques, comme les sinus\net cosinus, assignent à chaque token\nune signature unique selon sa place dans la phrase.\nCette approche encode la séquence des mots,\npermettant aux modèles de distinguer\nles variations de sens liées à leur disposition.\nAinsi, le contexte et l’ordre s’entrelacent,\nrenforçant la précision du langage généré.",
+      "Le langage est un univers fascinant,\noù les mots s’entrelacent pour créer du sens.\nGrâce aux progrès de l’intelligence artificielle,\nles machines ne se limitent plus aux calculs.\nElles explorent les liens entre mots,\ncomprennent les multiples sens des phrases\net captent l’importance du contexte,\nouvrant une nouvelle voie à la compréhension\nlinguistique."
+];
+    // Fonction pour créer et afficher le texte 3D
+    function createTextMesh(text) {
+      if (!loadedFont) return;
+
+      // Supprimer l'ancien mesh s'il existe
+      if (textMesh) {
+        scene.remove(textMesh);
+        textMesh.geometry.dispose();
+        textMesh.material.dispose();
+        textMesh = null;
+      }
+
+      const geometry = new TextGeometry(text, {
+        font: loadedFont,
+        size: 10,
+        height: 2,
+        curveSegments: 12,
+        bevelEnabled: true,
+        bevelThickness: 0.5,
+        bevelSize: 0.3,
+        bevelOffset: 0,
+        bevelSegments: 5
+      });
+
+      geometry.computeBoundingBox();
+      geometry.center();
+
+      const material = new THREE.MeshStandardMaterial({color: 0x7d8798});
+      textMesh = new THREE.Mesh(geometry, material);
+      scene.add(textMesh);
+    }
+
+    // Keydown event for slideshow control with spacebar
+    const switchSceneBtn = document.getElementById('switch-scene-btn');
+
+    function advanceScene() {
+      if (mode === 'text') {
+        mode = 'presentation';
+        switchToPresentation();
+        resetTextScroll();
+      } else if (mode === 'presentation') {
+        currentSlide = (currentSlide + 1) % slideImages.length;
+        loadSlide(currentSlide);
+        resetTextScroll();
+      }
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.code === 'Space') {
+        event.preventDefault();
+        advanceScene();
+      }
+    });
+
+    switchSceneBtn.addEventListener('click', advanceScene);
+
+    function switchToPresentation() {
+      if (textMesh) {
+        scene.remove(textMesh);
+        textMesh.geometry.dispose();
+        textMesh.material.dispose();
+        textMesh = null;
+      }
+      loadSlide(currentSlide);
+    }
+
+    function loadSlide(index) {
+      if (slideGroup) {
+        scene.remove(slideGroup);
+        slideGroup.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.geometry.dispose();
+            if (child.material.map) child.material.map.dispose();
+            child.material.dispose();
+          }
+        });
+        slideGroup = null;
+      }
+
+      slideGroup = new THREE.Group();
+      scene.add(slideGroup);
+
+      // Create fallback texture for image loading errors
+      function createFallbackTexture() {
+        const fallbackCanvas = document.createElement('canvas');
+        fallbackCanvas.width = 512;
+        fallbackCanvas.height = 512;
+        const ctx = fallbackCanvas.getContext('2d');
+        ctx.fillStyle = '#333';
+        ctx.fillRect(0, 0, 512, 512);
+        ctx.fillStyle = '#fff';
+        ctx.font = '30px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Image not found', 256, 256);
+        return new THREE.CanvasTexture(fallbackCanvas);
+      }
+
+      // Load slide image as 3D plane
+      const textureLoader = new THREE.TextureLoader();
+      textureLoader.load(slideImages[index], (texture) => {
+        const aspect = texture.image.width / texture.image.height;
+        const imagePlaneWidth = 600;
+        const planeHeight = imagePlaneWidth / aspect;
+        const geometry = new THREE.PlaneGeometry(imagePlaneWidth, planeHeight);
+        const material = new THREE.MeshStandardMaterial({ map: texture, side: THREE.DoubleSide });
+        imagePlane = new THREE.Mesh(geometry, material);
+        imagePlane.position.set(-150,0,0);//-imagePlaneWidth/2, -planeHeight/2, 0);
+        slideGroup.add(imagePlane);
+      }, undefined, (err) => {
+        console.warn('Image loading failed:', err);
+        const imagePlaneWidth = 100;
+        const planeHeight = imagePlaneWidth / (800 / 600); // Default aspect ratio
+        const geometry = new THREE.PlaneGeometry(imagePlaneWidth, planeHeight);
+        const material = new THREE.MeshStandardMaterial({ map: createFallbackTexture(), side: THREE.DoubleSide });
+        imagePlane = new THREE.Mesh(geometry, material);
+        imagePlane.position.set(-90, 0, 0);
+        slideGroup.add(imagePlane);
+        loadingOverlay.textContent = 'Failed to load image. Using placeholder.';
+        setTimeout(() => {
+          if (loadedFont) loadingOverlay.style.display = 'none';
+        }, 2000);
+      });
+
+      // Create scrolling text as 3D plane with larger, readable text
+      const text = slideTexts[index];
+      const lines = text.split('\n');
+      const fontSize = 350; // Increased font size
+      const lineHeightPx = 400; // Increased line height
+      const margin = 40; // Margin
+      const numLines = lines.length;
+      const contentHeightPx = numLines * lineHeightPx + 2 * margin;
+
+      const textCanvas = document.createElement('canvas');
+      textCanvas.width = 8500; // Increased width to prevent cutoff
+      textCanvas.height = contentHeightPx; // Exact height needed
+      const context = textCanvas.getContext('2d');
+
+      context.fillStyle = 'black'; // Black background
+      context.fillRect(0, 0, textCanvas.width, textCanvas.height);
+      context.fillStyle = 'white'; // White text
+      context.font = `${fontSize}px Arial`;
+      context.textAlign = 'left';
+
+      let yPx = margin + fontSize;
+      lines.forEach((line) => {
+        context.fillText(line, margin, yPx);
+        yPx += lineHeightPx;
+      });
+
+      const texture = new THREE.CanvasTexture(textCanvas);
+      const textPlaneWidth = 250; // Increased plane width
+      const pxPerUnit = textCanvas.width / textPlaneWidth;
+      const planeHeight = textCanvas.height / pxPerUnit;
+
+      const geometry = new THREE.PlaneGeometry(textPlaneWidth, planeHeight);
+      const material = new THREE.MeshStandardMaterial({ map: texture, side: THREE.DoubleSide, transparent: true });
+      textPlane = new THREE.Mesh(geometry, material);
+      textPlane.position.set(300, visibleBottom - planeHeight / 2, 0); // Pushed further right
+      slideGroup.add(textPlane);
+    }
+
+    function resetTextScroll() {
+      if (textPlane) {
+        const planeHeight = textPlane.geometry.parameters.height;
+        textPlane.position.y = visibleBottom - planeHeight / 2;
+      }
+    }
+
+    // Chargement de la police et création du texte initial
+    const fontLoader = new FontLoader();
+    fontLoader.load(
+      'https://threejs.org/examples/fonts/droid/droid_sans_regular.typeface.json',
+      (font) => {
+        loadedFont = font;
+        createTextMesh(textToDisplay);
+        loadingOverlay.style.display = 'none';
+        animate();
+      },
+      undefined,
+      (err) => {
+        loadingOverlay.textContent = 'Error loading font. Please try again.';
+        console.error('Font loading error:', err);
+      }
+    );
+
+    // Animation
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+
+      if (mode === 'text' && textMesh) {
+        textMesh.rotation.y += 0.003;
+      } else if (mode === 'presentation' && textPlane) {
+        textPlane.position.y += scrollSpeed;
+        const planeHeight = textPlane.geometry.parameters.height;
+        if (textPlane.position.y > visibleTop + planeHeight / 2) {
+          textPlane.position.y = visibleBottom - planeHeight / 2;
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Gestion du redimensionnement
+    window.addEventListener('resize', () => {
+      camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+    });
+  </script>
+</body>
+</html>

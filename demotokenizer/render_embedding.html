@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CBOW Visualizer - 3D Token Embedding Projection (Autoencoder)</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  /* === WEBTVMEDIA.NET Brand CSS (adapted) === */
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    font-family: "Segoe UI", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f7fa;
+    color: #2d3748;
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem 2rem; background-color: #6a1b9a; color: #fff;
+    flex-wrap: wrap; box-shadow: 0 2px 8px rgba(0,83,159,0.08);
+  }
+  header img {
+    flex-shrink: 0; height: 40px; margin-right: 1rem; cursor: pointer; user-select: none;
+  }
+  input[type="file"] {
+    background-color: #8e24aa; border: none; color: #fff;
+    padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;
+    font-weight: 600; font-size: 1rem; transition: background-color 0.3s;
+  }
+  input[type="file"]:hover {
+    background-color: #ab47bc;
+  }
+  #status-message {
+    font-style: italic; color: #a0aec0; flex-grow: 1;
+    user-select: none;
+  }
+  main {
+    flex: 1; display: flex; flex-direction: row; overflow: hidden; background-color: #fff;
+    box-shadow: inset 0 0 10px #e2e8f0;
+  }
+  #canvas-container {
+    flex: 1;
+    position: relative;
+    background-color: #121212;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  #info-panel {
+    width: 360px; background-color: #f0f4f8; padding: 1.5rem;
+    border-left: 1px solid #cbd5e0; font-size: 0.95rem; color: #2d3748; overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  #info-panel h2 {
+    color: #6a1b9a; font-weight: 700; margin-top: 0; margin-bottom: 0.5rem;
+  }
+  #slider-container {
+    margin-bottom: 1rem;
+    user-select: none;
+  }
+  #slider-label {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    display: block;
+    color: #6a1b9a;
+  }
+  #components-slider {
+    width: 100%;
+  }
+  #tokens-list {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #cbd5e0;
+    padding: 0.5rem;
+    background: #fff;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    color: #2d3748;
+  }
+  #tokens-list div {
+    margin-bottom: 0.3rem;
+    word-break: break-word;
+  }
+  footer[role="contentinfo"] {
+    background-color: #6a1b9a; color: #fff; text-align: center;
+    padding: 1rem 0; font-size: 0.95rem; margin-top: auto;
+  }
+  footer[role="contentinfo"] a {
+    color: #ffeb3b; text-decoration: underline;
+  }
+
+  /* === Processing Modal Styles === */
+  #processing-modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    transition: opacity 0.3s ease;
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .modal-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .modal-content {
+    background: #fff;
+    padding: 2rem 3rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    min-width: 220px;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    color: #6a1b9a;
+    font-weight: 600;
+    font-size: 1.2rem;
+  }
+  .spinner {
+    border: 5px solid #e0e0e0;
+    border-top: 5px solid #6a1b9a;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style>
+
+<!-- Load TensorFlow.js -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.8.0/dist/tf.min.js"></script>
+
+</head>
+<body>
+<header>
+  <span style="font-weight: bold; font-size: 1.5rem; color: #ffeb3b; margin-right: 1rem; font-family: Segoe UI, sans-serif;">WEBTVMEDIA.NET</span>
+  <input type="file" id="fileInput" accept=".json,application/json" title="Load JSON embeddings file" />
+  <div id="status-message"></div>
+</header>
+<main>
+  <div id="canvas-container"></div>
+  <div id="info-panel" aria-live="polite" aria-atomic="true">
+    <h2>Token Embeddings</h2>
+    <div id="slider-container" aria-label="Select number of embedding components to display">
+      <label for="components-slider" id="slider-label">Components to display: <span id="slider-value">10</span></label>
+      <input type="range" id="components-slider" min="1" max="100" value="10" />
+    </div>
+    <div id="tokens-list" role="list"></div>
+  </div>
+</main>
+
+<!-- Processing Modal -->
+<div id="processing-modal" class="modal-hidden" role="alert" aria-live="assertive" aria-modal="true" aria-label="Processing notification">
+  <div class="modal-content">
+    <div class="spinner"></div>
+    <div id="modal-message">Processing...</div>
+  </div>
+</div>
+
+<footer role="contentinfo" aria-label="WEBTVMEDIA.NET Footer">
+  <span>&copy; 2024 WEBTVMEDIA.NET. All rights reserved.</span>
+</footer>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+const tf = window.tf;
+
+let embeddingsData = null;
+let raycaster = null;
+
+const statusMessageDiv = document.getElementById("status-message");
+const processingModal = document.getElementById("processing-modal");
+processingModal.style.display = "none";
+const modalMessage = document.getElementById("modal-message");
+
+const tokensList = document.getElementById("tokens-list");
+const slider = document.getElementById("components-slider");
+const sliderValueLabel = document.getElementById("slider-value");
+
+function setStatus(message) {
+  if (statusMessageDiv) {
+    statusMessageDiv.textContent = message;
+  }
+}
+
+function clearStatus() {
+  if (statusMessageDiv) {
+    statusMessageDiv.textContent = "";
+  }
+}
+
+function showProcessingModal(message = "Processing...") {
+  if (modalMessage) modalMessage.textContent = message;
+  if (processingModal) processingModal.classList.remove("modal-hidden");
+  console.log("[Modal] " + message);
+}
+
+function hideProcessingModal() {
+  if (processingModal) processingModal.classList.add("modal-hidden");
+  console.log("[Modal] Hidden");
+}
+
+function logErrorAndAlert(message, error) {
+  console.error(message, error);
+  alert(message + (error ? "\nSee console for details." : ""));
+}
+
+function loadJSONFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        console.log("[File] Parsing JSON file...");
+        const json = JSON.parse(e.target.result);
+        console.log("[File] JSON parsed successfully.");
+        resolve(json);
+      } catch (err) {
+        logErrorAndAlert("Failed to parse JSON file.", err);
+        reject(err);
+      }
+    };
+    reader.onerror = () => {
+      logErrorAndAlert("Error reading file.", reader.error);
+      reject(reader.error);
+    };
+    reader.readAsText(file);
+  });
+}
+
+// Autoencoder creation
+function createAutoencoder(inputDim) {
+  const input = tf.input({shape: [inputDim]});
+  const encoded = tf.layers.dense({units: 64, activation: 'relu'}).apply(input);
+  const bottleneck = tf.layers.dense({units: 3, activation: 'linear'}).apply(encoded);
+  const decoded = tf.layers.dense({units: 64, activation: 'relu'}).apply(bottleneck);
+  const output = tf.layers.dense({units: inputDim, activation: 'linear'}).apply(decoded);
+
+  const autoencoder = tf.model({inputs: input, outputs: output});
+  const encoder = tf.model({inputs: input, outputs: bottleneck});
+
+  autoencoder.compile({optimizer: 'adam', loss: 'meanSquaredError'});
+
+  return {autoencoder, encoder};
+}
+
+// Train autoencoder
+async function trainAutoencoder(autoencoder, rawEmbeddingsTensor, epochs=50) {
+  console.log("[Autoencoder] Training started...");
+  await autoencoder.fit(rawEmbeddingsTensor, rawEmbeddingsTensor, {
+    epochs,
+    batchSize: 32,
+    shuffle: true,
+    verbose: 0
+  });
+  console.log("[Autoencoder] Training completed.");
+}
+
+// Reduce embeddings with autoencoder
+async function reduceWithAutoencoder(rawEmbeddings) {
+  const inputDim = rawEmbeddings[0].length;
+  const {autoencoder, encoder} = createAutoencoder(inputDim);
+
+  const rawEmbeddingsTensor = tf.tensor2d(rawEmbeddings);
+
+  console.log("[Autoencoder] Starting training...");
+  await trainAutoencoder(autoencoder, rawEmbeddingsTensor);
+  console.log("[Autoencoder] Training finished.");
+
+  console.log("[Autoencoder] Encoding started...");
+  const reducedTensor = encoder.predict(rawEmbeddingsTensor);
+  const reducedEmbeddings = await reducedTensor.array();
+  console.log("[Autoencoder] Encoding finished.");
+
+  tf.dispose([rawEmbeddingsTensor, reducedTensor, autoencoder, encoder]);
+
+  return reducedEmbeddings;
+}
+
+function computeRotationMatrix(normal) {
+  try {
+    const target = new THREE.Vector3(0, 0, 1);
+    const axis = new THREE.Vector3().crossVectors(normal, target);
+    const angle = Math.acos(normal.dot(target));
+    if (axis.length() < 1e-6) {
+      if (angle < 1e-6) {
+        return new THREE.Matrix4();
+      } else {
+        axis.set(1, 0, 0);
+      }
+    }
+    axis.normalize();
+    const matrix = new THREE.Matrix4();
+    matrix.makeRotationAxis(axis, angle);
+    return matrix;
+  } catch (err) {
+    logErrorAndAlert("Error computing rotation matrix.", err);
+    return new THREE.Matrix4();
+  }
+}
+
+function projectOntoBasis(vec, basis) {
+  try {
+    return new THREE.Vector3(
+      vec.dot(basis.u),
+      vec.dot(basis.v),
+      vec.dot(basis.w)
+    );
+  } catch (err) {
+    logErrorAndAlert("Error projecting vector onto basis.", err);
+    return new THREE.Vector3();
+  }
+}
+
+function rescaleAndCenterPoints(points) {
+  try {
+    const centroid = new THREE.Vector3();
+    points.forEach(p => centroid.add(p));
+    centroid.divideScalar(points.length);
+
+    points.forEach(p => p.sub(centroid));
+
+    let maxDist = 0;
+    points.forEach(p => {
+      const dist = p.length();
+      if (dist > maxDist) maxDist = dist;
+    });
+
+    if (maxDist > 0) {
+      points.forEach(p => p.divideScalar(maxDist));
+    }
+  } catch (err) {
+    logErrorAndAlert("Error rescaling and centering points.", err);
+  }
+}
+
+let scene, camera, renderer, pointsGroup, controls;
+let planeHelper = null;
+
+function initThree() {
+  try {
+    const container = document.getElementById("canvas-container");
+    scene = new THREE.Scene();
+
+    camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.set(0, 0, 5);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.innerHTML = "";
+    container.appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambientLight);
+
+    raycaster = new THREE.Raycaster();
+
+    pointsGroup = new THREE.Group();
+    scene.add(pointsGroup);
+
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.screenSpacePanning = false;
+    controls.minDistance = 1;
+    controls.maxDistance = 100;
+    controls.enablePan = true;
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN
+    };
+
+    window.addEventListener('resize', () => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+
+    console.log("Three.js initialized successfully.");
+  } catch (err) {
+    logErrorAndAlert("Error initializing Three.js.", err);
+  }
+}
+
+function animate() {
+  try {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  } catch (err) {
+    logErrorAndAlert("Error during animation loop.", err);
+  }
+}
+
+function createPlaneHelper(u, v, w) {
+  try {
+    if (planeHelper) {
+      scene.remove(planeHelper);
+      planeHelper.geometry.dispose();
+      planeHelper.material.dispose();
+      planeHelper = null;
+    }
+
+    const size = 3;
+    const divisions = 10;
+    const gridHelper = new THREE.GridHelper(size, divisions, 0x00ff00, 0x004400);
+    gridHelper.material.transparent = true;
+    gridHelper.material.opacity = 0.5;
+
+    gridHelper.rotation.x = Math.PI / 2;
+
+    const matrix = new THREE.Matrix4();
+    matrix.makeBasis(u, v, w);
+    gridHelper.applyMatrix4(matrix);
+
+    planeHelper = gridHelper;
+    scene.add(planeHelper);
+  } catch (err) {
+    logErrorAndAlert("Error creating plane helper.", err);
+  }
+}
+
+async function projectAndRenderAll() {
+  try {
+    showProcessingModal("Projecting and rendering points...");
+    console.log("[Render] Projection and rendering started.");
+
+    pointsGroup.clear();
+
+    if (embeddingsData.length < 2) {
+      alert("Need at least two tokens to define projection plane.");
+      hideProcessingModal();
+      return;
+    }
+
+    const points3D = embeddingsData.map(item => new THREE.Vector3(...item.embedding3D));
+
+    rescaleAndCenterPoints(points3D);
+
+    embeddingsData.forEach((item, idx) => {
+      item.embedding3D = [points3D[idx].x, points3D[idx].y, points3D[idx].z];
+    });
+
+    const emb1 = points3D[0].clone();
+    const emb2 = points3D[1].clone();
+
+    const normal = new THREE.Vector3().crossVectors(emb1, emb2).normalize();
+
+    const u = emb1.clone().normalize();
+    const v = emb2.clone().sub(u.clone().multiplyScalar(emb2.dot(u))).normalize();
+    const w = normal;
+
+    const basis = { u, v, w };
+
+    createPlaneHelper(u, v, w);
+
+    const rotationMatrix = computeRotationMatrix(normal);
+
+    camera.position.set(0, 0, 5);
+    camera.up.set(0, 1, 0);
+    camera.position.applyMatrix4(rotationMatrix);
+    camera.lookAt(0, 0, 0);
+
+    const projectedPoints = embeddingsData.map(item => {
+      const vec = new THREE.Vector3(...item.embedding3D);
+      const proj = projectOntoBasis(vec, basis);
+      proj.applyMatrix4(rotationMatrix);
+      return { token: item.token, coords: proj };
+    });
+    // Render points in Three.js scene
+    const geometry = new THREE.BufferGeometry();
+    const positions = [];
+    const colors = [];
+    const color = new THREE.Color();
+
+    projectedPoints.forEach((pt, i) => {
+      positions.push(pt.coords.x, pt.coords.y, pt.coords.z);
+      color.setHSL((i / projectedPoints.length), 0.7, 0.5);
+      colors.push(color.r, color.g, color.b);
+    });
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+    const material = new THREE.PointsMaterial({ size: 0.05, vertexColors: true });
+    const points = new THREE.Points(geometry, material);
+    pointsGroup.add(points);
+
+    // Update tokens list display according to slider value
+    updateTokensList();
+
+    console.log("[Render] Projection and rendering completed.");
+    hideProcessingModal();
+  } catch (err) {
+    logErrorAndAlert("Error during projection and rendering.", err);
+    hideProcessingModal();
+  }
+}
+
+// Function to update tokens list display based on slider value
+function updateTokensList() {
+  if (!embeddingsData) return;
+  const componentsToShow = parseInt(slider.value, 10);
+  sliderValueLabel.textContent = componentsToShow;
+
+  tokensList.innerHTML = "";
+  embeddingsData.forEach(item => {
+    const truncatedEmbedding = item.embedding.slice(0, componentsToShow);
+    const formattedVector = truncatedEmbedding.map(x => x.toFixed(4)).join(", ");
+    const div = document.createElement("div");
+    div.textContent = `${item.token}: [${formattedVector}${componentsToShow < item.embedding.length ? ", ..." : ""}]`;
+    tokensList.appendChild(div);
+  });
+}
+
+// Event listener for slider changes
+slider.addEventListener("input", () => {
+  updateTokensList();
+});
+
+// File input event listener
+const fileInput = document.getElementById("fileInput");
+
+fileInput.addEventListener("change", async (e) => {
+  hideProcessingModal();  // Hide modal immediately on new file selection
+  if (e.target.files.length === 0) return;
+  try {
+    setStatus("Loading JSON file...");
+    console.log("[File] Loading JSON file...");
+    embeddingsData = await loadJSONFile(e.target.files[0]);
+    console.log("[File] JSON file loaded.");
+    clearStatus();
+
+    if (!Array.isArray(embeddingsData) || embeddingsData.length === 0) {
+      alert("Invalid JSON format: expected an array of token embeddings.");
+      console.error("Invalid JSON format or empty array:", embeddingsData);
+      return;
+    }
+
+    // Set slider max to embedding dimension length dynamically
+    const embeddingDim = embeddingsData[0].embedding.length;
+    slider.max = embeddingDim;
+    if (slider.value > embeddingDim) slider.value = embeddingDim;
+    sliderValueLabel.textContent = slider.value;
+
+    setStatus(`Loaded ${embeddingsData.length} embeddings. Training autoencoder...`);
+    console.log(`[Autoencoder] Loaded ${embeddingsData.length} embeddings.`);
+
+    const rawEmbeddings = embeddingsData.map(item => item.embedding);
+
+    // Small delay to update UI before heavy computation
+    console.log("[Delay] Waiting 50ms before training...");
+    await new Promise(resolve => setTimeout(resolve, 50));
+    console.log("[Delay] 50ms wait finished.");
+
+    const reducedEmbeddings = await reduceWithAutoencoder(rawEmbeddings);
+
+    if (!reducedEmbeddings || reducedEmbeddings.length !== embeddingsData.length) {
+      throw new Error("Autoencoder output length mismatch.");
+    }
+
+    embeddingsData.forEach((item, idx) => {
+      item.embedding3D = reducedEmbeddings[idx];
+    });
+
+    clearStatus();
+
+    // Show processing modal only during projection and rendering
+    await projectAndRenderAll();
+
+  } catch (err) {
+    logErrorAndAlert("Error processing embeddings file.", err);
+    clearStatus();
+    hideProcessingModal();
+  }
+});
+
+initThree();
+animate();
+
+// Create a floating div to show clicked token info
+const clickedTokenDiv = document.createElement('div');
+clickedTokenDiv.style.position = 'absolute';
+clickedTokenDiv.style.top = '10px';
+clickedTokenDiv.style.left = '10px';
+clickedTokenDiv.style.padding = '6px 12px';
+clickedTokenDiv.style.backgroundColor = 'rgba(106, 27, 154, 0.8)';
+clickedTokenDiv.style.color = '#fff';
+clickedTokenDiv.style.fontWeight = '600';
+clickedTokenDiv.style.borderRadius = '4px';
+clickedTokenDiv.style.pointerEvents = 'none';
+clickedTokenDiv.style.userSelect = 'none';
+clickedTokenDiv.style.zIndex = '10000';
+clickedTokenDiv.style.display = 'none';
+document.getElementById('canvas-container').appendChild(clickedTokenDiv);
+
+// Add click event listener on the renderer's DOM element
+renderer.domElement.addEventListener('click', (event) => {
+  if (!pointsGroup || !embeddingsData) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1
+  );
+
+  raycaster.setFromCamera(mouse, camera);
+
+  // Intersect with the points object inside pointsGroup
+  const intersects = raycaster.intersectObject(pointsGroup.children[0]);
+  if (intersects.length > 0) {
+    const index = intersects[0].index;
+    if (index !== undefined && embeddingsData[index]) {
+      const token = embeddingsData[index].token;
+      clickedTokenDiv.textContent = `Token: ${token}`;
+      clickedTokenDiv.style.display = 'block';
+
+      // Hide the token display after 3 seconds
+      clearTimeout(clickedTokenDiv._timeout);
+      clickedTokenDiv._timeout = setTimeout(() => {
+        clickedTokenDiv.style.display = 'none';
+      }, 3000);
+    }
+  }
+});
+</script>
+</body>
+</html>

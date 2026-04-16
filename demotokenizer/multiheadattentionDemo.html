@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Multi-Head Attention Visualizer</title>
+
+  <!-- Chart.js core -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <!-- Matrix chart plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@1.1.0/dist/chartjs-chart-matrix.min.js"></script>
+
+  <style>
+    /* (same styles you already had – omitted for brevity) */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;background:#f7fafc;color:#2d3748;height:100vh;display:flex;flex-direction:column;}
+    header {background:#1a365d;color:#fff;padding:1rem 2rem;box-shadow:0 2px 8px rgba(0,0,0,.1);}
+    h1{font-size:1.6rem;margin:0;} .subtitle{font-size:.95rem;color:#a0d8ff;margin-top:.25rem;}
+    main{flex:1;display:flex;overflow:hidden;}
+    #input-panel{width:380px;background:#edf2f7;padding:1.5rem;border-right:1px solid #e2e8f0;overflow-y:auto;}
+    #input-panel h2{color:#1a365d;margin-bottom:1rem;font-size:1.2rem;}
+  label{display:block;margin:.75rem 0 .25rem;font-weight:600;color:#4a5568;}
+    textarea{width:100%;height:120px;resize:vertical;font-family:"Courier New",monospace;font-size:.85rem;padding:.5rem;border:1px solid #cbd5e0;border-radius:4px;background:#fff;}
+    textarea:focus{outline:none;border-color:#3182ce;}
+  button{margin-top:.75rem;padding:.6rem 1.2rem;background:#3182ce;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;transition:background .2s;font-size:.9rem;}
+  button:hover{background:#2c5282;} button:disabled{background:#a0aec0;cursor:not-allowed;}
+  .secondary-btn{background:#4a5568;} .secondary-btn:hover{background:#2d3748;}
+    #file-input{margin:.5rem 0;}
+    #loaded-files{margin-top:.5rem;font-size:.8rem;color:#4a5568;}
+    .file-item{margin:.2rem 0;padding:.3rem;background:#fff;border-radius:3px;}
+    #visualization{flex:1;padding:2rem;overflow-y:auto;background:#fff;}
+    .chart-container{margin:1.5rem 0;padding:1rem;border:1px solid #e2e8f0;border-radius:6px;background:#f9fafb;}
+    .chart-container h3{margin:0 0 .75rem;color:#1a365d;font-size:1.1rem;}
+    canvas{max-height:300px;}
+    #explanation{background:#ebf8ff;border-left:4px solid #3182ce;padding:1rem 1.2rem;margin:1.5rem 0;font-size:.95rem;line-height:1.6;color:#2d3748;border-radius:0 6px 6px 0;}
+    #explanation code{background:#fff;padding:.1rem .3rem;border-radius:3px;font-family:"Courier New",monospace;}
+    table{width:100%;border-collapse:collapse;margin-top:.5rem;font-family:monospace;font-size:.8rem;}
+    th,td{border:1px solid #ccc;padding:4px 6px;text-align:center;}
+    th{background:#e2e8f0;}
+    .status-text{margin-top:.5rem;font-size:.8rem;color:#4a5568;line-height:1.4;}
+    .modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(26,54,93,.65);display:none;align-items:center;justify-content:center;padding:1rem;z-index:999;}
+    .modal{background:#fff;border-radius:8px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 45px rgba(15,23,42,.25);padding:1.5rem;}
+    .modal h2{margin-bottom:1rem;color:#1a365d;}
+    .modal section{margin-bottom:1rem;}
+    .modal section:last-child{margin-bottom:0;}
+    .modal dl{display:grid;grid-template-columns:auto 1fr;gap:.5rem 1rem;font-family:"Courier New",monospace;font-size:.85rem;}
+    .modal dt{font-weight:600;color:#2d3748;}
+    .modal dd{margin:0;color:#4a5568;}
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Multi-Head Self-Attention Visualizer</h1>
+    <p class="subtitle">Load multiple position-encoded contexts → Visualize cross-context attention</p>
+  </div>
+</header>
+
+<main>
+  <aside id="input-panel">
+    <h2>Load Context Files</h2>
+    <p>Select multiple <code>context_*.json</code> files</p>
+    <input type="file" id="file-input" multiple accept=".json" />
+    <div id="loaded-files"></div>
+
+    <button id="load-files-btn">Load Context Files</button>
+
+    <hr style="margin:1.5rem 0;border:1px dashed #cbd5e0;">
+
+    <h2>Attention Settings</h2>
+    <label for="d-model">d_model:</label>
+    <input type="number" id="d-model" value="8" min="4" max="128" />
+
+    <label for="n-heads">Number of Heads:</label>
+    <input type="number" id="n-heads" value="4" min="1" max="8" />
+
+  <button id="compute-btn" disabled>Compute Attention</button>
+  <button id="next-query-btn" disabled>Next Query Token</button>
+  <button id="reset-btn" disabled>Reset</button>
+  <button id="train-btn" disabled>Simulate Learning Step</button>
+  <button id="details-btn" class="secondary-btn" disabled>Explain Computation</button>
+  <div id="training-status" class="status-text">Waiting for data…</div>
+
+    <div id="input-preview" style="margin-top:1rem;display:none;">
+      <label>Input Matrix Preview (first 3 rows):</label>
+      <textarea id="input-matrix" readonly></textarea>
+    </div>
+  </aside>
+
+  <section id="visualization">
+    <div id="explanation">
+      <h3>How Multi-Head Self-Attention Works</h3>
+      <p>Each token → <strong>Q, K, V</strong> → <code>Q·Kᵀ/√d_k</code> → softmax → weighted sum of V.</p>
+      <p>Multi-head → parallel heads → concat → final projection.</p>
+  <p style="margin-top:.75rem;font-style:italic;">Now supports <strong>cross-context</strong> attention with detailed breakdowns per query.</p>
+    </div>
+
+    <div class="chart-container">
+      <h3>Current Query Token</h3>
+      <div id="query-info">Load files and compute to begin.</div>
+      <canvas id="query-chart"></canvas>
+    </div>
+
+    <div class="chart-container">
+      <h3>Attention Weights per Head (with Context Boundaries)</h3>
+      <div id="attention-charts"></div>
+    </div>
+
+    <div class="chart-container">
+      <h3>Head Output Token Weights (HOTW)</h3>
+      <div id="hotw-table"></div>
+    </div>
+
+    <div class="chart-container">
+      <h3>Attention Output (Before Final Projection)</h3>
+      <div id="output-table"></div>
+    </div>
+  </section>
+</main>
+
+<div id="details-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="details-title">
+  <div class="modal">
+    <h2 id="details-title">Computation Breakdown</h2>
+    <div id="details-content">No computation yet.</div>
+    <div style="text-align:right;margin-top:1rem;">
+      <button id="close-details-btn" class="secondary-btn" style="margin-top:0;">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* --------------------------------------------------------------
+    1. Verify matrix controller availability (plugin auto-registers)
+    -------------------------------------------------------------- */
+  if (!Chart.registry.getController('matrix')) {
+    console.warn('[Init] Matrix controller missing; ensure chartjs-chart-matrix loaded.');
+  }
+
+  /* --------------------------------------------------------------
+    2. Core logic (attention math + HOTW summary)
+    -------------------------------------------------------------- */
+  const fileInput = document.getElementById('file-input');
+  const loadFilesBtn = document.getElementById('load-files-btn');
+  const loadedFilesDiv = document.getElementById('loaded-files');
+  const dModelInput = document.getElementById('d-model');
+  const nHeadsInput = document.getElementById('n-heads');
+  const computeBtn = document.getElementById('compute-btn');
+  const nextQueryBtn = document.getElementById('next-query-btn');
+  const resetBtn = document.getElementById('reset-btn');
+  const detailsBtn = document.getElementById('details-btn');
+  const trainBtn = document.getElementById('train-btn');
+  const queryInfo = document.getElementById('query-info');
+  const inputMatrixEl = document.getElementById('input-matrix');
+  const inputPreview = document.getElementById('input-preview');
+  const detailsModal = document.getElementById('details-modal');
+  const detailsContent = document.getElementById('details-content');
+  const closeDetailsBtn = document.getElementById('close-details-btn');
+  const trainingStatus = document.getElementById('training-status');
+
+  let baseEmbeddings = [], X = [], tokens = [], contextBoundaries = [], dModel = 8, nHeads = 4, queryIdx = 0;
+  let attentionCharts = [], queryChart = null;
+  let loadedContexts = [], loadedFileSummaries = [];
+  let lastAttentionResult = null;
+  const weightStore = {};
+  const LEARNING_RATE = 0.05;
+  const STEPS_PER_CLICK = 5;
+
+  /* ---------- Load multiple JSON files ---------- */
+  loadFilesBtn.addEventListener('click', () => {
+    const files = fileInput.files;
+    if (!files.length) { alert('Select at least one JSON file.'); return; }
+
+    loadedContexts = [];
+    baseEmbeddings = [];
+    X = [];
+    tokens = [];
+    contextBoundaries = [0];
+    loadedFileSummaries = [];
+    let loaded = 0;
+    loadedFilesDiv.innerHTML = '<p><strong>Loading…</strong></p>';
+    detailsBtn.disabled = true;
+  trainBtn.disabled = true;
+  trainingStatus.textContent = 'Loading contexts…';
+  Object.keys(weightStore).forEach(key => { delete weightStore[key]; });
+    detailsContent.innerHTML = 'No computation yet.';
+
+    Array.from(files)
+      .sort((a,b) => {
+        const na = +(a.name.match(/context_(\d+)\.json/)?.[1] ?? 0);
+        const nb = +(b.name.match(/context_(\d+)\.json/)?.[1] ?? 0);
+        return na - nb;
+      })
+      .forEach(file => {
+        const r = new FileReader();
+        r.onerror = evt => {
+          console.error(`[Loader] Failed to read ${file.name}`, evt);
+          alert(`Lecture impossible pour ${file.name}. Consulte la console pour plus de details.`);
+        };
+        r.onload = e => {
+          const raw = e.target.result;
+          console.log(`[Loader] ${file.name} lu (${raw.length} caracteres).`);
+
+          let data;
+          try {
+            data = JSON.parse(raw);
+          } catch (parseError) {
+            console.error(`[Loader] JSON invalide dans ${file.name}`, parseError);
+            alert(`Le fichier ${file.name} contient un JSON invalide.`);
+            return;
+          }
+
+          try {
+            if (!data.embeddings || !Array.isArray(data.embeddings)) {
+              throw new Error('Missing embeddings array');
+            }
+
+            const ctxTokens = data.tokens ?? data.embeddings.map(o=>o.token);
+            const ctxEmb    = data.embeddings.map(o=>o.embedding);
+
+            if (!ctxEmb.length) {
+              throw new Error('Empty embedding list');
+            }
+
+            loadedContexts.push({name:file.name, tokens:ctxTokens, embeddings:ctxEmb});
+            baseEmbeddings.push(...ctxEmb);
+            tokens.push(...ctxTokens);
+            contextBoundaries.push(baseEmbeddings.length);
+            loadedFileSummaries.push(`${file.name} → ${ctxTokens.length} tokens`);
+            console.log(`[Loader] ${file.name} importe (${ctxTokens.length} tokens).`);
+
+            if (++loaded === files.length) {
+              finalizeLoading();
+            }
+          } catch (dataError) {
+            console.error(`[Loader] Erreur d'analyse pour ${file.name}`, dataError);
+            alert(`Erreur dans ${file.name}: ${dataError.message || dataError}`);
+          }
+        };
+        r.readAsText(file);
+      });
+  });
+
+  function finalizeLoading() {
+    if (!baseEmbeddings.length) { return; }
+
+    dModel = baseEmbeddings[0].length;
+    dModelInput.value = dModel;
+    rebuildInputMatrix();
+
+    console.log(`[Finalize] ${loadedContexts.length} contextes charges pour ${baseEmbeddings.length} tokens (d_model=${dModel}).`);
+
+    loadedFilesDiv.innerHTML = `
+      <p><strong>Loaded ${loadedContexts.length} contexts → ${baseEmbeddings.length} tokens total</strong></p>
+      ${loadedFileSummaries.map(item=>`<div class="file-item">${item}</div>`).join('')}
+    `;
+
+    computeBtn.disabled = false;
+    trainBtn.disabled = true;
+    trainingStatus.textContent = 'Contexts loaded. Run Compute to enable simulation.';
+  }
+
+  function rebuildInputMatrix() {
+    if (!baseEmbeddings.length) { return; }
+    console.log('[Rebuild] Using embeddings exactly as provided (no extra positional encoding).');
+    X = baseEmbeddings.map(row => row.slice());
+
+    if (!X.length) { return; }
+
+    const sampleCount = Math.min(3, X.length);
+    const preview = X.slice(0, sampleCount)
+      .map(r=>`[${r.map(v=>v.toFixed(3)).join(', ')}]`)
+      .join('\n');
+
+    inputMatrixEl.value = preview + (X.length>sampleCount?'\n...':'');
+    inputPreview.style.display = 'block';
+  }
+
+  /* ---------- Random linear projection (deterministic) ---------- */
+  function linearProject(input, outDim, key=0) {
+    let W = null;
+
+    if (typeof key === 'string' && weightStore[key]) {
+      const candidate = weightStore[key];
+      if (candidate.length === dModel && (candidate[0]?.length ?? outDim) === outDim) {
+        W = candidate;
+      } else {
+        console.warn(`[linearProject] Resetting weight ${key} due to dimension mismatch.`);
+        delete weightStore[key];
+      }
+    }
+
+    if (!W) {
+      const hashBase = typeof key === 'string'
+        ? Array.from(key).reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+        : Number(key) || 0;
+      let rnd = 12345 + hashBase;
+      const rand = () => { rnd = (rnd * 16807) % 2147483647; return (rnd / 2147483647) * 2 - 1; };
+      W = Array.from({length: dModel}, () => Array.from({length: outDim}, () => rand() * 0.3));
+      if (typeof key === 'string') {
+        weightStore[key] = W;
+      }
+    }
+
+    const projected = input.map(row =>
+      Array.from({length: outDim}, (_, j) =>
+        row.reduce((sum, value, k) => sum + value * (W[k]?.[j] ?? 0), 0)
+      )
+    );
+    return { projected, W };
+  }
+
+  /* ---------- Multi-Head Attention ---------- */
+  function multiHeadAttention(X,dModel,nHeads){
+    if (!Array.isArray(X) || !X.length) {
+      throw new Error('Input embeddings array is empty');
+    }
+    if (X[0].length !== dModel) {
+      throw new Error(`Expected embeddings of dimension ${dModel}, got ${X[0].length}`);
+    }
+
+  const dHead = dModel/nHeads;
+  const Qres = linearProject(X,dModel,'WQ');
+  const Kres = linearProject(X,dModel,'WK');
+  const Vres = linearProject(X,dModel,'WV');
+  const Q = Qres.projected;
+  const K = Kres.projected;
+  const V = Vres.projected;
+
+    const split = m=>Array.from({length:nHeads},(_,h)=>m.map(r=>r.slice(h*dHead,(h+1)*dHead)));
+    const [Qh,Kh,Vh] = [Q,K,V].map(split);
+    const heads = [];
+
+    for(let h=0;h<nHeads;h++){
+      const scores = Qh[h].map(q=>Kh[h].map(k=>q.reduce((s,v,i)=>s+v*k[i],0)/Math.sqrt(dHead)));
+      const attn = scores.map(row=>{
+        const max=Math.max(...row);
+        const exps=row.map(v=>Math.exp(v-max));
+        const sum=exps.reduce((a,b)=>a+b,0);
+        return exps.map(e=>e/sum);
+      });
+      const out = attn.map((w,i)=>Vh[h][i].map((_,j)=>w.reduce((s,ww,k)=>s+ww*Vh[h][k][j],0)));
+      heads.push({scores,attn,out});
+    }
+
+    const concat = heads.reduce((a,hd,h)=>a.map((r,i)=>r.concat(hd.out[i])),Array.from({length:X.length},()=>[]));
+    const outputRes = linearProject(concat,dModel,'WO');
+    return {
+      Q,
+      K,
+      V,
+      heads,
+      output: outputRes.projected,
+      weights: {
+        WQ: Qres.W,
+        WK: Kres.W,
+        WV: Vres.W,
+        WO: outputRes.W
+      }
+    };
+  }
+
+  function meanVector(matrix) {
+    if (!Array.isArray(matrix) || !matrix.length) { return []; }
+    const cols = matrix[0].length;
+    const sums = Array(cols).fill(0);
+    matrix.forEach(row => {
+      row.forEach((val, idx) => { sums[idx] += val; });
+    });
+    return sums.map(total => total / matrix.length);
+  }
+
+  /* ---------- Render query bar chart ---------- */
+  function renderQueryChart(vec, token){
+    const ctx = document.getElementById('query-chart').getContext('2d');
+    if(queryChart) queryChart.destroy();
+    queryChart = new Chart(ctx,{
+      type:'bar',
+      data:{labels:Array.from({length:dModel},(_,i)=>i),
+            datasets:[{label:'Query Vector',data:vec.map(v=>+v.toFixed(3)),
+                       backgroundColor:'rgba(49,130,206,0.7)',borderColor:'#3182ce',borderWidth:1}]},
+      options:{responsive:true,
+               scales:{y:{beginAtZero:false,suggestedMin:-1.5,suggestedMax:1.5}},
+               plugins:{title:{display:true,text:`Token: "${token}"`},legend:{display:false}}}
+    });
+  }
+
+  /* ---------- Render attention heat-maps with context lines ---------- */
+  function renderAttentionHeads(heads){
+    const container = document.getElementById('attention-charts');
+    container.innerHTML=''; attentionCharts.forEach(c=>c.destroy()); attentionCharts=[];
+
+    heads.forEach((head,h)=>{
+      const canvas = document.createElement('canvas');
+      const div = document.createElement('div'); div.style.marginBottom='1.5rem';
+      div.innerHTML=`<h4 style="margin:0 0 .5rem;color:#1a365d;">Head ${h+1}</h4>`;
+      div.appendChild(canvas); container.appendChild(div);
+
+      const data = head.attn.flatMap((row,i)=>row.map((v,j)=>({x:j,y:i,v:+v.toFixed(3)})));
+
+      const chart = new Chart(canvas.getContext('2d'),{
+        type:'matrix',
+        data:{datasets:[{label:`Head ${h+1}`,data,
+                         backgroundColor:c=>`rgba(239,68,68,${Math.min(1,Math.max(0,c.raw.v))})`,
+                         width:({chart})=>(chart.chartArea?.width||300)/X.length-1,
+                         height:({chart})=>(chart.chartArea?.height||300)/X.length-1}]},
+        options:{
+          scales:{
+            x:{type:'linear',min:0,max:X.length-1,position:'bottom',
+               ticks:{stepSize:1,callback:v=>tokens[v]||''},
+               title:{display:true,text:'Key Tokens →'}},
+            y:{type:'linear',min:0,max:X.length-1,reverse:true,
+               ticks:{stepSize:1,callback:v=>tokens[v]||''},
+               title:{display:true,text:'↑ Query Tokens'}}
+          },
+          plugins:{
+            tooltip:{callbacks:{label:c=>`Weight: ${c.raw.v.toFixed(3)} | "${tokens[c.raw.x]}" → "${tokens[c.raw.y]}"`}},
+            legend:{display:false}
+          },
+          onAfterDraw(chart){
+            const ctx = chart.ctx; ctx.save(); ctx.strokeStyle='#3182ce'; ctx.lineWidth=2;
+            contextBoundaries.slice(0,-1).forEach(s=>{
+              if(s<=0 || s>=X.length){return;}
+              const px = chart.scales.x.getPixelForValue(s);
+              ctx.beginPath(); ctx.moveTo(px,chart.chartArea.top); ctx.lineTo(px,chart.chartArea.bottom); ctx.stroke();
+            });
+            contextBoundaries.slice(1).forEach(e=>{
+              if(e<=0 || e>X.length){return;}
+              const py = chart.scales.y.getPixelForValue(e-1);
+              ctx.beginPath(); ctx.moveTo(chart.chartArea.left,py); ctx.lineTo(chart.chartArea.right,py); ctx.stroke();
+            });
+            ctx.restore();
+          }
+        }
+      });
+      attentionCharts.push(chart);
+    });
+  }
+
+  function renderHeadOutputWeights(heads,queryIndex){
+    const container = document.getElementById('hotw-table');
+    if(!heads.length){container.innerHTML='';return;}
+
+    const table = document.createElement('table');
+    table.innerHTML = '<tr><th>Head</th><th>Top Tokens (weight)</th></tr>';
+
+    heads.forEach((head,h)=>{
+      const rowWeights = head.attn[queryIndex] || [];
+      const ranked = rowWeights
+        .map((weight,keyIdx)=>({token:tokens[keyIdx] ?? `#${keyIdx}`,weight}))
+        .sort((a,b)=>b.weight-a.weight)
+        .slice(0,5)
+        .map(entry=>`${entry.token} (${entry.weight.toFixed(3)})`)
+        .join(', ');
+
+      const tr = document.createElement('tr');
+      const headCell = document.createElement('td');
+      headCell.textContent = `Head ${h+1}`;
+      const detailCell = document.createElement('td');
+      detailCell.textContent = ranked || 'n/a';
+      tr.appendChild(headCell);
+      tr.appendChild(detailCell);
+      table.appendChild(tr);
+    });
+
+    container.innerHTML='';
+    container.appendChild(table);
+  }
+
+  /* ---------- Render output table ---------- */
+  function renderOutputTable(vec){
+    const c = document.getElementById('output-table');
+    c.innerHTML='<table><tr><th>Dim</th><th>Value</th></tr></table>';
+    const tbl = c.querySelector('table');
+    vec.forEach((v,i)=>{
+      const tr = document.createElement('tr');
+      [i,+v.toFixed(4)].forEach(t=>{const td=document.createElement('td');td.textContent=t;tr.appendChild(td);});
+      tbl.appendChild(tr);
+    });
+  }
+
+  function escapeHtml(str){
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    };
+    return String(str).replace(/[&<>'"]/g, c => map[c]);
+  }
+
+  function buildDetailsContent(){
+    if(!lastAttentionResult){
+      alert('Run "Compute Attention" to populate details.');
+    }
+
+    const totalTokens = X.length;
+    const contextCount = Math.max(0, contextBoundaries.length - 1);
+    const qRows = lastAttentionResult.Q.length;
+    const qCols = qRows ? lastAttentionResult.Q[0].length : 0;
+    const kCols = lastAttentionResult.K[0]?.length ?? 0;
+    const vCols = lastAttentionResult.V[0]?.length ?? 0;
+    const outputCols = lastAttentionResult.output[0]?.length ?? 0;
+  const headCount = lastAttentionResult.heads.length;
+    const dHead = headCount ? dModel / nHeads : 0;
+    const dHeadLabel = Number.isFinite(dHead) ? (Number.isInteger(dHead) ? dHead : dHead.toFixed(2)) : 'n/a';
+    const currentIndex = totalTokens ? (queryIdx % totalTokens) : 0;
+    const currentToken = totalTokens ? escapeHtml(tokens[currentIndex]) : 'n/a';
+
+    const contextList = loadedFileSummaries.length ? `<p><strong>Loaded contexts:</strong> ${loadedFileSummaries.map(escapeHtml).join(' • ')}</p>` : '';
+
+    const dimensionSection = `
+      <section>
+        <h3>Tensor Dimensions</h3>
+        <dl>
+          <dt>Contexts loaded</dt><dd>${contextCount}</dd>
+          <dt>Total tokens</dt><dd>${totalTokens}</dd>
+          <dt>d_model</dt><dd>${dModel}</dd>
+          <dt>Heads</dt><dd>${nHeads}</dd>
+          <dt>d_head</dt><dd>${dHeadLabel}</dd>
+          <dt>Query vector length</dt><dd>${qCols}</dd>
+          <dt>Key vector length</dt><dd>${kCols}</dd>
+          <dt>Value vector length</dt><dd>${vCols}</dd>
+          <dt>Final output length</dt><dd>${outputCols}</dd>
+        </dl>
+      </section>`;
+
+    const pipelineSection = `
+      <section>
+        <h3>Transformation Pipeline</h3>
+        <ol style="margin-left:1rem;padding-left:1rem;">
+          <li>Start with base embedding (dimension ${dModel}) from the selected contexts.</li>
+          <li>Use embeddings exactly as provided by the JSON files (assumed to already encode positional/contextual information).</li>
+          <li>Project embeddings into Query, Key et Value spaces via deterministic linear layers (same dimension ${dModel}).</li>
+          <li>Split each of Q, K, V into ${nHeads} heads of width ${dHeadLabel}, compare every query vs. all keys to obtain attention weights.</li>
+          <li>Use the softmax-normalized weights to produce head-specific weighted sums of V, then concatenate and project back to ${dModel} dimensions.</li>
+        </ol>
+      </section>`;
+
+    const contextNarrative = `
+      <section>
+        <h3>Current Query Snapshot</h3>
+        <p><strong>Token:</strong> ${currentToken}</p>
+        <p><strong>Attention scope:</strong> compares against ${totalTokens} keys spanning ${contextCount} context segment(s).</p>
+        <p><strong>Embedding source:</strong> Values are used exactly as stored in the JSON contexts (no extra encoding applied).</p>
+        ${contextList}
+      </section>`;
+
+  const headBreakdown = lastAttentionResult.heads.map((head, idx) => {
+      const rawRow = head.scores?.[currentIndex] ?? [];
+      const weightRow = head.attn?.[currentIndex] ?? [];
+      if (!rawRow.length || !weightRow.length) {
+        return `
+          <section>
+            <h3>Head ${idx + 1} Insight</h3>
+            <p>No attention data available for this head.</p>
+          </section>`;
+      }
+
+      const sumWeights = weightRow.reduce((acc, val) => acc + val, 0);
+      const ranking = rawRow.map((score, keyIdx) => ({
+        token: escapeHtml(tokens[keyIdx] ?? `#${keyIdx}`),
+        score,
+        weight: weightRow[keyIdx]
+      }))
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, Math.min(5, weightRow.length));
+
+      const rows = ranking.map((item, rank) => `
+        <tr>
+          <td>${rank + 1}</td>
+          <td>${item.token}</td>
+          <td>${item.score.toFixed(4)}</td>
+          <td>${item.weight.toFixed(4)}</td>
+        </tr>`).join('');
+
+      return `
+        <section>
+          <h3>Head ${idx + 1} Insight</h3>
+          <p>Top tokens for the current query before and after softmax (pre-softmax score vs. normalized weight).</p>
+          <table>
+            <tr><th>#</th><th>Token</th><th>Raw score</th><th>Softmax weight</th></tr>
+            ${rows}
+          </table>
+          <p><em>Weight sum (all keys): ${sumWeights.toFixed(6)}</em></p>
+        </section>`;
+    }).join('');
+
+    const queryVector = X[currentIndex] ?? [];
+    const updatedVector = lastAttentionResult.output[currentIndex] ?? [];
+    const vectorRows = queryVector.map((value, dimIdx) => {
+      const updated = updatedVector[dimIdx] ?? 0;
+      const delta = updated - value;
+      return `
+        <tr>
+          <td>${dimIdx}</td>
+          <td>${value.toFixed(4)}</td>
+          <td>${updated.toFixed(4)}</td>
+          <td>${delta.toFixed(4)}</td>
+        </tr>`;
+    }).join('');
+
+    const vectorSection = queryVector.length ? `
+      <section>
+        <h3>Token Vector Update</h3>
+        <p>Comparison between the original embedding and the post-attention output for the selected token.</p>
+        <table>
+          <tr><th>Dim</th><th>Before</th><th>After</th><th>Δ</th></tr>
+          ${vectorRows}
+        </table>
+      </section>` : `
+      <section>
+        <h3>Token Vector Update</h3>
+        <p>No embedding data available for the selected token.</p>
+      </section>`;
+
+    const weightMatrices = lastAttentionResult.weights || {};
+    const matrixSection = weightMatrices.WQ ? `
+      <section>
+        <h3>Projection Matrices</h3>
+        <p>Each projection matrix <code>W<sub>Q</sub></code>, <code>W<sub>K</sub></code>, <code>W<sub>V</sub></code> and <code>W<sub>O</sub></code> is generated deterministically in this demo using a seeded pseudo-random generator. They simulate the learned linear layers of a transformer encoder: rows correspond to input embedding dimensions (<code>d_model</code>), columns to the projected space.</p>
+        <table>
+          <tr><th>Matrix</th><th>Shape</th><th>Description</th></tr>
+          <tr><td>W<sub>Q</sub></td><td>${dModel} × ${dModel}</td><td>Projects embeddings into the Query subspace.</td></tr>
+          <tr><td>W<sub>K</sub></td><td>${dModel} × ${dModel}</td><td>Projects embeddings into the Key subspace.</td></tr>
+          <tr><td>W<sub>V</sub></td><td>${dModel} × ${dModel}</td><td>Projects embeddings into the Value subspace.</td></tr>
+          <tr><td>W<sub>O</sub></td><td>${dModel} × ${dModel}</td><td>Combines concatenated head outputs back into model space.</td></tr>
+        </table>
+        <p style="margin-top:0.75rem;">Sample values (first 3 rows of each matrix):</p>
+        ${['WQ','WK','WV','WO'].map(label => {
+          const matrix = weightMatrices[label];
+          if (!matrix) { return `<p>${label} unavailable.</p>`; }
+          const previewRows = matrix.slice(0,3).map((row,rIdx)=>`<tr><td>${rIdx}</td><td>[${row.slice(0,6).map(v=>v.toFixed(4)).join(', ')}${row.length>6?' …':''}]</td></tr>`).join('');
+          return `
+            <div style="margin-bottom:1rem;">
+              <h4>${label}</h4>
+              <table>
+                <tr><th>Row</th><th>Values</th></tr>
+                ${previewRows}
+              </table>
+            </div>`;
+        }).join('')}
+      </section>` : '';
+
+    return dimensionSection + pipelineSection + contextNarrative + headBreakdown + vectorSection + matrixSection;
+  }
+
+  function openDetailsModal(){
+    if(!lastAttentionResult){
+      alert('Run Compute Attention first.');
+      return;
+    }
+
+    detailsContent.innerHTML = buildDetailsContent();
+    detailsModal.style.display = 'flex';
+  }
+
+  function closeDetailsModal(){
+    detailsModal.style.display = 'none';
+  }
+
+  /* ---------- Compute ---------- */
+  function compute(){
+    trainBtn.disabled = true;
+    trainingStatus.textContent = 'Computing attention…';
+    try{
+      rebuildInputMatrix();
+      if(!X.length){throw new Error('No embeddings loaded.');}
+      dModel = +dModelInput.value; nHeads = +nHeadsInput.value;
+      if(dModel%nHeads!==0) throw new Error('d_model must be divisible by n_heads');
+      if(X[0].length!==dModel) throw new Error(`Vectors must have ${dModel} dimensions`);
+
+      console.log(`[Compute] Demarrage avec d_model=${dModel}, n_heads=${nHeads}, tokens=${X.length}.`);
+      lastAttentionResult = multiHeadAttention(X,dModel,nHeads);
+      queryIdx = 0; updateView(lastAttentionResult);
+    nextQueryBtn.disabled = false; resetBtn.disabled = false;
+    detailsBtn.disabled = false;
+      trainBtn.disabled = false;
+      trainingStatus.textContent = `Ready for simulation. Learning rate = ${LEARNING_RATE}, steps per click = ${STEPS_PER_CLICK}.`;
+      computeBtn.disabled = true; loadFilesBtn.disabled = true;
+      console.log('[Compute] Calcul termine.');
+    }catch(e){
+      console.error('[Compute] Echec du calcul', e);
+      alert('Error: '+(e.message || e));
+      trainingStatus.textContent = 'Computation failed. Adjust settings and retry.';
+      trainBtn.disabled = true;
+    }
+  }
+
+  function updateView(result){
+  const {heads, output} = result;
+    const i = queryIdx % X.length;
+    queryInfo.innerHTML = `Query Token #${i} → <strong>"${tokens[i]}"</strong> (of ${X.length})`;
+    renderQueryChart(X[i],tokens[i]);
+    renderAttentionHeads(heads);
+    renderHeadOutputWeights(heads,i);
+    renderOutputTable(output[i]);
+    console.debug(`[UpdateView] Query index ${i} (${tokens[i]}).`);
+    if(detailsModal.style.display==='flex'){
+      detailsContent.innerHTML = buildDetailsContent();
+    }
+  }
+
+  function nextQuery(){
+    queryIdx++;
+    try {
+      lastAttentionResult = multiHeadAttention(X,dModel,nHeads);
+      updateView(lastAttentionResult);
+    } catch (err) {
+      console.error('[NextQuery] Erreur lors du recalcul', err);
+      alert(`Erreur pendant Next Query: ${err.message || err}`);
+    }
+  }
+
+  function reset(){
+    X=[];tokens=[];contextBoundaries=[];loadedContexts=[];
+    baseEmbeddings=[];loadedFileSummaries=[];
+  lastAttentionResult=null;
+    queryIdx=0; queryInfo.textContent='Load files and compute to begin.';
+    document.getElementById('attention-charts').innerHTML='';
+    document.getElementById('output-table').innerHTML='';
+    document.getElementById('hotw-table').innerHTML='';
+  inputPreview.style.display='none'; loadedFilesDiv.innerHTML='';
+    inputMatrixEl.value='';
+    if(queryChart){queryChart.destroy();queryChart=null;}
+    attentionCharts.forEach(c=>c.destroy()); attentionCharts=[];
+    detailsContent.innerHTML='No computation yet.';
+    detailsModal.style.display='none';
+    detailsBtn.disabled=true;
+    nextQueryBtn.disabled=resetBtn.disabled=computeBtn.disabled=true;
+    loadFilesBtn.disabled=false; fileInput.value='';
+    Object.keys(weightStore).forEach(key => { delete weightStore[key]; });
+    trainBtn.disabled = true;
+    trainingStatus.textContent = 'Waiting for data…';
+    console.log('[Reset] Etat reinitialise.');
+  }
+
+  function simulateLearningStep(){
+    if (!lastAttentionResult) {
+      alert('Compute attention before simulating learning.');
+      return;
+    }
+    if (!Object.keys(weightStore).length) {
+      alert('No weight matrices available for training.');
+      return;
+    }
+
+    trainBtn.disabled = true;
+    trainingStatus.textContent = 'Applying pseudo-gradient update…';
+
+    setTimeout(() => {
+      const avgInput = meanVector(X);
+      const avgOutput = meanVector(lastAttentionResult.output);
+      if (!avgInput.length || !avgOutput.length) {
+        trainingStatus.textContent = 'Unable to compute training signal (empty vectors).';
+        trainBtn.disabled = false;
+        return;
+      }
+
+      const errorSignal = avgOutput.map((value, idx) => value - (avgInput[idx] ?? 0));
+      let peakDelta = 0;
+
+      for (let step = 0; step < STEPS_PER_CLICK; step++) {
+        Object.entries(weightStore).forEach(([name, matrix]) => {
+          if (!Array.isArray(matrix)) { return; }
+          const driver = name === 'WO' ? avgOutput : avgInput;
+          for (let r = 0; r < matrix.length; r++) {
+            const signal = driver[r % driver.length] ?? 0;
+            for (let c = 0; c < matrix[r].length; c++) {
+              const gradient = signal * errorSignal[c % errorSignal.length];
+              if (!Number.isFinite(gradient) || gradient === 0) { continue; }
+              const delta = LEARNING_RATE * gradient;
+              matrix[r][c] -= delta;
+              const absDelta = Math.abs(delta);
+              if (absDelta > peakDelta) { peakDelta = absDelta; }
+            }
+          }
+        });
+      }
+
+      lastAttentionResult = multiHeadAttention(X,dModel,nHeads);
+      updateView(lastAttentionResult);
+
+      if (peakDelta === 0) {
+        trainingStatus.textContent = `Simulated ${STEPS_PER_CLICK} step(s); weights unchanged (signal near zero).`;
+      } else {
+        trainingStatus.textContent = `Simulated ${STEPS_PER_CLICK} step(s). Peak weight update ${peakDelta.toExponential(2)}.`;
+      }
+      trainBtn.disabled = false;
+    }, 25);
+  }
+
+  computeBtn.addEventListener('click',compute);
+  nextQueryBtn.addEventListener('click',nextQuery);
+  resetBtn.addEventListener('click',reset);
+  trainBtn.addEventListener('click',simulateLearningStep);
+  detailsBtn.addEventListener('click',openDetailsModal);
+  closeDetailsBtn.addEventListener('click',closeDetailsModal);
+  detailsModal.addEventListener('click',evt=>{ if(evt.target===detailsModal){ closeDetailsModal(); } });
+  document.addEventListener('keydown',evt=>{
+    if(evt.key==='Escape' && detailsModal.style.display==='flex'){ closeDetailsModal(); }
+  });
+</script>
+</body>
+</html>

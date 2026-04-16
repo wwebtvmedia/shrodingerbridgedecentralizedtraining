@@ -100,10 +100,10 @@ export class InferenceEngine {
 
       const labelsTensor = tf.tensor([label], [1], "int32");
 
-      // 2. Iterative Drift updates (Reverse SB)
+      // 2. Iterative Drift updates (Forward Bridge Generation: Noise -> Data)
       const dt = 1.0 / steps;
       for (let step = 0; step < steps; step++) {
-        const t = (steps - step) / steps;
+        const t = step / steps;
         const tTensor = tf.tensor([[t]]);
 
         // Compute drift

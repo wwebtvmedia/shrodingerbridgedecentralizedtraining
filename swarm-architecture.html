@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Architecture of Swarms - Swarm Schrödinger Bridge</title>
+    <style>
+      :root {
+        --primary: #4facfe;
+        --secondary: #00f2fe;
+        --bg-dark: #0f0c29;
+        --bg-mid: #302b63;
+        --bg-light: #24243e;
+        --text-main: #e0e0e0;
+        --text-dim: #aaa;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          sans-serif;
+        background: linear-gradient(
+          135deg,
+          var(--bg-dark) 0%,
+          var(--bg-mid) 50%,
+          var(--bg-light) 100%
+        );
+        min-height: 100vh;
+        color: var(--text-main);
+        line-height: 1.7;
+        padding: 40px 20px;
+      }
+
+      .container {
+        max-width: 850px;
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 4rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      }
+
+      header {
+        margin-bottom: 3rem;
+        text-align: center;
+      }
+
+      .nav-back {
+        display: inline-block;
+        margin-bottom: 2rem;
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .nav-back:hover {
+        transform: translateX(-5px);
+        color: var(--secondary);
+      }
+
+      h1 {
+        font-size: 3rem;
+        line-height: 1.2;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(
+          90deg,
+          var(--primary) 0%,
+          var(--secondary) 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      h2 {
+        color: var(--primary);
+        font-size: 1.8rem;
+        margin: 2.5rem 0 1.2rem;
+        border-bottom: 1px solid rgba(79, 172, 254, 0.2);
+        padding-bottom: 0.5rem;
+      }
+
+      h3 {
+        color: var(--secondary);
+        font-size: 1.4rem;
+        margin: 1.5rem 0 1rem;
+      }
+
+      p {
+        margin-bottom: 1.5rem;
+        font-size: 1.1rem;
+      }
+
+      strong {
+        color: var(--secondary);
+      }
+
+      ul {
+        margin: 0 0 1.5rem 1.5rem;
+      }
+
+      li {
+        margin-bottom: 0.8rem;
+        font-size: 1.05rem;
+      }
+
+      li::marker {
+        color: var(--primary);
+      }
+
+      code {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-family: 'Courier New', Courier, monospace;
+        color: var(--secondary);
+      }
+
+      .footer {
+        margin-top: 4rem;
+        padding-top: 2rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        text-align: center;
+        color: var(--text-dim);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 2rem;
+        }
+        h1 {
+          font-size: 2.2rem;
+        }
+        h2 {
+          font-size: 1.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <a href="index.html" class="nav-back">← Back to Portal</a>
+        <h1>The Architecture of Swarms: Decentralized Intelligence</h1>
+      </header>
+
+      <div class="content">
+        <p>
+          In the centralized paradigm, AI training is a monolithic event occurring in the silos of hyper-scalers. The <strong>Swarm Schrödinger Bridge</strong> represents a fundamental departure: a transition toward collective, distributed intelligence that lives in the interstices of the web.
+        </p>
+
+        <h2>1. The Connectivity Fabric: Tunnels and Peers</h2>
+        <p>
+          The first challenge of decentralized training is discovery. Our architecture leverages a dual-layer connectivity strategy:
+        </p>
+        <ul>
+          <li>
+            <strong>Cloudflare Tunnels:</strong> These provide a secure, stable entry point for nodes, allowing them to bypass complex NAT configurations and establish a persistent identity within the swarm.
+          </li>
+          <li>
+            <strong>WebRTC P2P:</strong> Once nodes are discovered, they establish direct peer-to-peer data channels. This <code>PeerNetwork</code> minimizes latency and ensures that model gradients are exchanged directly between neighbors, reducing reliance on central coordination.
+          </li>
+        </ul>
+
+        <h2>2. The Schrödinger Bridge Protocol</h2>
+        <p>
+          At the heart of our synchronization logic is the <strong>Schrödinger Bridge SDE (Stochastic Differential Equation)</strong>. Instead of simple averaging of weights, we treat the model's evolution as a trajectory in latent space.
+        </p>
+        <p>
+          The bridge calculates the optimal transport between the current state of a local node and the consensus state of its neighbors. By solving for the <strong>reverse-time trajectory drift</strong>, nodes can "tunnel" toward the global optimum without losing the unique local features they have learned.
+        </p>
+
+        <h2>3. Browser-Native Acceleration</h2>
+        <p>
+          We utilize <strong>TensorFlow.js</strong> and <strong>WebGL</strong> to transform every browser tab into a high-performance compute node.
+        </p>
+        <ul>
+          <li>
+            <strong>MLP-Mixer Architectures:</strong> We favor spatial-mixing and channel-mixing layers over standard convolutions for better efficiency on consumer GPUs.
+          </li>
+          <li>
+            <strong>CNN Residual Blocks:</strong> Deep architectures are maintained through residual connections, preventing gradient vanishing across the distributed network.
+          </li>
+          <li>
+            <strong>IndexedDB Persistence:</strong> Local training state is never lost. The <code>LocalDatabase</code> ensures that even if a tab is closed, the node can resume training exactly where it left off.
+          </li>
+        </ul>
+
+        <h2>4. Evolutionary Swarm Dynamics</h2>
+        <p>
+          The swarm is not a static graph. It employs <strong>Evolutionary Optimization</strong> to prune underperforming connections and reinforce high-signal peers. Each <code>EnhancedSwarmTrainer</code> tracks the quality of models received, dynamically adjusting its <strong>exploration rate</strong> to find the most valuable contributors in the network.
+        </p>
+
+        <h2>5. Blockchain Auditability and Layer Integrity</h2>
+        <p>
+          To ensure the integrity of the decentralized training process, the swarm integrates a <strong>Blockchain Auditing Layer</strong>. This layer provides an immutable record of the network's processing state, preventing malicious actors from injecting poisoned gradients into the collective model.
+        </p>
+        <ul>
+          <li>
+            <strong>Layer Hashing:</strong> Every neural network layer is cryptographically hashed (SHA-256) after each training epoch. This <strong>Hash of the Layer</strong> serves as a unique fingerprint of the model's weights and biases at that specific point in time.
+          </li>
+          <li>
+            <strong>Immutable Proof of Processing:</strong> These layer hashes are committed to a distributed ledger. Any peer in the network can verify the audit trail by recalculating the hash of a received model and comparing it against the blockchain record.
+          </li>
+          <li>
+            <strong>Consensus-Based Verification:</strong> The swarm uses the blockchain to reach consensus on the "Global Best" trajectory. Only model updates with verifiable hashes and proven performance improvements are accepted into the primary branch of the Schrödinger Bridge.
+          </li>
+        </ul>
+
+        <p>
+          Through this architecture, we are not just building a model; we are fostering a living, breathing digital organism that evolves across a global substrate of consumer hardware, protected by the mathematical certainty of the blockchain.
+        </p>
+      </div>
+
+      <div class="footer">
+        <p>Published: April 2026 | Swarm Schrödinger Bridge Technical Series</p>
+      </div>
+    </div>
+  </body>
+</html>

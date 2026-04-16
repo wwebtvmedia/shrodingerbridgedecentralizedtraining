@@ -203,6 +203,36 @@ class ModelConsolidationServer {
     this.app.get("/beyond-labor.html", (req, res) =>
       res.sendFile(path.join(__dirname, "../beyond-labor.html")),
     );
+    this.app.get("/swarm-architecture.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../swarm-architecture.html")),
+    );
+    this.app.get("/hardware-sovereignty.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../hardware-sovereignty.html")),
+    );
+    this.app.get("/cognitive-agency.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../cognitive-agency.html")),
+    );
+    this.app.get("/attention-to-intention.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../attention-to-intention.html")),
+    );
+    this.app.get("/sovereign-action.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../sovereign-action.html")),
+    );
+    this.app.get("/tokenizer-demo", (req, res) =>
+      res.sendFile(path.join(__dirname, "../demotokenizer/tokenizationDemo.html")),
+    );
+    this.app.get("/embedding-demo", (req, res) =>
+      res.sendFile(path.join(__dirname, "../demotokenizer/embeddingDemo.html")),
+    );
+    this.app.get("/attention-demo", (req, res) =>
+      res.sendFile(path.join(__dirname, "../demotokenizer/multiheadattentionDemo.html")),
+    );
+    this.app.get("/embedding-render", (req, res) =>
+      res.sendFile(path.join(__dirname, "../demotokenizer/render_embedding.html")),
+    );
+    this.app.get("/positional-encoding", (req, res) =>
+      res.sendFile(path.join(__dirname, "../demotokenizer/codage_posembedded.html")),
+    );
     this.app.get("/training-consolidation.html", (req, res) =>
       res.sendFile(path.join(__dirname, "../training-consolidation.html")),
     );

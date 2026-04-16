@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Positional Encoding Visualizer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      font-family: "Segoe UI", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7fa;
+      color: #2d3748;
+      display: flex; flex-direction: column;
+    }
+    header {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 1rem 2rem; background-color: #6a1b9a; color: #fff;
+      flex-wrap: wrap; box-shadow: 0 2px 8px rgba(0,83,159,0.08);
+    }
+    header img {
+      flex-shrink: 0; height: 40px; margin-right: 1rem; cursor: pointer; user-select: none;
+    }
+    label {
+      font-weight: 600; color: #a0aec0; margin-bottom: 0.5rem; display: inline-block;
+    }
+    textarea {
+      width: 100%; height: 100px; resize: vertical;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 1rem; padding: 0.5rem; border-radius: 4px;
+      border: 1px solid #a0aec0; background-color: #fff; color: #2d3748;
+      transition: border-color 0.3s;
+    }
+    textarea:focus {
+      border-color: #ab47bc; outline: none;
+    }
+    input[type="file"], button, input[type="number"] {
+      background-color: #8e24aa; border: none; color: #fff;
+      padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;
+      font-weight: 600; font-size: 1rem; transition: background-color 0.3s;
+      margin-bottom: 0.5rem;
+    }
+    input[type="file"]:hover, button:hover:not(:disabled), input[type="number"]:hover {
+      background-color: #ab47bc;
+    }
+    input[type="number"] {
+      width: 80px;
+      margin-left: 0.5rem;
+      margin-right: 1rem;
+    }
+    button:disabled {
+      background-color: #a0aec0; cursor: not-allowed; color: #4a5568;
+    }
+    main {
+      flex: 1; display: flex; flex-direction: row; overflow: hidden; background-color: #fff;
+      box-shadow: inset 0 0 10px #e2e8f0;
+    }
+    #text-display {
+      flex: 1; padding: 2rem;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 1.1rem; line-height: 1.6; color: #2d3748;
+      overflow-wrap: break-word; user-select: text; background-color: #f9fafb;
+      min-width: 300px;
+    }
+    .token {
+      padding: 0 4px; margin: 0 2px; border-radius: 3px;
+      display: inline-block; cursor: default; user-select: text; transition: background 0.2s;
+    }
+    .token.target {
+      border: 2px solid #ffeb3b; font-weight: 700; background-color: #fffbe6;
+      color: #b36b00;
+    }
+    #info-panel {
+      width: 360px; background-color: #f0f4f8; padding: 1.5rem;
+      border-left: 1px solid #cbd5e0; font-size: 0.95rem; color: #2d3748; overflow-y: auto;
+    }
+    #info-panel h2, #info-panel h3 {
+      color: #6a1b9a; font-weight: 700; margin-top: 0; margin-bottom: 0.5rem;
+    }
+    #output {
+      background: #6a1b9a; color: #fff; padding: 1rem; border-radius: 4px;
+      font-family: "Courier New", Courier, monospace; font-size: 0.95rem;
+      margin-top: 1rem; white-space: pre-wrap; max-height: 150px; overflow-y: auto;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 4px 6px;
+      text-align: center;
+    }
+    th {
+      background-color: #e2e8f0;
+    }
+    #embedding-matrix, #positional-encoding-chart {
+      max-height: 300px;
+      overflow-x: auto;
+      overflow-y: auto;
+      margin-top: 0.5rem;
+    }
+    canvas {
+      max-height: 250px;
+    }
+  </style>
+</head>
+<body>
+  <header role="banner" aria-label="Positional Encoding Controls">
+    <span style="font-weight: bold; font-size: 1.5rem; color: #ffeb3b; margin-right: 1rem; font-family: Segoe UI, sans-serif;">WEBTVMEDIA.NET</span>
+    <div>
+      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700;">Positional Encoding Visualizer</h1>
+      <p style="margin: 0; font-size: 1rem; color: #cbd5e0;">sin(pos / 1000^(2i/d)) for even i, cos for odd i</p>
+    </div>
+    <label for="text-input">Input Text:</label>
+    <textarea id="text-input" maxlength="5000" rows="8" placeholder="Entrez votre texte ici">
+Je commence avec un alphabet de base constitué des unités les plus simples du texte. Ensuite, je recherche les paires d’unités qui apparaissent le plus fréquemment ensemble.
+    </textarea>
+    <label for="embedding-size">Embedding Size:</label>
+    <input type="number" id="embedding-size" min="2" max="512" value="8" />
+    <label for="tokens-file-input">Load tokens .json:</label>
+    <input type="file" id="tokens-file-input" accept=".json" />
+    <label for="text-file-input">Load text .txt:</label>
+    <input type="file" id="text-file-input" accept=".txt" />
+    <button id="update-btn">Compute Embeddings</button>
+    <button id="next-position-btn" disabled>Next Position</button>
+    <button id="reset-btn" disabled>Reset</button>
+    <button id="describe-position-btn" disabled>Describe Position</button>
+  </header>
+
+  <main>
+    <div id="text-display" role="main" aria-label="Tokenized text display"></div>
+    <aside id="info-panel" role="complementary" aria-label="Positional Encoding Info">
+      <h2>Positional Encoding Info</h2>
+      <p>Token Count: <span id="token-count">0</span></p>
+      <p>Current Position: <span id="current-position">0</span></p>
+      <p>Embedding Size: <span id="embedding-size-display">8</span></p>
+
+      <section aria-label="Positional Encoding Output">
+        <h3>Positional Encoding (Current)</h3>
+        <pre id="output">-</pre>
+      </section>
+
+      <section aria-label="Embedding Matrix">
+        <h3>Embedding Matrix</h3>
+        <div id="embedding-matrix"></div>
+      </section>
+
+      <section aria-label="Positional Encoding Chart">
+        <h3>Positional Encoding (Sine/Cosine)</h3>
+        <canvas id="positional-encoding-chart"></canvas>
+      </section>
+    </aside>
+  </main>
+
+  <script>
+    const MAX_FILE_SIZE = 1 * 1024 * 1024;
+    const COLOR_PALETTE = [
+      '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231',
+      '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe',
+      '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000',
+      '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080'
+    ];
+
+    function hashString(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash |= 0;
+      }
+      return hash;
+    }
+
+    // DOM Elements
+    const textInput = document.getElementById('text-input');
+    const fileInputTokens = document.getElementById('tokens-file-input');
+    const fileInputText = document.getElementById('text-file-input');
+    const updateBtn = document.getElementById('update-btn');
+    const nextPositionBtn = document.getElementById('next-position-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const describeBtn = document.getElementById('describe-position-btn');
+    const tokenCountEl = document.getElementById('token-count');
+    const embeddingSizeDisplayEl = document.getElementById('embedding-size-display');
+    const currentPositionEl = document.getElementById('current-position');
+    const outputEl = document.getElementById('output');
+
+    let tokenEmbeddings = {};
+    let currentTokens = [];
+    let currentPosition = 0;
+    let embeddingSize = 8;
+    let positionalEncodingChart = null;
+
+    // ✅ Positional Encoding using base = 1000
+    function getPositionalEncoding(position, d) {
+      const pe = new Array(d).fill(0);
+      for (let i = 0; i < d; i++) {
+        const exponent = (2 * i) / d;
+        const divTerm = Math.pow(1000, exponent); // base = 1000
+        if (i % 2 === 0) {
+          pe[i] = Math.sin(position / divTerm);
+        } else {
+          pe[i] = Math.cos(position / divTerm);
+        }
+      }
+      return pe.map(v => Number(v.toFixed(4)));
+    }
+
+    function getEmbedding(token, size) {
+      if (!tokenEmbeddings[token] || tokenEmbeddings[token].length !== size) {
+        tokenEmbeddings[token] = Array.from({length: size}, () =>
+          Math.round((Math.random() * 2 - 1) * 100) / 100
+        );
+      }
+      return tokenEmbeddings[token];
+    }
+
+    function tokenizeText(text) {
+      return text.match(/\b\w+\b/g) || [];
+    }
+
+    function renderTokensWithHighlight(tokens, targetIndex) {
+      const display = document.getElementById('text-display');
+      display.innerHTML = '';
+      tokens.forEach((token, i) => {
+        const span = document.createElement('span');
+        span.className = 'token';
+        const colorIndex = Math.abs(hashString(token)) % COLOR_PALETTE.length;
+        span.style.color = COLOR_PALETTE[colorIndex];
+        span.textContent = token;
+        if (i === targetIndex) span.classList.add('target');
+        display.appendChild(span);
+        display.appendChild(document.createTextNode(' '));
+      });
+    }
+
+    function renderEmbeddingMatrix(tokens, d, targetIndex) {
+      const container = document.getElementById('embedding-matrix');
+      container.innerHTML = '';
+      const table = document.createElement('table');
+      const headerRow = document.createElement('tr');
+      ['Token', 'Type', ...Array.from({length: d}, (_, i) => `Dim ${i+1}`)].forEach(text => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        headerRow.appendChild(th);
+      });
+      table.appendChild(headerRow);
+
+      tokens.forEach((token, idx) => {
+        const emb = getEmbedding(token, d);
+        if (idx === targetIndex) {
+          const pe = getPositionalEncoding(idx, d);
+          const combined = emb.map((v, i) => Number((v + pe[i]).toFixed(4)));
+
+          // Original
+          const tr1 = createRow(token, 'Original', emb);
+          // Positional
+          const tr2 = createRow(token, 'Positional', pe);
+          // Combined
+          const tr3 = createRow(token, 'Combined', combined);
+
+          table.appendChild(tr1);
+          table.appendChild(tr2);
+          table.appendChild(tr3);
+        } else {
+          table.appendChild(createRow(token, 'Original', emb));
+        }
+      });
+
+      container.appendChild(table);
+    }
+
+    function createRow(token, type, values) {
+      const tr = document.createElement('tr');
+      const tdToken = document.createElement('td');
+      tdToken.textContent = token;
+      tr.appendChild(tdToken);
+      const tdType = document.createElement('td');
+      tdType.textContent = type;
+      tr.appendChild(tdType);
+      values.forEach(val => {
+        const td = document.createElement('td');
+        td.textContent = Number(val).toFixed(4);
+        tr.appendChild(td);
+      });
+      return tr;
+    }
+
+    function renderPositionalEncodingChart(pos, d) {
+      const ctx = document.getElementById('positional-encoding-chart').getContext('2d');
+      const pe = getPositionalEncoding(pos, d);
+      const labels = Array.from({length: d}, (_, i) => `Dim ${i+1}`);
+      const sineData = [];
+      const cosineData = [];
+
+      for (let i = 0; i < d; i++) {
+        if (i % 2 === 0) {
+          sineData.push(pe[i]);
+          cosineData.push(0);
+        } else {
+          sineData.push(0);
+          cosineData.push(pe[i]);
+        }
+      }
+
+      if (positionalEncodingChart) {
+        positionalEncodingChart.data.datasets[0].data = sineData;
+        positionalEncodingChart.data.datasets[1].data = cosineData;
+        positionalEncodingChart.options.plugins.title.text = `Position ${pos} Encoding (base=1000)`;
+        positionalEncodingChart.update();
+      } else {
+        positionalEncodingChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Sine (even dims)',
+                data: sineData,
+                backgroundColor: 'rgba(0, 123, 255, 0.6)',
+                borderColor: 'rgba(0, 123, 255, 1)',
+                borderWidth: 1
+              },
+              {
+                label: 'Cosine (odd dims)',
+                data: cosineData,
+                backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                min: -1,
+                max: 1,
+                title: { display: true, text: 'Value' }
+              },
+              x: {
+                title: { display: true, text: 'Dimension' }
+              }
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: `Position ${pos} Encoding (base=1000)`
+              },
+              legend: { display: true }
+            }
+          }
+        });
+      }
+    }
+
+    function updateInfoPanel(tokens, d, pos) {
+      tokenCountEl.textContent = tokens.length;
+      embeddingSizeDisplayEl.textContent = d;
+      currentPositionEl.textContent = pos;
+    }
+
+    function updateOutput(token, pos, pe) {
+      outputEl.textContent = JSON.stringify({
+        token: token,
+        position: pos,
+        positionalEncoding: pe.map(v => Number(v).toFixed(4))
+      }, null, 2);
+    }
+
+    let describeWindow = null;
+    function describeCurrentPosition(pos, token, pe) {
+      const peStr = pe.map(v => Number(v).toFixed(4)).join(', ');
+      const html = `
+        <html><head><title>Position ${pos}</title>
+        <style>body{font-family:sans-serif;padding:1rem;background:#f9fafb;color:#2d3748;}
+        h1{color:#6a1b9a;} .code{font-family:monospace;background:#fce4ec;padding:0.2rem;border-radius:3px;}</style>
+        </head><body>
+        <h1>Position ${pos} Description</h1>
+        <p><b>Token:</b> "${token}"</p>
+        <p><b>Positional Encoding:</b> [${peStr}]</p>
+        <p>Computed using:</p>
+        <ul>
+          <li>Even dimensions (0,2,4...): <span class="code">sin(pos / 1000^(2i/d))</span></li>
+          <li>Odd dimensions (1,3,5...): <span class="code">cos(pos / 1000^(2i/d))</span></li>
+        </ul>
+        <p>The final embedding = original + positional encoding.</p>
+        </body></html>
+      `;
+      if (!describeWindow || describeWindow.closed) {
+        describeWindow = window.open('', 'Position Info', 'width=600,height=400,scrollbars,resizable');
+      }
+      describeWindow.document.open();
+      describeWindow.document.write(html);
+      describeWindow.document.close();
+      describeWindow.focus();
+    }
+
+    function showPosition() {
+      if (currentTokens.length === 0) return;
+      const pos = currentPosition % currentTokens.length;
+      const token = currentTokens[pos];
+      const pe = getPositionalEnc

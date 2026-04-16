@@ -1,0 +1,394 @@
+#include <time.h>
+#include <stdio.h>
+
+#ifdef BIGINT_VERIFY
+void verify_bigint(void) {
+    printf("Running bigint non-regression tests...\n");
+    srand((unsigned int)time(NULL));
+    for (uint32_t sz = 1; sz <= 8; sz++) {
+        // Test max value
+        bigint* a = bigint_alloc(sz);
+        bigint* b = bigint_alloc(sz);
+        for (uint32_t i = 0; i < sz; i++) {
+            a->data[i] = 0xFFFFFFFF;
+            b->data[i] = 0xFFFFFFFF;
+        }
+        a->size = b->size = sz;
+        bigint* r = bigint_alloc(sz + 1);
+        int overflow = add_(a->data, b->data, r->data, sz);
+        if (overflow) bigint_ensure_capacity(r, sz + 1);
+        r->size = sz + (overflow ? 1 : 0);
+        printf("[MAX] sz=%u: add_ overflow=%d\n", sz, overflow);
+        bigint_free(a); bigint_free(b); bigint_free(r);
+
+        // Test random values
+        a = bigint_alloc(sz);
+        b = bigint_alloc(sz);
+        for (uint32_t i = 0; i < sz; i++) {
+            a->data[i] = ((bignumber_t)rand() << 16) ^ (bignumber_t)rand();
+            b->data[i] = ((bignumber_t)rand() << 16) ^ (bignumber_t)rand();
+        }
+        a->size = b->size = sz;
+        r = bigint_alloc(sz + 1);
+        overflow = add_(a->data, b->data, r->data, sz);
+        if (overflow) bigint_ensure_capacity(r, sz + 1);
+        r->size = sz + (overflow ? 1 : 0);
+        printf("[RAND] sz=%u: add_ overflow=%d\n", sz, overflow);
+        bigint_free(a); bigint_free(b); bigint_free(r);
+    }
+    printf("bigint non-regression tests complete.\n");
+}
+#endif
+typedef struct {
+    bignumber_t* data;
+    uint32_t size;
+    uint32_t capacity;
+} bigint;
+
+// Allocate a bigint with the given number of words
+bigint* bigint_alloc(uint32_t size) {
+    bigint* result = (bigint*)malloc(sizeof(bigint));
+    if (!result) return NULL;
+    result->data = (bignumber_t*)calloc(size, sizeof(bignumber_t));
+    if (!result->data) {
+        free(result);
+        return NULL;
+    }
+    result->size = size;
+    result->capacity = size;
+    return result;
+}
+
+// Free a bigint
+void bigint_free(bigint* x) {
+    if (x) {
+        free(x->data);
+        free(x);
+    }
+}
+
+// Create a bigint from a string (hex or decimal)
+// Ensure bigint has at least 'new_capacity' words
+int bigint_ensure_capacity(bigint* x, uint32_t new_capacity) {
+    if (x->capacity >= new_capacity) return 0;
+    bignumber_t* new_data = (bignumber_t*)realloc(x->data, new_capacity * sizeof(bignumber_t));
+    if (!new_data) return -1;
+    // Zero new memory
+    for (uint32_t i = x->capacity; i < new_capacity; i++) new_data[i] = 0;
+    x->data = new_data;
+    x->capacity = new_capacity;
+    return 0;
+}
+bigint* bigint_from_string(const char* str) {
+   // Detect base
+   int base = 10;
+   if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) base = 16;
+   // Estimate size: 32 bits per word
+   size_t len = strlen(str);
+   uint32_t words = (base == 16) ? (len - 2 + 7) / 8 : (len + 9) / 10; // rough estimate
+   if (words < 1) words = 1;
+   bigint* result = bigint_alloc(words);
+   if (!result) return NULL;
+   // Parse string
+   if (base == 16) {
+      // Hex: parse 8 hex digits per word
+      size_t str_idx = len;
+      for (uint32_t i = 0; i < words; i++) {
+         bignumber_t val = 0;
+         int digits = 0;
+         while (digits < 8 && str_idx > 2) {
+            char ch = str[--str_idx];
+            if (ch >= '0' && ch <= '9') val |= (ch - '0') << (4 * digits);
+            else if (ch >= 'a' && ch <= 'f') val |= (ch - 'a' + 10) << (4 * digits);
+            else if (ch >= 'A' && ch <= 'F') val |= (ch - 'A' + 10) << (4 * digits);
+            else continue;
+            digits++;
+         }
+         result->data[i] = val;
+      }
+   } else {
+      // Decimal: use strtoull for chunks
+      size_t str_idx = len;
+      for (uint32_t i = 0; i < words; i++) {
+         bignumber_t val = 0;
+         int digits = 0;
+         char chunk[11] = {0};
+         int chunk_idx = 10;
+         while (digits < 10 && str_idx > 0) {
+            chunk[--chunk_idx] = str[--str_idx];
+            digits++;
+         }
+         val = (bignumber_t)strtoul(chunk + chunk_idx, NULL, 10);
+         result->data[i] = val;
+      }
+   }
+   return result;
+}
+#include <stdlib.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdint.h>
+
+#define MAX_INT32 0xFFFFFFFFUL
+typedef  uint32_t bignumber_t;
+
+// Multi-word multiplication: r = a * b
+bignumber_t mult_(bignumber_t a[], bignumber_t b[], bignumber_t r[], uint32_t size)
+{
+   bignumber_t temp[size];
+   bignumber_t shifted[size];
+   zero_(r, size);
+   for (uint32_t i = 0; i < size; i++) {
+      mult32_(a, b[i], temp, size);
+      shiftleft_(temp, 32 * i, shifted, size);
+      add_(r, shifted, r, size);
+   }
+   return r[0];
+}
+
+bignumber_t sub_(bignumber_t a[], bignumber_t b[], bignumber_t r[], uint32_t size)
+{
+    bignumber_t borrow = 0;
+    for (uint32_t i = 0; i < size; i++) {
+        uint32_t bval = b[i] + borrow;
+        if (a[i] < bval) {
+            r[i] = (a[i] - bval) + (MAX_INT32 + 1UL);
+            borrow = 1;
+        } else {
+            r[i] = a[i] - bval;
+            borrow = 0;
+        }
+    }
+    return r[0];
+}
+
+bignumber_t add_(bignumber_t a[], bignumber_t b[], bignumber_t r[], uint32_t size)
+{
+    bignumber_t carry = 0;
+    for (uint32_t i = 0; i < size; i++) {
+        uint32_t sum = a[i] + b[i] + carry;
+        carry = (sum < a[i]) || (carry && sum == a[i]) ? 1 : 0;
+        r[i] = sum;
+    }
+    return r[0];
+}
+
+uint32_t max_bitword(bignumber_t x)
+{
+    uint32_t a = (bignumber_t)x;
+    uint32_t s = 0;
+
+    while(a > 0)
+    {
+       s++;
+       a = a >> 1;
+    }  
+    return s;
+}
+
+uint32_t max_bit_(bignumber_t a[], uint32_t size)
+{
+    int i;
+    for(i=size - 1;i>=0 ;i--)
+    {
+       if (a[i] != 0)
+       {
+          return  max_bitword(a[i]) + i*32;
+       }
+    }
+    return 0;
+}
+
+uint32_t zero_(bignumber_t a[], uint32_t size)
+{
+    int i;
+    for(i=size - 1;i>=0 ;i--)
+    {
+       a[i] = 0;
+    }
+    return 0;
+}
+
+
+uint32_t copy_(bignumber_t a[], bignumber_t b[],uint32_t size)
+{
+    int i;
+    for(i=size - 1;i>=0 ;i--)
+    {
+       a[i] = b[i];
+    }
+    return 0;
+}
+
+uint32_t eq_(bignumber_t a[], bignumber_t b[], uint32_t size)
+{
+    int i,j;
+    j=(1==1);
+    for(i=size - 1;i>=0 ;i--)
+    {
+       j &= a[i] == b[i];
+    }
+    return j;
+}
+
+uint32_t bigger_(bignumber_t a[], bignumber_t b[], uint32_t size)
+{
+    int i;
+ 
+    for(i=size - 1; (i>=0) ;i--)
+    {
+       if(a[i] > b[i])
+       {
+         return (0==0);
+       }
+       else
+       {
+         if(a[i] < b[i])
+         {
+            return (1 == 0);
+         }
+       }
+    }
+    return (1==0);
+}
+
+
+bignumber_t shiftleft_(bignumber_t a[], uint32_t shift, bignumber_t r[], uint32_t size)
+{
+    bignumber_t s = 0;
+    for (uint32_t i = 0; i < size; i++) {
+        if (shift == 0) {
+            r[i] = a[i];
+            s = 0;
+        } else if (shift < 32) {
+            r[i] = (a[i] << shift) | s;
+            s = a[i] >> (32 - shift);
+        } else {
+            r[i] = s;
+            s = (shift < 64) ? (a[i] << (shift - 32)) : 0;
+        }
+    }
+    return r[0];
+}
+
+#define SIZE_WORD 32
+
+bignumber_t mult32_(bignumber_t a[], bignumber_t b, bignumber_t r[], uint32_t size)
+{
+    bignumber_t carry = 0;
+    for (uint32_t i = 0; i < size; i++) {
+        uint32_t a_lo = a[i] & 0xFFFF;
+        uint32_t a_hi = a[i] >> 16;
+        uint32_t b_lo = b & 0xFFFF;
+        uint32_t b_hi = b >> 16;
+
+        uint32_t p0 = a_lo * b_lo;
+        uint32_t p1 = a_lo * b_hi;
+        uint32_t p2 = a_hi * b_lo;
+        uint32_t p3 = a_hi * b_hi;
+
+        uint32_t mid = p1 + p2;
+        uint32_t mid_lo = mid << 16;
+        uint32_t mid_hi = mid >> 16;
+
+        uint32_t result_lo = p0 + mid_lo + carry;
+        carry = (result_lo < p0) ? 1 : 0;
+        carry += p3 + mid_hi;
+
+        r[i] = result_lo;
+    }
+    return r[0];
+}
+
+
+bignumber_t rem_(bignumber_t a[],bignumber_t b[], bignumber_t r[], uint32_t size)
+{
+   bignumber_t d[size];
+   bignumber_t m[size];
+   
+   div_(a,b,d,size);
+
+   mult_(b, d, m, size);
+
+   sub_(a, m, r , size);
+
+   return r[0];
+}
+
+#define SIZE 2
+
+int main(int argc, char** argv)
+{
+    // Example: ./test_bignumber 0x12345678 0x87654321 +
+    if (argc < 4) {
+        printf("Usage: %s <a> <b> <op>\n", argv[0]);
+        return 1;
+    }
+
+    // Parse input strings to bigint
+    bigint* a = bigint_from_string(argv[1]);
+    bigint* b = bigint_from_string(argv[2]);
+    char op = argv[3][0];
+
+    if (!a || !b) {
+        printf("Failed to allocate bigints.\n");
+        return 1;
+    }
+
+    // Allocate result
+    uint32_t max_size = (a->size > b->size) ? a->size : b->size;
+    bigint* r = bigint_alloc(max_size + 1); // +1 for possible carry/overflow
+
+    // Run operation with automatic reallocation on overflow
+    int overflow = 0;
+    switch (op) {
+        case '+':
+            overflow = add_(a->data, b->data, r->data, max_size);
+            if (overflow) {
+                bigint_ensure_capacity(r, max_size + 1);
+                r->data[max_size] = 1;
+                r->size = max_size + 1;
+            } else {
+                r->size = max_size;
+            }
+            break;
+        case '-':
+            sub_(a->data, b->data, r->data, max_size);
+            r->size = max_size;
+            break;
+        case 'm':
+            overflow = mult_(a->data, b->data, r->data, max_size);
+            if (overflow) {
+                bigint_ensure_capacity(r, max_size + 1);
+                r->data[max_size] = overflow;
+                r->size = max_size + 1;
+            } else {
+                r->size = max_size;
+            }
+            break;
+        case 's':
+            shiftleft_(a->data, b->data[0], r->data, max_size);
+            r->size = max_size;
+            break;
+        default:
+            printf("Unsupported operator: %c\n", op);
+            bigint_free(a);
+            bigint_free(b);
+            bigint_free(r);
+            return 1;
+    }
+
+    // Print result (hex)
+    printf("Result: 0x");
+    for (int i = r->size - 1; i >= 0; i--) {
+        printf("%08x", r->data[i]);
+    }
+    printf("\n");
+
+    // Free memory
+    bigint_free(a);
+    bigint_free(b);
+    bigint_free(r);
+
+    return 0;
+}

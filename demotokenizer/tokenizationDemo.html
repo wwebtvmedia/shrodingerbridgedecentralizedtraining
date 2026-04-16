@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BPE Tokenization Visualizer - Colored Tokens with Explanation</title>
+<style>
+/* === WEBTVMEDIA.NET Brand CSS === */
+
+/* 1. Reset and Base Styles */
+* {
+  box-sizing: border-box;
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: "Segoe UI", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f7fa; 
+  color: #2d3748; 
+  display: flex;
+  flex-direction: column;
+}
+
+/* 2. Header */
+header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 2rem;
+  background-color: #6a1b9a; 
+  color: #fff;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 8px rgba(0,83,159,0.08);
+}
+header img {
+  flex-shrink: 0;
+  height: 40px;
+  margin-right: 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* 3. Labels */
+label {
+  font-weight: 600;
+  color: #a0aec0; 
+  margin-bottom: 0.5rem;
+  display: inline-block;
+}
+
+/* 4. Textarea */
+textarea {
+  width: 100%;
+  height: 100px;
+  resize: vertical;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 1rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #a0aec0; 
+  background-color: #fff;
+  color: #2d3748;
+  transition: border-color 0.3s;
+}
+textarea:focus {
+  border-color: #ab47bc; 
+  outline: none;
+}
+
+/* 5. Inputs, Selects, Buttons */
+input[type="file"],
+select,
+button {
+  background-color: #8e24aa; 
+  border: none;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background-color 0.3s;
+  margin-bottom: 0.5rem;
+}
+input[type="file"]:hover,
+select:hover,
+button:hover:not(:disabled) {
+  background-color: #ab47bc; 
+}
+button:disabled {
+  background-color: #a0aec0; 
+  cursor: not-allowed;
+  color: #4a5568;
+}
+
+/* 6. Main Layout */
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  background-color: #fff;
+  box-shadow: inset 0 0 10px #e2e8f0;
+}
+
+/* 7. Text Display Area */
+#text-display {
+  flex: 1;
+  padding: 2rem;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: #2d3748;
+  overflow-wrap: break-word;
+  user-select: text;
+  background-color: #f9fafb;
+}
+
+/* 8. Info Panel */
+#info-panel {
+  width: 320px;
+  background-color: #f0f4f8;
+  padding: 1.5rem;
+  border-left: 1px solid #cbd5e0;
+  font-size: 0.95rem;
+  color: #2d3748;
+  overflow-y: auto;
+}
+#info-panel h2,
+#info-panel h3 {
+  color: #6a1b9a;
+  font-weight: 700;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+/* 9. Statistics */
+#stats p {
+  margin: 0.3rem 0;
+  font-weight: 600;
+}
+
+/* 10. Frequency Panels */
+#token-freq, #pair-freq {
+  background-color: #6a1b9a; /* Dark Blue background */
+  color: #fff;               /* White text */
+  padding: 1rem;
+  border-radius: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  white-space: pre-wrap; /* Wrap long lines */
+}
+
+/* 11. Error Message */
+#error-panel {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #c53030; 
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  display: none;
+  max-width: 90vw;
+  box-shadow: 0 0 10px #c53030aa;
+  z-index: 1000;
+  font-weight: 600;
+}
+#error-panel button {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  margin-left: 1rem;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+/* 12. Overlay Loading */
+#loading-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #6a1b9a;
+  font-size: 1.5rem;
+  z-index: 2000;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+#loading-overlay.visible {
+  visibility: visible;
+  opacity: 1;
+}
+.spinner {
+  border: 4px solid #a0aec0;
+  border-top: 4px solid #6a1b9a;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg);}
+  100% { transform: rotate(360deg);}
+}
+
+/* 13. Colored Tokens */
+.token {
+  background-color: #e2e8f0;
+  color: #6a1b9a;
+  padding: 0 4px;
+  margin: 0 1px;
+  border-radius: 3px;
+  display: inline-block;
+  cursor: default;
+  user-select: text;
+  transition: background 0.2s;
+}
+.token.new-merge {
+  border: 2px solid #ffeb3b; 
+  font-weight: 700;
+  background-color: #fffbe6;
+}
+
+/* 14. Accessibility: Focus States */
+button:focus, select:focus, input[type="file"]:focus, textarea:focus {
+  outline: 2px solid #ffeb3b; 
+  outline-offset: 2px;
+}
+
+/* 15. Footer */
+footer[role="contentinfo"] {
+  background-color: #6a1b9a; /* Dark Blue */
+  color: #fff;               /* White text */
+  text-align: center;
+  padding: 1rem 0;
+  font-size: 0.95rem;
+  margin-top: auto;
+}
+footer[role="contentinfo"] a {
+  color: #ffeb3b; /* Yellow */
+  text-decoration: underline;
+}
+
+</style>
+</head>
+<body>
+<header role="banner" aria-label="BPE Tokenizer Controls">
+  <svg width="200" height="40" viewBox="0 0 200 40" xmlns="http://www.w3.org/2000/svg" style="margin-right: 1rem;">
+    <text x="0" y="30" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">webtvmedia</text>
+    <text x="135" y="30" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#ffeb3b">.net</text>
+  </svg>
+  
+  <div>
+    <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700;">BPE Tokenization Visualizer</h1>
+    <p style="margin: 0; font-size: 1rem; color: #cbd5e0;">Colored Tokens with Explanation</p>
+  </div>
+  <label for="text-input">Input Text:</label>
+  <textarea id="text-input" aria-describedby="text-desc" maxlength="100000" placeholder="Entrez votre texte ici (max 10 000 caractères)" rows="8" style="font-family: monospace; font-size: 1rem; resize: vertical;">
+Je commence avec un alphabet de base constitué des unités les plus simples du texte. Ensuite, je recherche les paires d’unités qui apparaissent le plus fréquemment ensemble. Je fusionne ces paires pour créer de nouvelles unités dans mon alphabet. Ce processus se répète, permettant à mon alphabet de s’enrichir progressivement avec des unités plus longues et plus significatives. À la fin, j’obtiens un vocabulaire de tokens, qui sont les éléments de base pour analyser et traiter le texte.
+
+Avec ce vocabulaire, j’examine chaque token dans son contexte, c’est-à-dire en tenant compte des tokens qui l’entourent. À partir de ces voisins, je tente de prédire le token central, ce qui m’aide à comprendre les relations entre les tokens. En répétant cette opération sur de nombreux textes, j’apprends à représenter chaque token par un vecteur numérique. Ce vecteur capture le sens du token selon les contextes dans lesquels il apparaît, enrichissant ainsi ma compréhension des liens entre les différentes unités du langage.
+
+Pour aller plus loin, il est essentiel de prendre en compte la position de chaque token dans la séquence. En effet, la signification d’un mot dépend souvent de sa place dans la phrase. Pour cela, j’utilise un codage de position basé sur des fonctions périodiques, comme les sinus et cosinus. Chaque position dans la séquence est associée à un vecteur unique, calculé à partir de ces fonctions, qui varie de manière régulière et continue.
+
+Ce codage périodique présente plusieurs avantages : il permet de distinguer clairement les positions proches et éloignées, tout en offrant une représentation qui peut être généralisée à des séquences plus longues que celles vues lors de l’entraînement. En combinant ce vecteur de position avec le vecteur du token lui-même, je crée une représentation enrichie qui intègre à la fois le contenu et la position.
+
+Ainsi, grâce à cette méthode, je peux analyser non seulement quels tokens apparaissent, mais aussi où ils apparaissent, ce qui améliore considérablement ma capacité à comprendre la structure et le sens du texte. Cette approche est fondamentale pour les modèles de langage modernes, car elle permet de capturer les dépendances complexes entre les mots dans une phrase, même lorsque ces mots sont éloignés les uns des autres.
+</textarea>
+  <span id="text-desc" class="sr-only">Text input area limited to 100,000 characters</span>
+  <label for="max-vocab-size-input">vocabulary max size :</label>
+  <input type="number" id="max-vocab-size-input" min="1" max="10000" value="256" style="width: 100px;" />
+  <label for="file-input">Load .txt file:</label>
+  <input type="file" id="file-input" accept=".txt" aria-describedby="file-desc" />
+  <span id="file-desc" class="sr-only">Load text file up to 1MB</span>
+
+  <button id="update-btn" aria-label="Update visualization with current text">Update</button>
+  <button id="next-step-btn" aria-label="Perform next BPE merge step" disabled>Next Step</button>
+  <button id="reset-btn" aria-label="Reset tokens to original byte-level tokens" disabled>Reset</button>
+  <button id="explain-btn" aria-label="Show algorithm explanation">Show Algorithm Explanation</button>
+  <button id="save-json-btn" aria-label="Save tokens as JSON">Save Tokens JSON</button>
+</header>
+
+<main>
+  <div id="text-display" role="main" aria-label="Tokenized text display"></div>
+  <aside id="info-panel" role="complementary" aria-label="Tokenization information panel" tabindex="0">
+    <h2>Tokenization Info</h2>
+    <div id="stats" aria-live="polite" aria-atomic="true">
+      <p>Merge Step: <span id="merge-step">0</span></p>
+      <p>Token Count: <span id="token-count">0</span></p>
+      <p>Vocabulary Size: <span id="vocab-size">0</span></p>
+    </div>
+    <section aria-label="Token frequency statistics">
+      <h3>Token Frequencies</h3>
+      <pre id="token-freq" style="max-height: 150px; overflow-y: auto; background: #222; padding: 0.5rem; border-radius: 4px;"></pre>
+    </section>
+    <section aria-label="Pair frequency statistics" style="margin-top: 1rem;">
+      <h3>Pair Frequencies</h3>
+      <pre id="pair-freq" style="max-height: 150px; overflow-y: auto; background: #222; padding: 0.5rem; border-radius: 4px;"></pre>
+    </section>
+  </aside>
+</main>
+
+<div id="error-panel" role="alert" aria-live="assertive" aria-atomic="true">
+  <span id="error-message"></span>
+  <button aria-label="Close error message" id="error-close-btn">&times;</button>
+</div>
+
+<div id="loading-overlay" role="alert" aria-live="assertive" aria-atomic="true">
+  <div class="spinner" aria-hidden="true"></div>
+  <div id="loading-message">Loading...</div>
+</div>
+
+<script>
+  // Constants
+  const MAX_INPUT_LENGTH = 100000;
+  const MAX_FILE_SIZE = 1 * 1024 * 1024;
+  const MAX_TOKEN_COUNT = 100000;
+
+  // DOM Elements
+  const textInput = document.getElementById('text-input');
+  const fileInput = document.getElementById('file-input');
+  const updateBtn = document.getElementById('update-btn');
+  const nextStepBtn = document.getElementById('next-step-btn');
+  const resetBtn = document.getElementById('reset-btn');
+  const explainBtn = document.getElementById('explain-btn');
+  const mergeStepEl = document.getElementById('merge-step');
+  const tokenCountEl = document.getElementById('token-count');
+  const vocabSizeEl = document.getElementById('vocab-size');
+  const tokenFreqEl = document.getElementById('token-freq');
+  const pairFreqEl = document.getElementById('pair-freq');
+  const errorPanel = document.getElementById('error-panel');
+  const errorMessage = document.getElementById('error-message');
+  const errorCloseBtn = document.getElementById('error-close-btn');
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const loadingMessage = document.getElementById('loading-message');
+  const textDisplay = document.getElementById('text-display');
+  const maxVocabSizeInput = document.getElementById('max-vocab-size-input');
+  
+  maxVocabSizeInput.addEventListener('input', () => {
+    const val = parseInt(maxVocabSizeInput.value, 10);
+    if (!isNaN(val) && val > 0) {
+      maxVocabSize = val;
+      if (vocab.size > maxVocabSize) {
+        showError(`The current vocabulary exceeds the new maximum size.`);
+      } else {
+        hideError();
+      }
+    }
+  });
+
+  document.getElementById('save-json-btn').addEventListener('click', () => {
+    if (!tokens || tokens.length === 0) {
+      alert('Aucun token à sauvegarder.');
+      return;
+    }
+
+    // Prepare JSON data: array of objects with token and decoded text
+    const data = tokens.map(token => ({
+      token: token,
+      text: tokenToDisplayString(token)
+    }));
+
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    // Create a temporary link to trigger download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'tokens_with_text.json';
+    document.body.appendChild(a);
+    a.click();
+
+    // Cleanup
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+});
+
+  
+  // State variables
+  let maxVocabSize = 256;
+  let tokens = [];
+  let originalTokens = [];
+  let mergeStep = 0;
+  let vocab = new Set();
+  let tokenFreq = new Map();
+  let pairFreq = new Map();
+  let lastMergedToken = null;
+
+  // Explanation window
+  let explainWindow = null;
+
+  // Color palette for tokens
+  const COLOR_PALETTE = [
+    '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231',
+    '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe',
+    '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000',
+    '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080'
+  ];
+
+  // Utility functions
+  function showError(message) {
+    errorMessage.textContent = message;
+    errorPanel.style.display = 'block';
+    console.error('[ERROR]', message);
+  }
+  function hideError() {
+    errorPanel.style.display = 'none';
+    errorMessage.textContent = '';
+  }
+  function showLoading(message = 'Loading...') {
+    loadingMessage.textContent = message;
+    loadingOverlay.classList.add('visible');
+  }
+  function hideLoading() {
+    loadingOverlay.classList.remove('visible');
+  }
+  function sanitizeText(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  function textToByteTokens(text) {
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(text);
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0'));
+  }
+  function tokenToDisplayString(token) {
+    const bytes = token.split(' ');
+    let display = '';
+    for (const bHex of bytes) {
+      const b = parseInt(bHex, 16);
+      if (b >= 32 && b <= 126) {
+        display += String.fromCharCode(b);
+      } else {
+        display += '\\x' + bHex;
+      }
+    }
+    return display || token;
+  }
+  function computeFrequencies(tokensArray) {
+    const tokenFreqMap = new Map();
+    const pairFreqMap = new Map();
+    for (const t of tokensArray) {
+      tokenFreqMap.set(t, (tokenFreqMap.get(t) || 0) + 1);
+    }
+    for (let i = 0; i < tokensArray.length - 1; i++) {
+      const pair = tokensArray[i] + ' ' + tokensArray[i + 1];
+      pairFreqMap.set(pair, (pairFreqMap.get(pair) || 0) + 1);
+    }
+    return { tokenFreqMap, pairFreqMap };
+  }
+  function findMostFrequentPair(pairFreqMap) {
+    let maxPair = null;
+    let maxCount = 0;
+    for (const [pair, count] of pairFreqMap.entries()) {
+      if (count > maxCount) {
+        maxCount = count;
+        maxPair = pair;
+      }
+    }
+    return maxPair;
+  }
+  function performMergeStep() {
+    if (tokens.length < 2) {
+      updateExplanation(mergeStep, tokens, null, tokens, vocab.size);
+      return false;
+    }
+    const { tokenFreqMap, pairFreqMap } = computeFrequencies(tokens);
+    if (pairFreqMap.size === 0) {
+      updateExplanation(mergeStep, tokens, null, tokens, vocab.size);
+      return false;
+    }
+    const mostFreqPair = findMostFrequentPair(pairFreqMap);
+    if (!mostFreqPair) {
+      updateExplanation(mergeStep, tokens, null, tokens, vocab.size);
+      return false;
+    }
+    if (vocab.size >= maxVocabSize) {
+      showError(`Maximum vocabulary size (${maxVocabSize}) reached. Cannot merge further.`);
+      updateExplanation(mergeStep, tokens, null, tokens, vocab.size);
+      return false;
+    }   
+    const mergedToken = mostFreqPair;
+    const newTokens = [];
+    let mergedThisStep = false;
+    for (let i = 0; i < tokens.length; ) {
+      if (!mergedThisStep && i < tokens.length - 1 && tokens[i] + ' ' + tokens[i + 1] === mostFreqPair) {
+        newTokens.push(mergedToken);
+        i += 2;
+        mergedThisStep = true;
+      } else {
+        newTokens.push(tokens[i]);
+        i += 1;
+      }
+    }
+    tokens = newTokens;
+    vocab.add(mergedToken);
+    mergeStep++;
+    lastMergedToken = mergedToken;
+    const freqs = computeFrequencies(tokens);
+    tokenFreq = freqs.tokenFreqMap;
+    pairFreq = freqs.pairFreqMap;
+    updateExplanation(mergeStep, tokens, mostFreqPair, newTokens, vocab.size);
+    if (tokens.length > MAX_TOKEN_COUNT) {
+      showError(`Token count exceeded maximum limit (${MAX_TOKEN_COUNT}).`);
+      return false;
+    }
+    return true;
+  }
+  function resetTokens() {
+    tokens = [...originalTokens];
+    mergeStep = 0;
+    vocab = new Set(tokens);
+    lastMergedToken = null;
+    const freqs = computeFrequencies(tokens);
+    tokenFreq = freqs.tokenFreqMap;
+    pairFreq = freqs.pairFreqMap;
+  }
+  function updateStats() {
+    mergeStepEl.textContent = mergeStep;
+    tokenCountEl.textContent = tokens.length;
+    vocabSizeEl.textContent = vocab.size;
+  }
+  function updateFrequencyPanels() {
+    const sortedTokens = [...tokenFreq.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20);
+    tokenFreqEl.textContent = sortedTokens
+      .map(([token, count]) => `${tokenToDisplayString(token)}: ${count}`)
+      .join('\n');
+    const sortedPairs = [...pairFreq.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20);
+    pairFreqEl.textContent = sortedPairs
+      .map(([pair, count]) => {
+        const parts = pair.split(' ');
+        return `${tokenToDisplayString(parts[0])} + ${tokenToDisplayString(parts[1])}: ${count}`;
+      })
+      .join('\n');
+  }
+  function renderTokens() {
+    textDisplay.innerHTML = '';
+    tokens.forEach(token => {
+      const span = document.createElement('span');
+      span.className = 'token';
+      // Assign color based on token hash for consistency
+      const colorIndex = Math.abs(hashString(token)) % COLOR_PALETTE.length;
+      span.style.color = COLOR_PALETTE[colorIndex];
+      span.textContent = tokenToDisplayString(token);
+      if (token === lastMergedToken) {
+        span.classList.add('new-merge');
+      }
+      textDisplay.appendChild(span);
+      textDisplay.appendChild(document.createTextNode(' '));
+    });
+  }
+  // Simple string hash function for color assignment
+  function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+  }
+  function updateVisualization() {
+    hideError();
+    showLoading('Processing input text...');
+    try {
+      const text = textInput.value;
+      if (typeof text !== 'string' || text.length === 0) {
+        throw new Error('Input text is empty.');
+      }
+      if (text.length > MAX_INPUT_LENGTH) {
+        throw new Error(`Input text exceeds maximum length of ${MAX_INPUT_LENGTH} characters.`);
+      }
+      originalTokens = textToByteTokens(text);
+      if (originalTokens.length > MAX_TOKEN_COUNT) {
+        throw new Error(`Token count exceeds maximum limit of ${MAX_TOKEN_COUNT}.`);
+      }
+      tokens = [...originalTokens];
+      mergeStep = 0;
+      vocab = new Set(tokens);
+      lastMergedToken = null;
+      const freqs = computeFrequencies(tokens);
+      tokenFreq = freqs.tokenFreqMap;
+      pairFreq = freqs.pairFreqMap;
+      updateStats();
+      updateFrequencyPanels();
+      renderTokens();
+      nextStepBtn.disabled = false;
+      resetBtn.disabled = false;
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      hideLoading();
+    }
+  }
+  function nextMergeStep() {
+    hideError();
+    showLoading('Performing next merge step...');
+    setTimeout(() => {
+      try {
+        const merged = performMergeStep();
+        if (!merged) {
+          showError('No more merges possible or limits reached.');
+          nextStepBtn.disabled = true;
+          hideLoading();
+          return;
+        }
+        updateStats();
+        updateFrequencyPanels();
+        renderTokens();
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        hideLoading();
+      }
+    }, 50);
+  }
+  function resetVisualization() {
+    hideError();
+    resetTokens();
+    updateStats();
+    updateFrequencyPanels();
+    renderTokens();
+    nextStepBtn.disabled = false;
+  }
+  function onFileInputChange(event) {
+    hideError();
+    const file = event.target.files[0];
+    if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      showError(`File size exceeds 1MB limit.`);
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith('.txt')) {
+      showError('Only .txt files are supported.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const text = reader.result;
+        if (typeof text !== 'string' || text.length === 0) {
+          throw new Error('File content is empty or invalid.');
+        }
+        textInput.value = text;
+        updateVisualization();
+      } catch (err) {
+        showError(err.message);
+      }
+    };
+    reader.onerror = () => {
+      showError('Failed to read file.');
+    };
+    reader.readAsText(file);
+  }
+
+  // Explanation window management
+  explainBtn.addEventListener('click', () => {
+    if (explainWindow == null || explainWindow.closed) {
+      explainWindow = window.open('', 'BPE Explanation', 'width=600,height=600,scrollbars=yes');
+      explainWindow.document.write(`
+        <html><head><title>BPE Algorithm Explanation</title>
+        <style>
+          body { font-family: Arial, sans-serif; background: #121212; color: #eee; padding: 1rem; }
+          h1 { color: #0af; }
+          pre { background: #222; padding: 1rem; border-radius: 6px; white-space: pre-wrap; }
+        </style>
+        </head><body>
+        <h1>BPE Algorithm Step-by-Step Explanation</h1>
+        <div id="explanation">Waiting for updates...</div>
+        </body></html>
+      `);
+    }
+    explainWindow.focus();
+  });
+
+  // Function to update explanation window content
+  function updateExplanation(step, tokens, mergedPair, newTokens, vocabSize) {
+    if (!explainWindow || explainWindow.closed) return;
+    const explanationDiv = explainWindow.document.getElementById('explanation');
+    if (!explanationDiv) return;
+
+    const tokensDisplay = tokens.map(t => `"${tokenToDisplayString(t)}"`).join(' ');
+    const newTokensDisplay = newTokens.map(t => `"${tokenToDisplayString(t)}"`).join(' ');
+
+    let html = `<p><strong>Merge Step ${step}</strong></p>`;
+    html += `<p><strong>Current Tokens:</strong><br>${tokensDisplay}</p>`;
+    if (mergedPair) {
+      const parts = mergedPair.split(' ');
+      html += `<p><strong>Most Frequent Pair to Merge:</strong> "${tokenToDisplayString(parts[0])}" + "${tokenToDisplayString(parts[1])}"</p>`;
+      html += `<p><strong>Tokens After Merge:</strong><br>${newTokensDisplay}</p>`;
+    } else {
+      html += `<p><em>No more pairs to merge.</em></p>`;
+    }
+    html += `<p><strong>Vocabulary Size:</strong> ${vocabSize}</p>`;
+    explanationDiv.innerHTML = html;
+  }
+
+  // Event listeners
+  fileInput.addEventListener('change', onFileInputChange);
+  updateBtn.addEventListener('click', updateVisualization);
+  nextStepBtn.addEventListener('click', nextMergeStep);
+  resetBtn.addEventListener('click', resetVisualization);
+  errorCloseBtn.addEventListener('click', hideError);
+
+  let holdTimeout = null;
+  let isRunning = false;
+  let continuousInterval = null;
+
+  function startContinuousStepping() {
+    if (isRunning) return;
+    isRunning = true;
+    nextStepBtn.textContent = 'Stop'; // Optional: change button text to indicate running
+    continuousInterval = setInterval(() => {
+      if (nextStepBtn.disabled) {
+        stopContinuousStepping();
+        return;
+      }
+      nextMergeStep();
+    }, 200);
+  }
+
+  function stopContinuousStepping() {
+    if (!isRunning) return;
+    isRunning = false;
+    nextStepBtn.textContent = 'Next Step'; // Optional: revert button text
+    if (continuousInterval) {
+      clearInterval(continuousInterval);
+      continuousInterval = null;
+    }
+    if (holdTimeout) {
+      clearTimeout(holdTimeout);
+      holdTimeout = null;
+    }
+  }
+
+  // On mousedown or touchstart, start a 1-second timer to start continuous stepping
+  nextStepBtn.addEventListener('mousedown', () => {
+    if (isRunning) return; // Already running, ignore
+    holdTimeout = setTimeout(() => {
+      startContinuousStepping();
+      holdTimeout = null;
+    }, 1000);
+  });
+
+  nextStepBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (isRunning) return;
+    holdTimeout = setTimeout(() => {
+      startContinuousStepping();
+      holdTimeout = null;
+    }, 1000);
+  });
+
+  // On mouseup, mouseleave, or touchend, clear the timer if continuous stepping hasn't started
+  nextStepBtn.addEventListener('mouseup', () => {
+    if (holdTimeout) {
+      clearTimeout(holdTimeout);
+      holdTimeout = null;
+    }
+  });
+
+  nextStepBtn.addEventListener('mouseleave', () => {
+    if (holdTimeout) {
+      clearTimeout(holdTimeout);
+      holdTimeout = null;
+    }
+  });
+
+  nextStepBtn.addEventListener('touchend', () => {
+    if (holdTimeout) {
+      clearTimeout(holdTimeout);
+      holdTimeout = null;
+    }
+  });
+
+  // On click, toggle continuous stepping: stop if running, else do a single step
+  nextStepBtn.addEventListener('click', () => {
+    if (isRunning) {
+      stopContinuousStepping();
+    } else {
+      nextMergeStep();
+    }
+  });
+  
+  // Initialize with default text
+  updateVisualization();
+</script>
+</body>
+<footer role="contentinfo" aria-label="WEBTVMEDIA.NET Footer"
+  style="background-color: #6a1b9a; color: #fff; text-align: center; padding: 1rem 0; font-size: 0.95rem; margin-top: auto;">
+  <span>
+    &copy; 2024 webtvmedia.net. All rights reserved.
+  </span>
+</footer>
+</html>

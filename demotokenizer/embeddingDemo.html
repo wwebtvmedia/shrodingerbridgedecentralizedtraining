@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CBOW Visualizer - Full with Step and Reset Controls</title>
+<style>
+  /* === WEBTVMEDIA.NET Brand CSS (adapted) === */
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    font-family: "Segoe UI", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f7fa;
+    color: #2d3748;
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem 2rem; background-color: #6a1b9a; color: #fff;
+    flex-wrap: wrap; box-shadow: 0 2px 8px rgba(0,83,159,0.08);
+  }
+  header img {
+    flex-shrink: 0; height: 40px; margin-right: 1rem; cursor: pointer; user-select: none;
+  }
+  label {
+    font-weight: 600; color: #a0aec0; margin-bottom: 0.5rem; display: inline-block;
+  }
+  textarea {
+    width: 100%; height: 100px; resize: vertical;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 1rem; padding: 0.5rem; border-radius: 4px;
+    border: 1px solid #a0aec0; background-color: #fff; color: #2d3748;
+    transition: border-color 0.3s;
+  }
+  textarea:focus {
+    border-color: #ab47bc; outline: none;
+  }
+  input[type="file"], button, input[type="number"] {
+    background-color: #8e24aa; border: none; color: #fff;
+    padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;
+    font-weight: 600; font-size: 1rem; transition: background-color 0.3s;
+    margin-bottom: 0.5rem;
+  }
+  input[type="file"]:hover, button:hover:not(:disabled), input[type="number"]:hover {
+    background-color: #ab47bc;
+  }
+  input[type="number"] {
+    width: 80px;
+    margin-left: 0.5rem;
+    margin-right: 1rem;
+  }
+  button:disabled {
+    background-color: #a0aec0; cursor: not-allowed; color: #4a5568;
+  }
+  main {
+    flex: 1; display: flex; flex-direction: row; overflow: hidden; background-color: #fff;
+    box-shadow: inset 0 0 10px #e2e8f0;
+  }
+  #text-display {
+    flex: 1; padding: 2rem;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 1.1rem; line-height: 1.6; color: #2d3748;
+    overflow-wrap: break-word; user-select: text; background-color: #f9fafb;
+    min-width: 300px;
+  }
+  .token {
+    padding: 0 4px; margin: 0 2px; border-radius: 3px;
+    display: inline-block; cursor: default; user-select: text; transition: background 0.2s;
+  }
+  .token.target {
+    border: 2px solid #ffeb3b; font-weight: 700; background-color: #fffbe6;
+    color: #b36b00;
+  }
+  .token.context {
+    border: 2px solid #ab47bc; background-color: #fce4ec;
+    color: #004a99;
+  }
+  #info-panel {
+    width: 360px; background-color: #f0f4f8; padding: 1.5rem;
+    border-left: 1px solid #cbd5e0; font-size: 0.95rem; color: #2d3748; overflow-y: auto;
+  }
+  #info-panel h2, #info-panel h3 {
+    color: #6a1b9a; font-weight: 700; margin-top: 0; margin-bottom: 0.5rem;
+  }
+  #cbow-output {
+    background: #6a1b9a; color: #fff; padding: 1rem; border-radius: 4px;
+    font-family: "Courier New", Courier, monospace; font-size: 0.95rem;
+    margin-top: 1rem; white-space: pre-wrap; max-height: 150px; overflow-y: auto;
+  }
+  button:focus, textarea:focus, input[type="number"]:focus {
+    outline: 2px solid #ffeb3b; outline-offset: 2px;
+  }
+  footer[role="contentinfo"] {
+    background-color: #6a1b9a; color: #fff; text-align: center;
+    padding: 1rem 0; font-size: 0.95rem; margin-top: auto;
+  }
+  footer[role="contentinfo"] a {
+    color: #ffeb3b; text-decoration: underline;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: monospace;
+    font-size: 0.85rem;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 4px 6px;
+    text-align: center;
+  }
+  th {
+    background-color: #e2e8f0;
+  }
+  .gradient {
+    background-color: #ffcccc; /* Light red for gradients */
+    color: #a10000; /* Darker red text for readability */
+    font-weight: bold;
+  }
+  /* Scroll container for embedding matrix */
+  #input-embedding-matrix, #output-embedding-matrix {
+    max-height: 300px;
+    overflow-x: auto;
+    overflow-y: auto;
+    margin-top: 0.5rem;
+  }
+</style>
+</head>
+<body>
+<header role="banner" aria-label="CBOW Controls">
+  <svg width="200" height="40" viewBox="0 0 200 40" xmlns="http://www.w3.org/2000/svg" style="margin-right: 1rem;">
+    <text x="0" y="30" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">webtvmedia</text>
+    <text x="135" y="30" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#ffeb3b">.net</text>
+  </svg>
+  <div>
+    <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700;">CBOW Visualizer</h1>
+    <p style="margin: 0; font-size: 1rem; color: #cbd5e0;">Colored Tokens with Embeddings (CBOW)</p>
+  </div>
+  <label for="cbow-text-input">Input Text:</label>
+  <textarea id="cbow-text-input" maxlength="5000" rows="8" placeholder="Entrez votre texte ici (max 10 000 caractères)">
+Je commence avec un alphabet de base constitué des unités les plus simples du texte. Ensuite, je recherche les paires d’unités qui apparaissent le plus fréquemment ensemble. Je fusionne ces paires pour créer de nouvelles unités dans mon alphabet. Ce processus se répète, permettant à mon alphabet de s’enrichir progressivement avec des unités plus longues et plus significatives. À la fin, j’obtiens un vocabulaire de tokens, qui sont les éléments de base pour analyser et traiter le texte.
+
+Avec ce vocabulaire, j’examine chaque token dans son contexte, c’est-à-dire en tenant compte des tokens qui l’entourent. À partir de ces voisins, je tente de prédire le token central, ce qui m’aide à comprendre les relations entre les tokens. En répétant cette opération sur de nombreux textes, j’apprends à représenter chaque token par un vecteur numérique. Ce vecteur capture le sens du token selon les contextes dans lesquels il apparaît, enrichissant ainsi ma compréhension des liens entre les différentes unités du langage.
+
+Pour aller plus loin, il est essentiel de prendre en compte la position de chaque token dans la séquence. En effet, la signification d’un mot dépend souvent de sa place dans la phrase. Pour cela, j’utilise un codage de position basé sur des fonctions périodiques, comme les sinus et cosinus. Chaque position dans la séquence est associée à un vecteur unique, calculé à partir de ces fonctions, qui varie de manière régulière et continue.
+
+Ce codage périodique présente plusieurs avantages : il permet de distinguer clairement les positions proches et éloignées, tout en offrant une représentation qui peut être généralisée à des séquences plus longues que celles vues lors de l’entraînement. En combinant ce vecteur de position avec le vecteur du token lui-même, je crée une représentation enrichie qui intègre à la fois le contenu et la position.
+
+Ainsi, grâce à cette méthode, je peux analyser non seulement quels tokens apparaissent, mais aussi où ils apparaissent, ce qui améliore considérablement ma capacité à comprendre la structure et le sens du texte. Cette approche est fondamentale pour les modèles de langage modernes, car elle permet de capturer les dépendances complexes entre les mots dans une phrase, même lorsque ces mots sont éloignés les uns des autres.
+  </textarea>
+
+  <label for="cbow-embedding-size">Embedding Size:</label>
+  <input type="number" id="cbow-embedding-size" min="2" max="512" value="8" />
+
+  <label for="cbow-window-size">Context Window Size:</label>
+  <input type="number" id="cbow-window-size" min="1" max="5" value="3" />
+
+  <label for="cbow-learning-steps">Learning Steps:</label>
+  <input type="number" id="cbow-learning-steps" min="1" max="1000000" value="5000" />
+
+  <label for="cbow-learning-rate">Learning Rate:</label>
+  <input type="number" id="cbow-learning-rate" min="0.001" max="1" step="0.001" value="0.01" />
+
+  <label for="cbow-tokens-file-input">Load tokens .json file:</label>
+  <input type="file" id="cbow-tokens-file-input" accept=".json" />
+
+  <label for="cbow-text-file-input">Load text .txt file:</label>
+  <input type="file" id="cbow-text-file-input" accept=".txt" />
+
+  <button id="cbow-update-btn">Start Learning Simulation</button>
+  <button id="cbow-next-step-btn" disabled>Next Step</button>
+  <button id="cbow-reset-btn" disabled>Reset</button>
+  <button id="cbow-save-embeddings-btn">Save Embeddings JSON</button>
+  <button id="cbow-save-context-btn">Save Context for Attention</button>
+  <button id="cbow-describe-step-btn" disabled>Describe Step</button>
+</header>
+<main>
+  <div id="text-display" role="main" aria-label="Tokenized text display"></div>
+  <aside id="info-panel" role="complementary" aria-label="CBOW information panel" tabindex="0">
+    <h2>CBOW Info</h2>
+    <p>Token Count: <span id="cbow-token-count">0</span></p>
+    <p>Current Learning Step: <span id="cbow-current-step">0</span></p>
+    <p>Embedding Size: <span id="cbow-embedding-size-display">8</span></p>
+    <p>Context Window Size: <span id="cbow-window-size-display">1</span></p>
+    <p>Current Token Loss: <span id="cbow-current-token-error">0.0000</span></p>
+    <p>Total Loss (Current Pass): <span id="cbow-total-error">0.0000</span></p>
+
+    <section aria-label="CBOW Output">
+      <h3>CBOW Contexts (Current Step)</h3>
+      <pre id="cbow-output">-</pre>
+    </section>
+
+    <section aria-label="Input Embedding Matrix">
+      <h3>Input Embedding Matrix</h3>
+      <div id="input-embedding-matrix"></div>
+    </section>
+
+    <section aria-label="Output Embedding Matrix">
+      <h3>Output Embedding Matrix</h3>
+      <div id="output-embedding-matrix"></div>
+    </section>
+  </aside>
+</main>
+
+<script>
+// Constants
+const MAX_INPUT_LENGTH = 100000;
+const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1 MB
+const MAX_TOKEN_COUNT = 100000;
+
+// DOM Elements
+const textInput = document.getElementById('cbow-text-input');
+const fileInputTokens = document.getElementById('cbow-tokens-file-input');
+const fileInputText = document.getElementById('cbow-text-file-input');
+const updateBtn = document.getElementById('cbow-update-btn');
+const cbowNextStepBtn = document.getElementById('cbow-next-step-btn');
+const resetBtn = document.getElementById('cbow-reset-btn');
+const explainBtn = document.getElementById('cbow-describe-step-btn');
+const saveEmbeddingsBtn = document.getElementById('cbow-save-embeddings-btn');
+const tokenCountEl = document.getElementById('cbow-token-count');
+const vocabSizeEl = document.getElementById('cbow-embedding-size-display');
+const tokenFreqEl = document.getElementById('cbow-output');
+const currentTokenErrorEl = document.getElementById('cbow-current-token-error');
+const totalErrorEl = document.getElementById('cbow-total-error');
+
+const COLOR_PALETTE = [
+  '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231',
+  '#911eb4', '#46f0f0', '#f032e6', '#bcf60c', '#fabebe',
+  '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000',
+  '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080'
+];
+
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
+}
+
+let inputEmbeddings = {};
+let outputEmbeddings = {};
+let learningInterval = null;
+let currentTokens = [];
+let uniqueTokens = [];
+let tokenToIndex = {};
+let indexToToken = [];
+let currentStep = 0;
+let embeddingSize = 8;
+let windowSize = 1;
+let learningSteps = 10;
+let learningRate = 0.01;
+let totalError = 0;
+
+function getEmbedding(token, size, isInput = true) {
+  const embeddings = isInput ? inputEmbeddings : outputEmbeddings;
+  if (!embeddings[token] || embeddings[token].length !== size) {
+    embeddings[token] = Array.from({length: size}, () =>
+      Math.round((Math.random() * 0.2 - 0.1) * 100) / 100 // Small random values around 0
+    );
+  }
+  return embeddings[token];
+}
+
+function tokenizeText(text) {
+  return text.match(/\b\w+\b/g) || [];
+}
+
+function renderTokensWithContext(tokens, targetIndex, windowSize) {
+  const display = document.getElementById('text-display');
+  display.innerHTML = '';
+
+  tokens.forEach((token, i) => {
+    const span = document.createElement('span');
+    span.className = 'token';
+    const colorIndex = Math.abs(hashString(token)) % COLOR_PALETTE.length;
+    span.style.color = COLOR_PALETTE[colorIndex];
+    span.textContent = token;
+
+    if (i === targetIndex) {
+      span.classList.add('target');
+    } else if (i >= targetIndex - windowSize && i <= targetIndex + windowSize && i !== targetIndex) {
+      span.classList.add('context');
+    }
+
+    display.appendChild(span);
+    display.appendChild(document.createTextNode(' '));
+  });
+}
+
+function computeCBOWContext(tokens, targetIndex, windowSize) {
+  const context = [];
+  for (let w = 1; w <= windowSize; w++) {
+    if (targetIndex - w >= 0) context.push(tokens[targetIndex - w]);
+    if (targetIndex + w < tokens.length) context.push(tokens[targetIndex + w]);
+  }
+  return context;
+}
+
+function renderEmbeddingMatrix(tokens, embeddingSize, isInput = true, gradients = null) {
+  const containerId = isInput ? 'input-embedding-matrix' : 'output-embedding-matrix';
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  const table = document.createElement('table');
+
+  // Header row
+  const headerRow = document.createElement('tr');
+  const emptyHeader = document.createElement('th');
+  emptyHeader.textContent = 'Token';
+  headerRow.appendChild(emptyHeader);
+
+  for (let i = 0; i < embeddingSize; i++) {
+    const th = document.createElement('th');
+    th.textContent = `Dim ${i + 1}`;
+    headerRow.appendChild(th);
+  }
+  table.appendChild(headerRow);
+
+  // Data rows
+  tokens.forEach(token => {
+    const tr = document.createElement('tr');
+    const tdToken = document.createElement('td');
+    tdToken.textContent = token;
+    tr.appendChild(tdToken);
+
+    const embeddings = isInput ? inputEmbeddings : outputEmbeddings;
+    const embedding = embeddings[token] || Array(embeddingSize).fill(0);
+    const tokenGradients = gradients && gradients[token] ? gradients[token] : Array(embeddingSize).fill(0);
+
+    embedding.forEach((val, idx) => {
+      const td = document.createElement('td');
+      td.textContent = val.toFixed(4);
+      if (Math.abs(tokenGradients[idx]) > 1e-6) { // Highlight non-zero gradients
+        td.classList.add('gradient');
+        td.title = `Gradient: ${tokenGradients[idx].toFixed(4)}`; // Tooltip with gradient value
+      }
+      tr.appendChild(td);
+    });
+
+    table.appendChild(tr);
+  });
+
+  container.appendChild(table);
+}
+
+function updateInfoPanel(tokens, embeddingSize, windowSize, currentStep) {
+  tokenCountEl.textContent = tokens.length;
+  vocabSizeEl.textContent = embeddingSize;
+  document.getElementById('cbow-window-size-display').textContent = windowSize;
+  document.getElementById('cbow-current-step').textContent = currentStep;
+}
+
+function updateCBOWOutput(target, context) {
+  const output = {
+    target: target,
+    context: context
+  };
+  tokenFreqEl.textContent = JSON.stringify(output, null, 2);
+}
+
+let describeStepWindow = null;
+
+function softmax(logits) {
+  const maxLogit = Math.max(...logits);
+  const expLogits = logits.map(l => Math.exp(l - maxLogit));
+  const sumExp = expLogits.reduce((a, b) => a + b, 0);
+  return expLogits.map(e => e / sumExp);
+}
+
+function crossEntropyLoss(probs, targetIndex) {
+  return -Math.log(probs[targetIndex] + 1e-10); // Add epsilon to avoid log(0)
+}
+
+function describeCurrentStep(currentTokenLoss = null, totalLossValue = null) {
+  if (currentTokens.length === 0) {
+    alert('No tokens available to describe.');
+    return;
+  }
+  const targetIndex = currentStep % currentTokens.length;
+  const target = currentTokens[targetIndex];
+  const context = computeCBOWContext(currentTokens, targetIndex, windowSize);
+
+  // Use passed loss or default to 0
+  const tokenLossDisplay = currentTokenLoss !== null ? currentTokenLoss.toFixed(4) : 'N/A';
+  const totalLossDisplay = totalLossValue !== null ? totalLossValue.toFixed(4) : 'N/A';
+
+  // Compute context average from input embeddings
+  let contextAverage = Array(embeddingSize).fill(0);
+  if (context.length > 0) {
+    context.forEach(ct => {
+      const emb = getEmbedding(ct, embeddingSize, true); // Input embeddings
+      emb.forEach((val, idx) => {
+        contextAverage[idx] += val / context.length;
+      });
+    });
+    contextAverage = contextAverage.map(val => val.toFixed(4));
+  } else {
+    contextAverage = Array(embeddingSize).fill('0.0000');
+  }
+
+  // Compute logits using output embeddings
+  const logits = uniqueTokens.map(token => {
+    const outEmb = getEmbedding(token, embeddingSize, false); // Output embeddings
+    return contextAverage.reduce((sum, val, idx) => sum + parseFloat(val) * outEmb[idx], 0);
+  });
+
+  // Compute softmax probabilities
+  const probs = softmax(logits);
+  const targetTokenIndex = tokenToIndex[target];
+  const softmaxProbs = uniqueTokens.map((token, idx) => ({
+    token,
+    probability: probs[idx].toFixed(4)
+  }));
+
+  // Sort by probability and select top 5, ensuring target is included
+  softmaxProbs.sort((a, b) => b.probability - a.probability);
+  let displayProbs = softmaxProbs.slice(0, 5);
+  if (!displayProbs.some(p => p.token === target) && softmaxProbs.some(p => p.token === target)) {
+    const targetProb = softmaxProbs.find(p => p.token === target);
+    displayProbs = [...displayProbs.slice(0, 4), targetProb];
+  }
+
+  const description = `
+    <html>
+    <head>
+      <title>CBOW Step Description</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 1.5rem; background: #f9fafb; color: #2d3748; }
+        h1 { color: #6a1b9a; font-size: 1.5rem; }
+        h2 { color: #6a1b9a; font-size: 1.2rem; margin-top: 1rem; }
+        p { font-size: 1.1rem; margin: 0.5rem 0; }
+        ul { margin-left: 1.5rem; }
+        .highlight { font-weight: bold; color: #ab47bc; }
+        .error { font-weight: bold; color: #d9534f; }
+        table { 
+          border-collapse: collapse; 
+          width: 100%; 
+          font-family: monospace; 
+          font-size: 0.85rem; 
+          margin-top: 0.5rem; 
+        }
+        th, td { 
+          border: 1px solid #ccc; 
+          padding: 4px 6px; 
+          text-align: center; 
+        }
+        th { background-color: #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <h1>Step ${currentStep + 1} Description</h1>
+      <p><span class="highlight">Target token:</span> "${target}" (Index: ${targetTokenIndex})</p>
+      <p><span class="highlight">Context tokens (window size = ${windowSize}):</span></p>
+      <ul>
+        ${context.length > 0 ? context.map(ct => `<li>${ct}</li>`).join('') : '<li><em>No context tokens available</em></li>'}
+      </ul>
+      <p>At this step, the CBOW algorithm uses the average of input embeddings from context tokens to predict the target token using output embeddings.</p>
+      <p>Backpropagation updates both input and output matrices based on cross-entropy loss. Gradients are highlighted in red in the matrices.</p>
+      <p class="error">Current Token Loss: ${tokenLossDisplay}</p>
+      <p class="error">Total Loss (Current Pass): ${totalLossDisplay}</p>
+
+      <h2>Context Average (from Input Embeddings)</h2>
+      <p>The average of the context token input embeddings:</p>
+      <table>
+        <tr>
+          ${contextAverage.map((val, idx) => `<th>Dim ${idx + 1}</th>`).join('')}
+        </tr>
+        <tr>
+          ${contextAverage.map(val => `<td>${val}</td>`).join('')}
+        </tr>
+      </table>
+
+      <h2>Softmax Output (Top 5 Tokens)</h2>
+      <p>The predicted probabilities for tokens based on the context average and output embeddings:</p>
+      <table>
+        <tr>
+          <th>Token</th>
+          <th>Probability</th>
+        </tr>
+        ${displayProbs.map(p => `
+          <tr>
+            <td${p.token === target ? ' style="font-weight: bold; color: #b36b00;"' : ''}>${p.token}</td>
+            <td>${p.probability}</td>
+          </tr>
+        `).join('')}
+      </table>
+    </body>
+    </html>
+  `;
+
+  if (!describeStepWindow || describeStepWindow.closed) {
+    describeStepWindow = window.open('', 'CBOW Step Description', 'width=500,height=600,resizable,scrollbars');
+  }
+
+  if (describeStepWindow) {
+    describeStepWindow.document.open();
+    describeStepWindow.document.write(description);
+    describeStepWindow.document.close();
+    describeStepWindow.focus();
+  } else {
+    alert('Popup blocked! Please allow popups for this site to see the step description.');
+  }
+}
+
+function simulateLearningStep() {
+  if (currentTokens.length === 0) return;
+
+  const targetIndex = currentStep % currentTokens.length;
+  const target = currentTokens[targetIndex];
+  const context = computeCBOWContext(currentTokens, targetIndex, windowSize);
+  const targetTokenIndex = tokenToIndex[target];
+
+  // Compute context average from input embeddings
+  let contextAverage = Array(embeddingSize).fill(0);
+  if (context.length > 0) {
+    context.forEach(ct => {
+      const emb = getEmbedding(ct, embeddingSize, true); // Input embeddings
+      emb.forEach((val, idx) => {
+        contextAverage[idx] += val / context.length;
+      });
+    });
+  }
+
+  // Compute logits: dot product of context average with all output embeddings
+  const logits = uniqueTokens.map(token => {
+    const outEmb = getEmbedding(token, embeddingSize, false); // Output embeddings
+    return contextAverage.reduce((sum, val, idx) => sum + val * outEmb[idx], 0);
+  });
+
+  // Softmax probabilities
+  const probs = softmax(logits);
+
+  // Cross-entropy loss for this token
+  const currentTokenLoss = crossEntropyLoss(probs, targetTokenIndex);
+
+  // Accumulate total error
+  totalError += currentTokenLoss;
+
+  // Backpropagation: Compute gradients
+  // Gradient for output embeddings: (probs - one_hot) * context_average
+  const outputGrad = probs.map((p, j) => {
+    const targetVal = (j === targetTokenIndex) ? 1 : 0;
+    return (p - targetVal);
+  });
+
+  // Store gradients for visualization
+  const outputGradients = {};
+  uniqueTokens.forEach((token, j) => {
+    outputGradients[token] = outputGrad[j] ? Array(embeddingSize).fill(0).map((_, idx) => outputGrad[j] * contextAverage[idx]) : Array(embeddingSize).fill(0);
+  });
+
+  // Update output embeddings
+  uniqueTokens.forEach((token, j) => {
+    const outEmb = getEmbedding(token, embeddingSize, false);
+    outEmb.forEach((val, idx) => {
+      outEmb[idx] -= learningRate * outputGrad[j] * contextAverage[idx];
+    });
+  });
+
+  // Gradient for context average: sum over j of (probs_j - y_j) * output_emb_j
+  const contextGrad = Array(embeddingSize).fill(0);
+  uniqueTokens.forEach((token, j) => {
+    const outEmb = getEmbedding(token, embeddingSize, false);
+    outEmb.forEach((val, idx) => {
+      contextGrad[idx] += outputGrad[j] * val;
+    });
+  });
+
+  // Store gradients for input embeddings
+  const inputGradients = {};
+  uniqueTokens.forEach(token => {
+    inputGradients[token] = Array(embeddingSize).fill(0); // Default: no gradient
+  });
+  if (context.length > 0) {
+    const gradPerContext = 1 / context.length;
+    context.forEach(ct => {
+      inputGradients[ct] = contextGrad.map(val => val * gradPerContext);
+    });
+  }
+
+  // Update input embeddings of context tokens
+  if (context.length > 0) {
+    const gradPerContext = 1 / context.length;
+    context.forEach(ct => {
+      const inEmb = getEmbedding(ct, embeddingSize, true);
+      inEmb.forEach((val, idx) => {
+        inEmb[idx] -= learningRate * contextGrad[idx] * gradPerContext;
+      });
+    });
+  }
+
+  // Update displays for errors
+  currentTokenErrorEl.textContent = currentTokenLoss.toFixed(4);
+  totalErrorEl.textContent = totalError.toFixed(4);
+
+  // Render tokens and matrices with gradients highlighted
+  renderTokensWithContext(currentTokens, targetIndex, windowSize);
+  renderEmbeddingMatrix(uniqueTokens, embeddingSize, true, inputGradients); // Input matrix with gradients
+  renderEmbeddingMatrix(uniqueTokens, embeddingSize, false, outputGradients); // Output matrix with gradients
+  updateInfoPanel(currentTokens, embeddingSize, windowSize, currentStep + 1);
+  updateCBOWOutput(target, context);
+
+  // Update description window automatically if open
+  if (describeStepWindow && !describeStepWindow.closed) {
+    describeCurrentStep(currentTokenLoss, totalError);
+  }
+
+  // Reset total error after full pass over all tokens
+  if (targetIndex === currentTokens.length - 1) {
+    totalError = 0;
+  }
+}
+
+function startLearningSimulation() {
+  if (learningInterval) {
+    clearInterval(learningInterval);
+    learningInterval = null;
+  }
+
+  // Use existing tokens if loaded, else tokenize text area
+  if (currentTokens.length === 0) {
+    const text = textInput.value.trim();
+    if (!text) {
+      alert('Le texte d\'entrée est vide. Veuillez saisir du texte ou charger un fichier.');
+      return;
+    }
+    currentTokens = tokenizeText(text);
+    if (currentTokens.length === 0) {
+      alert('Aucun token trouvé dans le texte d\'entrée.');
+      return;
+    }
+  }
+
+  embeddingSize = parseInt(document.getElementById('cbow-embedding-size').value, 10);
+  windowSize = parseInt(document.getElementById('cbow-window-size').value, 10);
+  learningSteps = parseInt(document.getElementById('cbow-learning-steps').value, 10);
+  learningRate = parseFloat(document.getElementById('cbow-learning-rate').value);
+
+  // Build unique tokens and mappings
+  uniqueTokens = [...new Set(currentTokens)];
+  tokenToIndex = {};
+  indexToToken = uniqueTokens;
+  uniqueTokens.forEach((token, idx) => {
+    tokenToIndex[token] = idx;
+  });
+
+  inputEmbeddings = {};
+  outputEmbeddings = {};
+  uniqueTokens.forEach(token => {
+    getEmbedding(token, embeddingSize, true); // Input
+    getEmbedding(token, embeddingSize, false); // Output
+  });
+
+  currentStep = 0;
+  totalError = 0;
+
+  // Enable Next Step, Reset, Describe Step buttons; disable Start button
+  cbowNextStepBtn.disabled = false;
+  resetBtn.disabled = false;
+  explainBtn.disabled = false;
+  updateBtn.disabled = true;
+
+  // Run first step automatically
+  simulateLearningStep();
+}
+
+function nextStep() {
+  if (currentStep + 1 >= learningSteps) {
+    alert('Simulation terminée.');
+
+    // Render full tokens without highlights
+    renderTokensWithContext(currentTokens, -1, 0);
+
+    // Update info panel to show final step
+    updateInfoPanel(currentTokens, embeddingSize, windowSize, currentStep + 1);
+
+    // Clear CBOW output or show a message
+    tokenFreqEl.textContent = 'Simulation terminée.';
+
+    // Disable Next Step button
+    cbowNextStepBtn.disabled = true;
+
+    // Optionally disable Describe Step button
+    explainBtn.disabled = true;
+
+    // Reset error displays
+    currentTokenErrorEl.textContent = '0.0000';
+    totalErrorEl.textContent = '0.0000';
+
+    // Render matrices without gradients
+    renderEmbeddingMatrix(uniqueTokens, embeddingSize, true);
+    renderEmbeddingMatrix(uniqueTokens, embeddingSize, false);
+
+    return;
+  }
+  currentStep++;
+  simulateLearningStep();
+}
+
+function resetSimulation() {
+  if (learningInterval) {
+    clearInterval(learningInterval);
+    learningInterval = null;
+  }
+  currentStep = 0;
+  inputEmbeddings = {};
+  outputEmbeddings = {};
+  currentTokens = [];
+  uniqueTokens = [];
+  tokenToIndex = {};
+  indexToToken = [];
+  textInput.value = '';
+  document.getElementById('cbow-current-step').textContent = '0';
+  tokenCountEl.textContent = '0';
+  tokenFreqEl.textContent = '-';
+  document.getElementById('input-embedding-matrix').innerHTML = '';
+  document.getElementById('output-embedding-matrix').innerHTML = '';
+  document.getElementById('text-display').innerHTML = '';
+  cbowNextStepBtn.disabled = true;
+  resetBtn.disabled = true;
+  explainBtn.disabled = true;
+  updateBtn.disabled = false;
+
+  // Clear file inputs to allow reloading the same files
+  fileInputTokens.value = '';
+  fileInputText.value = '';
+
+  // Reset error displays
+  currentTokenErrorEl.textContent = '0.0000';
+  totalErrorEl.textContent = '0.0000';
+
+  // Close description window if open
+  if (describeStepWindow && !describeStepWindow.closed) {
+    describeStepWindow.close();
+    describeStepWindow = null;
+  }
+}
+
+// Event listeners for buttons
+updateBtn.addEventListener('click', startLearningSimulation);
+cbowNextStepBtn.addEventListener('click', nextStep);
+resetBtn.addEventListener('click', resetSimulation);
+
+// Token JSON file loader
+fileInputTokens.addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > MAX_FILE_SIZE) {
+    alert('Le fichier est trop volumineux. Taille maximale autorisée : 1 Mo.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const json = JSON.parse(evt.target.result);
+      if (!Array.isArray(json) || json.length === 0) {
+        alert('Erreur : Le fichier JSON doit être un tableau non vide.');
+        return;
+      }
+      currentTokens = json.map((obj, index) => {
+        if (typeof obj.text !== 'string') {
+          throw new Error(`Objet token à l'index ${index} sans propriété "text" valide.`);
+        }
+        return obj.text;
+      });
+      // Do NOT overwrite the text area to preserve original text
+      renderTokensWithContext(currentTokens, -1, 0);
+      updateInfoPanel(currentTokens,
+        parseInt(document.getElementById('cbow-embedding-size').value, 10),
+        parseInt(document.getElementById('cbow-window-size').value, 10),
+        0);
+      renderEmbeddingMatrix(uniqueTokens, parseInt(document.getElementById('cbow-embedding-size').value, 10), true);
+      renderEmbeddingMatrix(uniqueTokens, parseInt(document.getElementById('cbow-embedding-size').value, 10), false);
+      tokenFreqEl.textContent = '-';
+      cbowNextStepBtn.disabled = true;
+      resetBtn.disabled = true;
+      explainBtn.disabled = true;
+      updateBtn.disabled = false;
+
+      // Reset error displays
+      currentTokenErrorEl.textContent = '0.0000';
+      totalErrorEl.textContent = '0.0000';
+    } catch (err) {
+      alert('Erreur lors du chargement du fichier JSON : ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+// Text .txt file loader
+fileInputText.addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > MAX_FILE_SIZE) {
+    alert('Le fichier est trop volumineux. Taille maximale autorisée : 1 Mo.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const text = evt.target.result;
+    if (!text.trim()) {
+      alert('Le fichier texte est vide.');
+      return;
+    }
+    textInput.value = text;
+    currentTokens = tokenizeText(text);
+    if (currentTokens.length === 0) {
+      alert('Aucun token trouvé dans le fichier texte chargé.');
+    }
+    inputEmbeddings = {};
+    outputEmbeddings = {};
+    currentStep = 0;
+    updateInfoPanel(currentTokens, 
+      parseInt(document.getElementById('cbow-embedding-size').value, 10),
+      parseInt(document.getElementById('cbow-window-size').value, 10),
+      0);
+    renderTokensWithContext(currentTokens, -1, 0);
+    renderEmbeddingMatrix(uniqueTokens, parseInt(document.getElementById('cbow-embedding-size').value, 10), true);
+    renderEmbeddingMatrix(uniqueTokens, parseInt(document.getElementById('cbow-embedding-size').value, 10), false);
+    tokenFreqEl.textContent = '-';
+    cbowNextStepBtn.disabled = true;
+    resetBtn.disabled = true;
+    explainBtn.disabled = true;
+    updateBtn.disabled = false;
+
+    // Reset error displays
+    currentTokenErrorEl.textContent = '0.0000';
+    totalErrorEl.textContent = '0.0000';
+  };
+  reader.readAsText(file);
+});
+
+// Save embeddings as JSON file
+saveEmbeddingsBtn.addEventListener('click', function() {
+  if (!currentTokens.length) {
+    alert('Aucun token disponible pour sauvegarder les embeddings.');
+    return;
+  }
+  const embeddingSize = parseInt(document.getElementById('cbow-embedding-size').value, 10);
+  const embeddingsArray = uniqueTokens.map(token => ({
+    token: token,
+    input_embedding: inputEmbeddings[token] || Array(embeddingSize).fill(0),
+    output_embedding: outputEmbeddings[token] || Array(embeddingSize).fill(0)
+  }));
+  const jsonStr = JSON.stringify(embeddingsArray, null, 2);
+  const blob = new Blob([jsonStr], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cbow_embeddings.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 0);
+});
+
+// Save context for Attention demo
+document.getElementById('cbow-save-context-btn').addEventListener('click', function() {
+  if (!currentTokens.length) {
+    alert('Aucun token disponible pour sauvegarder le contexte.');
+    return;
+  }
+  const embeddingSize = parseInt(document.getElementById('cbow-embedding-size').value, 10);
+  
+  // Format compatible with multiheadattentionDemo.html
+  const contextData = {
+    tokens: currentTokens,
+    embeddings: currentTokens.map(token => getEmbedding(token, embeddingSize, true)) // Using input embeddings as base
+  };
+  
+  const jsonStr = JSON.stringify(contextData, null, 2);
+  const blob = new Blob([jsonStr], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'context_from_cbow.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 0);
+});
+
+let holdTimeout = null;
+let isRunning = false;
+let continuousInterval = null;
+
+function startContinuousStepping() {
+  if (isRunning) return;
+  isRunning = true;
+  cbowNextStepBtn.textContent = 'Stop';
+  continuousInterval = setInterval(() => {
+    if (cbowNextStepBtn.disabled) {
+      stopContinuousStepping();
+      return;
+    }
+    nextStep();
+  }, 200);
+}
+
+function stopContinuousStepping() {
+  if (!isRunning) return;
+  isRunning = false;
+  cbowNextStepBtn.textContent = 'Next Step';
+  if (continuousInterval) {
+    clearInterval(continuousInterval);
+    continuousInterval = null;
+  }
+  if (holdTimeout) {
+    clearTimeout(holdTimeout);
+    holdTimeout = null;
+  }
+}
+
+// On mousedown or touchstart, start a 1-second timer to start continuous stepping
+cbowNextStepBtn.addEventListener('mousedown', () => {
+  if (isRunning) return; // Already running, ignore
+  holdTimeout = setTimeout(() => {
+    startContinuousStepping();
+    holdTimeout = null;
+  }, 1000);
+});
+
+cbowNextStepBtn.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (isRunning) return;
+  holdTimeout = setTimeout(() => {
+    startContinuousStepping();
+    holdTimeout = null;
+  }, 1000);
+});
+
+// On mouseup, mouseleave, or touchend, clear the timer if continuous stepping hasn't started
+cbowNextStepBtn.addEventListener('mouseup', () => {
+  if (holdTimeout) {
+    clearTimeout(holdTimeout);
+    holdTimeout = null;
+  }
+});
+
+cbowNextStepBtn.addEventListener('mouseleave', () => {
+  if (holdTimeout) {
+    clearTimeout(holdTimeout);
+    holdTimeout = null;
+  }
+});
+
+cbowNextStepBtn.addEventListener('touchend', () => {
+  if (holdTimeout) {
+    clearTimeout(holdTimeout);
+    holdTimeout = null;
+  }
+});
+
+// On click, toggle continuous stepping: stop if running, else do a single step
+cbowNextStepBtn.addEventListener('click', () => {
+  if (isRunning) {
+    stopContinuousStepping();
+  } else {
+    nextStep();
+  }
+});
+
+// Add event listener for Describe Step button
+explainBtn.addEventListener('click', () => describeCurrentStep());
+</script>
+<footer style="background-color: #6a1b9a; color: #fff; text-align: center; padding: 1rem 0; font-size: 0.95rem; margin-top: auto;">
+  <span>
+    &copy; 2024 <a href="https://webtvmedia.net" style="color: #ffeb3b; text-decoration: underline;">webtvmedia.net</a>. All rights reserved.
+  </span>
+</footer>
+</body>
+</html>

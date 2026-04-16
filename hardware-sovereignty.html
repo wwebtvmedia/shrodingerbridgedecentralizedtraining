@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hardware Sovereignty - Swarm Schrödinger Bridge</title>
+    <style>
+      :root {
+        --primary: #4facfe;
+        --secondary: #00f2fe;
+        --bg-dark: #0f0c29;
+        --bg-mid: #302b63;
+        --bg-light: #24243e;
+        --text-main: #e0e0e0;
+        --text-dim: #aaa;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+          sans-serif;
+        background: linear-gradient(
+          135deg,
+          var(--bg-dark) 0%,
+          var(--bg-mid) 50%,
+          var(--bg-light) 100%
+        );
+        min-height: 100vh;
+        color: var(--text-main);
+        line-height: 1.7;
+        padding: 40px 20px;
+      }
+
+      .container {
+        max-width: 850px;
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 4rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      }
+
+      header {
+        margin-bottom: 3rem;
+        text-align: center;
+      }
+
+      .nav-back {
+        display: inline-block;
+        margin-bottom: 2rem;
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+
+      .nav-back:hover {
+        transform: translateX(-5px);
+        color: var(--secondary);
+      }
+
+      h1 {
+        font-size: 3rem;
+        line-height: 1.2;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(
+          90deg,
+          var(--primary) 0%,
+          var(--secondary) 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      h2 {
+        color: var(--primary);
+        font-size: 1.8rem;
+        margin: 2.5rem 0 1.2rem;
+        border-bottom: 1px solid rgba(79, 172, 254, 0.2);
+        padding-bottom: 0.5rem;
+      }
+
+      h3 {
+        color: var(--secondary);
+        font-size: 1.4rem;
+        margin: 1.5rem 0 1rem;
+      }
+
+      p {
+        margin-bottom: 1.5rem;
+        font-size: 1.1rem;
+      }
+
+      strong {
+        color: var(--secondary);
+      }
+
+      ul {
+        margin: 0 0 1.5rem 1.5rem;
+      }
+
+      li {
+        margin-bottom: 0.8rem;
+        font-size: 1.05rem;
+      }
+
+      li::marker {
+        color: var(--primary);
+      }
+
+      .footer {
+        margin-top: 4rem;
+        padding-top: 2rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        text-align: center;
+        color: var(--text-dim);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 2rem;
+        }
+        h1 {
+          font-size: 2.2rem;
+        }
+        h2 {
+          font-size: 1.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <a href="index.html" class="nav-back">← Back to Portal</a>
+        <h1>Hardware Sovereignty: Reclaiming the Means of Inference</h1>
+      </header>
+
+      <div class="content">
+        <p>
+          For the last decade, we have lived under the shadow of "The Cloud"—a polite euphemism for someone else's computer. In the realm of AI, this has led to a radical centralization of power. <strong>Hardware Sovereignty</strong> is the movement to bring that power back to the user, the edge, and the local node.
+        </p>
+
+        <h2>1. The Fallacy of the Monolith</h2>
+        <p>
+          The prevailing wisdom suggests that "frontier models" require massive H100 clusters. While this is true for initial pre-training, it ignores the vast, untapped potential of the billions of GPUs already in existence. Your laptop, your workstation, and even your <strong>Raspberry Pi</strong> are not just consumption devices—they are latent compute cells waiting to be activated.
+        </p>
+
+        <h2>2. WebGL: The Great Equalizer</h2>
+        <p>
+          The browser is the most ubiquitous execution environment in history. By leveraging <strong>WebGL and WebGPU</strong>, we bypass the need for complex driver installations or specialized environments. When you open a training tab, you are directly accessing your hardware's silicon to perform tensor operations. This "zero-install" entry point is critical for building a truly global and inclusive swarm.
+        </p>
+
+        <h2>3. From Edge to Collective</h2>
+        <p>
+          A single Raspberry Pi cannot train a Large Language Model. However, a <strong>Swarm</strong> of ten thousand Raspberry Pis, synchronized via the Schrödinger Bridge, creates a computational organism of immense power.
+        </p>
+        <ul>
+          <li>
+            <strong>Privacy by Design:</strong> Your data never leaves your hardware. Only the mathematical abstractions (gradients) are shared with the swarm.
+          </li>
+          <li>
+            <strong>Resilience:</strong> There is no "kill switch." If a central server goes down, the swarm continues to breathe across its distributed nodes.
+          </li>
+          <li>
+            <strong>Energy Efficiency:</strong> By utilizing idle consumer hardware, we reduce the need for specialized, energy-intensive data centers.
+          </li>
+        </ul>
+
+        <h2>4. The Post-Cloud Vision</h2>
+        <p>
+          Hardware sovereignty is not just about compute; it is about <strong>agency</strong>. When you own the hardware that runs the AI, you own the weights, the logic, and the future. We are moving toward a world where "Agentic AI" lives locally, serving the interests of its owner rather than the interests of a platform.
+        </p>
+
+        <p>
+          The <strong>Swarm Schrödinger Bridge</strong> is the protocol for this new era. It is the bridge between isolated hardware and collective intelligence.
+        </p>
+      </div>
+
+      <div class="footer">
+        <p>Published: April 2026 | Swarm Schrödinger Bridge Knowledge Base</p>
+      </div>
+    </div>
+  </body>
+</html>

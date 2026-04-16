@@ -1,0 +1,163 @@
+Hier, je lisais un article intitulé L’Art d’expliquer les choses à un ordinateur (La Recherche, n°58, entretien avec Donald Knuth). 
+Dans cet entretien, Donald Knuth commence par des rappels historiques sur l’évolution des langages de programmation : du langage machine à l’assembleur, 
+en passant par des paradigmes comme le vibe coding.
+Source : The Art of Computer Programming
+Knuth lance une réflexion : « Sans friction, pas de compréhension. » Cette idée met en lumière l'effort pour comprendre et faire qui s'oppose a la generation 
+automatique des modele de langage.
+
+------->Passer à la présentation
+La friction etait dans l'art d'enseigner a la machine , étape par étape, comment exécuter des tâches spécifiques, 
+en traduisant nos intentions humaines en instructions claires et structurées compréhensibles par un processeur.
+
+
+Ce processus a permis des avancées spectaculaires, notamment dans la résolution de calculs complexes, tels que : Équations différentielles, Simulations quantiques 
+
+Grâce à la puissance des processeurs modernes, capables d’effectuer des milliards d’opérations par seconde, ces calculs sont réalisés avec une 
+rapidité et une précision surpassant de loin les capacités humaines.
+
+Cependant, le langage humain pose un défi bien plus complexe. il est chargé de subtilités : ambiguïtés, connotations culturelles et nuances émotionnelles.
+
+Aujourd’hui, des programmes sophistiqués, comme les modèles de langage de grande taille (Large Language Models, LLM), 
+ont été développés pour comprendre et générer du langage humain. 
+
+Ces systèmes ne se contentent pas d’analyser des mots isolés : ils décodent des phrases entières, captent les idées sous-jacentes et saisissent 
+les nuances contextuelles. 
+
+Entraînés sur des corpus massifs — des milliards de pages web, livres, articles et dialogues —, les LLM apprennent à associer les mots à leur contexte, 
+à répondre à des questions complexes, à rédiger des textes cohérents et à transformer l’interaction homme-machine.
+
+Ces modèles vont au-delà de l’exécution de commandes : ils anticipent, créent et dialoguent, rendant la communication plus naturelle et intuitive. 
+Cette évolution marque un tournant, passant d’une « friction technique » à une collaboration fluide entre l’humain et la machine.
+
+
+Pour en savoir plus, explorons le site bbycroft.net/llm.
+
+--------->Passer à la page bbycroft.net/llm
+
+NanoGPT : une implémentation simplifiée et éclairante
+Sur ce site, nanoGPT, développé par Andrej Karpathy, un pionnier de l’IA, se distingue comme une version simplifiée et accessible des grands modèles de lang
+age. Lors d’un colloque sur l’IA à Polytechnique Sophia il y a six ans, nous avions eu la chance d’écouter Karpathy présenter word2vec.
+
+NanoGPT est conçu pour fonctionner sur des machines modestes, avec des corpus textuels restreints, comme des extraits littéraires, des dialogues ou des data
+sets personnalisés. Son objectif est de capturer les motifs fondamentaux du langage humain en prédisant, mot après mot, la suite d’une séquence textuelle. 
+Cette approche, appelée apprentissage autoregressif, est au cœur des modèles de langage modernes.
+
+Ce qui rend nanoGPT particulièrement précieux, c’est sa transparence. Contrairement aux modèles massifs comme GPT, ses mécanismes internes sont exposés de m
+anière claire, offrant une exploration pédagogique approfondie. Entraîné sur des textes courts, nanoGPT produit des séquences cohérentes.
+
+Sur la gauche de la page, un schéma clair illustre l’architecture d’un modèle de type transformer, la base des LLM modernes. Les couches — embedding, layer 
+normalization, self-attention et feed-forward — sont représentées par des blocs colorés, reliés par des flèches indiquant le flux des données. Chaque étape 
+est soigneusement étiquetée, permettant de suivre le parcours d’un mot (ou token) à travers les transformations du modèle.
+Voici une description des étapes principales :
+
+Embedding : Chaque mot est transformé en un vecteur numérique, représentant son sens et son contexte dans un espace mathématique.
+
+Positional Encoding : Cette couche ajoute des informations sur l’ordre des mots dans la phrase, crucial pour comprendre la grammaire et la structure.
+Layer Normalization : Elle stabilise les calculs en ajustant les valeurs internes pour éviter des écarts qui pourraient perturber l’apprentissage.
+Self-Attention : Le cœur du transformer, cette couche permet au modèle d’analyser tous les mots d’une phrase simultanément, en identifiant les relations imp
+ortantes (par exemple, relier un pronom à son référent).
+Feed-Forward Layer : Cette couche affine les informations extraites, enrichissant la compréhension du contexte.
+Projection linéaire et Softmax : Les représentations finales sont converties en probabilités pour prédire le mot suivant dans la séquence.
+
+Sur la droite, un modèle tridimensionnel illustre la structure complète du réseau, mettant en évidence la profondeur et la complexité du système.
+
+Dans la suite, nous allons décrire plus précisément les premières couches des LLM, qui transforment les mots en vecteurs (embeddings).
+
+-------------> retour a la presentation
+
+La tokenisation : fragmenter pour découvrir les motifs
+Pour qu’un ordinateur comprenne le langage, il ne lit pas les phrases comme un tout, mais les décompose en unités discrètes appelées tokens. Un token peut ê
+tre un mot entier (par exemple, « maison »), un morceau de mot pour les termes rares (par exemple, « neuro » dans « neuroscientifique »), ou même un caractè
+re isolé en dernier recours. Cette tokenisation révèle les motifs répétitifs du langage, facilitant l’apprentissage statistique des structures grammaticales
+ et sémantiques.
+L’algorithme BPE (Byte Pair Encoding) est central dans ce processus. Initialement conçu pour la compression de données, il a été adapté pour les LLM afin de
+ créer un vocabulaire dynamique. Voici comment il fonctionne :
+
+Alphabet de base : BPE commence avec les caractères uniques du corpus (par exemple, lettres et ponctuation).
+Fusion itérative : Il identifie les paires d’unités adjacentes les plus fréquentes et les fusionne en 
+un nouveau token. 
+
+Répétition : Ce processus est répété, enrichissant le vocabulaire avec des tokens plus longs et significatifs, tout en conservant la 
+capacité de représenter des mots rares via des sous-unités.
+
+Ce vocabulaire équilibré permet aux modèles de gérer efficacement des mots courants tout en s’adaptant aux termes nouveaux ou rares.
+Passer à la page BPE Tokenization Visualizer
+
+----------------> passer au site tokenisation
+
+La page BPE Tokenization Visualizer – Colored Tokens with Explanation offre une exploration interactive de ce mécanisme. Vous pouvez entrer un texte ou 
+charger un fichier pour observer le processus en direct. Le texte par défaut montre comment l’alphabet initial évolue : chaque fusion enrichit le vocabulaire, 
+avec des tokens colorés pour une visualisation intuitive. La section Tokenization Info fournit des statistiques détaillées, comme la taille du vocabulaire, l
+es fréquences des tokens et les paires fusionnées.
+
+----------->Retour à la présentation
+
+Le langage humain est riche en ambiguïtés : un mot peut avoir plusieurs sens selon son contexte, et l’ordre des mots modifie radicalement la signification. 
+Par exemple, « Il court » et « Le court est ouvert » utilisent le même mot avec des sens différents. Les machines doivent donc décomposer les termes en unit
+és (racines, préfixes, suffixes) et construire des représentations contextuelles pour en saisir le sens.
+La compréhension va au-delà de la tokenisation : il faut encoder le sens dans le contexte via des embeddings, des vecteurs numériques qui projettent chaque 
+token dans un espace mathématique où la proximité reflète la similarité sémantique.
+
+L’algorithme CBOW (Continuous Bag of Words), une variante du modèle Word2Vec (Mikolov et al., 2013), est emblématique de cette approche. CBOW prédit un toke
+n central à partir des tokens environnants dans une fenêtre contextuelle (généralement 2 à 5 mots de chaque côté). 
+En itérant sur un corpus, CBOW ajuste les vecteurs pour capturer les cooccurrences, plaçant les mots similaires à proximité dans l’espace vectoriel. 
+Ces vecteurs, souvent de dimension 100 à 300, permettent de trouver les analogies.
+
+------------->Passer à la page CBOW Visualizer
+
+
+La page CBOW Visualizer – Colored Tokens with Embeddings rend ce processus interactif. Vous pouvez entrer un texte ou charger un fichier. À partir d’un voca
+bulaire pré-tokenisé, CBOW examine chaque token dans sa fenêtre contextuelle (par défaut : 3 mots). L’algorithme itère pour minimiser l’erreur de prédiction
+, générant des vecteurs d’embedding (taille par défaut : 8, pour simplifier la visualisation). La section CBOW Info affiche :
+
+L’algorithme CBOW prédit un token en calculant la moyenne des vecteurs de ses tokens voisins pour obtenir un vecteur de contexte, qu’il multiplie par une matrice 
+de prédiction ; le résultat est ensuite converti en probabilité grâce au Softmax, et la matrice est ajustée en fonction de l’écart entre la prédiction et le token réel.
+
+- Le nombre de tokens.
+- La taille de la fenêtre contextuelle.
+- La dimension des embeddings.
+- L’erreur moyenne par token et l’erreur totale.
+- Le vecteur de la moyenne des contextes (moyenne des embeddings des tokens voisins).
+- Les 5 meilleures probabilités softmax pour le token prédit.
+
+La fonction softmax transforme les scores bruts de chaque token du vocabulaire en probabilités. Elle applique une exponentielle pour rendre les scores 
+positifs et amplifier les écarts, puis normalise les résultats pour que leur somme égale 1. Par exemple, si « mange » a un score élevé dans le contexte 
+sa probabilité softmax sera proche de 1.
+
+Les coefficients de la matrice sont ajustés par un processus appelé rétropropagation du gradient (backpropagation), qui consiste à mesurer l’erreur entre 
+la prédiction du modèle et la réalité, puis à modifier légèrement les poids dans la direction qui réduit cette erreur.
+
+Des boutons comme Start Learning Simulation, Next Step, Reset, Describe Step (explications textuelles) et Save Embeddings JSON facilitent l’exploration. Cet
+te interface illustre de manière vivante comment les embeddings capturent le sens, transformant des symboles en concepts interconnectés.
+
+
+
+----------->Retour à la présentation
+
+Codage positionnel : l’ordre qui façonne le sens
+Dans les LLM, le codage positionnel est crucial pour intégrer la dimension séquentielle. Sans lui, les transformers traiteraient les tokens comme un « sac d
+e mots », ignorant leur ordre. Par exemple, « Le chien mord l’homme » et « L’homme mord le chien » auraient la même représentation, malgré des 
+significations opposées.
+Le codage positionnel utilise des fonctions périodiques — sinus pour les dimensions paires, cosinus pour les impaires — pour assigner à chaque position pos 
+et dimension i un vecteur unique :
+
+sin(pos / 10000^(2i/d_model)) pour les dimensions paires.
+cos(pos / 10000^(2i/d_model)) pour les dimensions impaires.
+
+Ici, d_model est la dimension des embeddings (par exemple, 512 dans les grands modèles). Ce codage crée des signatures uniques qui varient régulièrement, pe
+rmettant au modèle de capturer les distances relatives entre les positions sans apprentissage spécifique.
+Passer à la page Positional Encoding Visualizer
+La page Positional Encoding Visualizer explore ce principe de manière interactive. Entrez un texte : pour chaque position, le système calcule les vecteurs p
+ositionnels ajoutés aux embeddings des tokens. La section Positional Encoding Info affiche :
+
+Le nombre de tokens.
+La dimension des embeddings (d_model, par défaut : 8).
+La position courante.
+
+Des boutons comme Compute Embeddings, Next Position, Reset et Describe Position (affichant formules et valeurs, par exemple, « avec » à pos = 2 : [0.9093, 0
+.9374, …]) montrent comment l’ordre s’intègre au contexte, améliorant la précision des prédictions.
+Retour à la présentation
+Conclusion : vers une compréhension linguistique profonde
+Le langage humain est un univers complexe où les mots s’entrelacent en un tissu vivant de significations. Grâce aux progrès de l’IA — tokenisation, embeddin
+gs, codage positionnel et transformers —, les machines transcendent les calculs bruts pour explorer les liens sémantiques, décoder les ambiguïtés et honorer
+ le contexte. Cette évolution ouvre des horizons inédits, transformant notre rapport à la technologie en une collaboration fluide et intuitive.

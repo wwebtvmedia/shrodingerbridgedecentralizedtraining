@@ -185,8 +185,8 @@ class PhaseManager {
   }
 
   calculateVAEScore(metrics) {
-    // Higher score if reconstruction is poor
-    const reconstructionScore = Math.max(0, 0.2 - metrics.reconstruction) * 5;
+    // Higher score if reconstruction is poor (loss is high)
+    const reconstructionScore = Math.max(0, metrics.reconstruction - 0.1) * 5;
 
     // Higher score if KL divergence is high
     const klScore = Math.max(0, metrics.kl_divergence - 0.05) * 10;

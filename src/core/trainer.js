@@ -211,9 +211,8 @@ class SwarmTrainer {
     // Load the model
     await this.modelManager.loadModel(modelData);
 
-    // Random epoch jump (0 to bestModel.epoch)
-    const randomEpoch = Math.floor(Math.random() * bestModel.epoch);
-    this.currentEpoch = randomEpoch;
+    // Synchronize to the best model's epoch
+    this.currentEpoch = bestModel.epoch;
 
     // Update metrics
     this.syncCount++;
