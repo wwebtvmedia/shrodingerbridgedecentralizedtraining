@@ -96,8 +96,8 @@ export class ModelManager {
         processedTextBytes,
       );
 
-      // Update local hash after training
-      await this.updateModelHash();
+      // Do NOT update hash every step, it's too expensive (downloads all weights)
+      // Only set a dirty flag if needed, or let periodic tasks handle it
 
       return {
         loss: result.loss,
@@ -114,12 +114,11 @@ export class ModelManager {
   async updateModelHash() {
     try {
       // Get real weights for hash
-      const checkpoint = await tfjsTrainer.saveCheckpoint();
-      // Use small part of VAE params for stable but unique hash
-      const sample =
-        checkpoint.vae_params && checkpoint.vae_params[0]
-          ? checkpoint.vae_params[0].slice(0, 10)
-          : [Math.random()];
+      const sample_weights = await tfjsTrainer.getHashSample();
+      // Use small part of weights for stable but unique hash
+      const sample = Array.isArray(sample_weights) 
+        ? sample_weights.flat().slice(0, 10) 
+        : [Math.random()];
 
       const sum = sample.reduce(
         (a, b) => a + (typeof b === "number" ? b : 0),
@@ -226,6 +225,12 @@ export class ModelManager {
   async exportToONNX() {
     console.log("📤 ONNX export not supported in this version.");
     return null;
+  }
+
+  dispose() {
+    if (tfjsTrainer && tfjsTrainer.dispose) {
+      tfjsTrainer.dispose();
+    }
   }
 }
 

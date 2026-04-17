@@ -201,7 +201,11 @@ class EnhancedSwarmTrainer {
     // Final sync to server before closing
     if (this.tunnel) {
       const stats = this.getMetrics();
-      await this.tunnel.sendFinalSync(stats, this.getNeighbors());
+      try {
+        await this.tunnel.sendFinalSync(stats, this.getNeighbors());
+      } catch (e) {
+        console.warn("⚠️ Final sync failed:", e.message);
+      }
     }
 
     // Intervals are no longer used for training loop, but we still have periodic tasks
@@ -212,8 +216,17 @@ class EnhancedSwarmTrainer {
 
     // Save final state
     await this.saveState();
+  }
 
-    console.log("✅ Training stopped");
+  dispose() {
+    this.isTraining = false;
+    if (this.periodicTasks) {
+      clearInterval(this.periodicTasks);
+      this.periodicTasks = null;
+    }
+    if (this.modelManager && this.modelManager.dispose) {
+      this.modelManager.dispose();
+    }
   }
 
   async trainStep() {
@@ -626,6 +639,7 @@ class EnhancedSwarmTrainer {
   }
 
   startPeriodicTasks() {
+    if (this.periodicTasks) return;
     this.periodicTasks = setInterval(() => {
       this.performPeriodicTasks();
     }, 30000);

@@ -108,6 +108,11 @@ export class TorchJSTrainer {
     return await this.trainer.generateSamples(labels, count, textBytes);
   }
 
+  async getHashSample() {
+    if (!this.isInitialized) await this.initialize();
+    return this.trainer.getHashSample();
+  }
+
   async saveCheckpoint() {
     if (!this.isInitialized) await this.initialize();
     return this.trainer.getCheckpoint();
@@ -125,6 +130,14 @@ export class TorchJSTrainer {
       phase: this.trainer.phase,
       device: this.device,
     };
+  }
+
+  dispose() {
+    if (this.trainer) {
+      this.trainer.dispose();
+      this.trainer = null;
+    }
+    this.isInitialized = false;
   }
 }
 

@@ -120,6 +120,12 @@ class EnhancedSwarmApp {
     this.ui.log("Initializing enhanced swarm trainer");
 
     try {
+      // Dispose old trainer if it exists
+      if (this.trainer) {
+        await this.trainer.stopTraining();
+        if (this.trainer.dispose) this.trainer.dispose();
+      }
+
       // Create enhanced trainer with database and tunnel
       this.trainer = new EnhancedSwarmTrainer({
         useDatabase: true,

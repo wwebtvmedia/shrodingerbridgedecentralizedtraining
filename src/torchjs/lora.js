@@ -63,6 +63,12 @@ export class LoRADense extends tf.layers.Layer {
   computeOutputShape(inputShape) {
     return this.baseLayer.computeOutputShape(inputShape);
   }
+
+  dispose() {
+    if (this.baseLayer) this.baseLayer.dispose();
+    if (this.dropout) this.dropout.dispose();
+    super.dispose();
+  }
 }
 
 /**
@@ -126,6 +132,12 @@ export class LoRAConv2D extends tf.layers.Layer {
 
   computeOutputShape(inputShape) {
     return this.baseLayer.computeOutputShape(inputShape);
+  }
+
+  dispose() {
+    if (this.baseLayer) this.baseLayer.dispose();
+    if (this.dropout) this.dropout.dispose();
+    super.dispose();
   }
 }
 

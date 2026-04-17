@@ -24,23 +24,22 @@ function huberLoss(yTrue, yPred, delta = 1.0) {
  */
 function ssimLoss(yTrue, yPred) {
   return tf.tidy(() => {
-    const muX = tf.mean(yTrue, [1, 2]);
-    const muY = tf.mean(yPred, [1, 2]);
-    const sigmaX = tf.mean(tf.square(tf.sub(yTrue, muX)), [1, 2]);
-    const sigmaY = tf.mean(tf.square(tf.sub(yPred, muY)), [1, 2]);
-    const sigmaXY = tf.mean(tf.mul(tf.sub(yTrue, muX), tf.sub(yPred, muY)), [1, 2]);
-    
+    const muX = tf.mean(yTrue, [1, 2]).reshape([-1, 1, 1, 3]);
+    const muY = tf.mean(yPred, [1, 2]).reshape([-1, 1, 1, 3]);
+    const sigmaX = tf.mean(tf.square(tf.sub(yTrue, muX)), [1, 2]).reshape([-1, 1, 1, 3]);
+    const sigmaY = tf.mean(tf.square(tf.sub(yPred, muY)), [1, 2]).reshape([-1, 1, 1, 3]);
+    const sigmaXY = tf.mean(tf.mul(tf.sub(yTrue, muX), tf.sub(yPred, muY)), [1, 2]).reshape([-1, 1, 1, 3]);
+
     const c1 = 0.01 ** 2;
     const c2 = 0.03 ** 2;
-    
+
     const numerator = tf.mul(tf.add(tf.mul(2, tf.mul(muX, muY)), c1), tf.add(tf.mul(2, sigmaXY), c2));
     const denominator = tf.mul(tf.add(tf.add(tf.square(muX), tf.square(muY)), c1), tf.add(tf.add(sigmaX, sigmaY), c2));
-    
+
     const ssim = tf.div(numerator, denominator);
     return tf.sub(1, tf.mean(ssim));
   });
 }
-
 // OU Reference Process (Aligned with Python)
 class OUReference {
   constructor(theta = 1.0, sigma = Math.sqrt(2)) {
@@ -134,6 +133,9 @@ export class EnhancedLabelTrainer {
 
   async updateVaeRef() {
     console.log("⚓ Creating VAE anchor for consistency...");
+    if (this.vae_ref) {
+      this.vae_ref.dispose();
+    }
     this.vae_ref = new LabelConditionedVAE();
     
     const checkpoint = await this.saveCheckpoint();
@@ -141,10 +143,20 @@ export class EnhancedLabelTrainer {
       const refVars = Array.from(this.collectVariables(this.vae_ref));
       refVars.forEach((v, i) => {
         if (checkpoint.vae_params[i]) {
-          v.assign(tf.tensor(checkpoint.vae_params[i], v.shape));
+          tf.tidy(() => {
+            v.assign(tf.tensor(checkpoint.vae_params[i], v.shape));
+          });
         }
       });
     }
+  }
+
+  dispose() {
+    if (this.vae) this.vae.dispose();
+    if (this.drift) this.drift.dispose();
+    if (this.vae_ref) this.vae_ref.dispose();
+    if (this.opt_vae) this.opt_vae.dispose();
+    if (this.opt_drift) this.opt_drift.dispose();
   }
 
   // Robustly collect all variables from a model or object
@@ -349,12 +361,35 @@ export class EnhancedLabelTrainer {
     return this.saveCheckpoint();
   }
 
+  async getHashSample() {
+    // Only download a few small weights for hashing
+    const vaeVars = this.getVaeVariables();
+    if (vaeVars.length > 0) {
+      return await vaeVars[0].array();
+    }
+    return [Math.random()];
+  }
+
   async saveCheckpoint() {
     const vaeVars = this.getVaeVariables();
     const driftVars = this.getDriftVariables();
     
-    const vae_params = await Promise.all(vaeVars.map(v => v.array()));
-    const drift_params = await Promise.all(driftVars.map(v => v.array()));
+    // Read weights in batches to avoid memory spikes and shader compilation issues
+    const batchSize = 10;
+    
+    const vae_params = [];
+    for (let i = 0; i < vaeVars.length; i += batchSize) {
+      const batch = vaeVars.slice(i, i + batchSize);
+      const results = await Promise.all(batch.map(v => v.array()));
+      vae_params.push(...results);
+    }
+    
+    const drift_params = [];
+    for (let i = 0; i < driftVars.length; i += batchSize) {
+      const batch = driftVars.slice(i, i + batchSize);
+      const results = await Promise.all(batch.map(v => v.array()));
+      drift_params.push(...results);
+    }
     
     return {
       epoch: this.epoch,
@@ -374,7 +409,9 @@ export class EnhancedLabelTrainer {
       const vaeVars = this.getVaeVariables();
       vaeVars.forEach((v, i) => {
         if (checkpoint.vae_params[i]) {
-          v.assign(tf.tensor(checkpoint.vae_params[i], v.shape));
+          tf.tidy(() => {
+            v.assign(tf.tensor(checkpoint.vae_params[i], v.shape));
+          });
         }
       });
     }
@@ -383,7 +420,9 @@ export class EnhancedLabelTrainer {
       const driftVars = this.getDriftVariables();
       driftVars.forEach((v, i) => {
         if (checkpoint.drift_params[i]) {
-          v.assign(tf.tensor(checkpoint.drift_params[i], v.shape));
+          tf.tidy(() => {
+            v.assign(tf.tensor(checkpoint.drift_params[i], v.shape));
+          });
         }
       });
     }

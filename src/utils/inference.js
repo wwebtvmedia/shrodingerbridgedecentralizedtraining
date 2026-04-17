@@ -82,58 +82,69 @@ export class InferenceEngine {
   }
 
   async generateSampleWithSB(config, index) {
-    return tf.tidy(() => {
-      const steps = config.steps || 50;
-      const label =
-        config.label !== undefined
-          ? config.label
-          : Math.floor(Math.random() * 10);
+    const steps = config.steps || 50;
+    const label =
+      config.label !== undefined
+        ? config.label
+        : Math.floor(Math.random() * 10);
 
-      // 1. Initial Latent (Noise) - [1, 12, 12, 8]
-      const latentShape = [
-        1,
-        CONFIG.LATENT_H,
-        CONFIG.LATENT_W,
-        CONFIG.LATENT_CHANNELS,
-      ];
-      let zt = tf.randomNormal(latentShape);
+    const latentShape = [
+      1,
+      CONFIG.LATENT_H,
+      CONFIG.LATENT_W,
+      CONFIG.LATENT_CHANNELS,
+    ];
 
-      const labelsTensor = tf.tensor([label], [1], "int32");
+    // 1. Initial Latent (Noise) - [1, 12, 12, 8]
+    let zt = tf.randomNormal(latentShape);
+    const labelsTensor = tf.tensor([label], [1], "int32");
 
-      // 2. Iterative Drift updates (Forward Bridge Generation: Noise -> Data)
-      const dt = 1.0 / steps;
-      for (let step = 0; step < steps; step++) {
-        const t = step / steps;
+    // 2. Iterative Drift updates (Forward Bridge Generation: Noise -> Data)
+    const dt = 1.0 / steps;
+    for (let step = 0; step < steps; step++) {
+      const t = step / steps;
+      
+      const nextZt = tf.tidy(() => {
         const tTensor = tf.tensor([[t]]);
-
         // Compute drift
         const predDrift = this.drift.forward(zt, tTensor, labelsTensor);
-
         // Update zt (Euler step)
-        zt = tf.add(zt, tf.mul(predDrift, dt));
+        let res = tf.add(zt, tf.mul(predDrift, dt));
 
         // Add temperature-scaled noise
         if (config.temperature > 0 && step < steps - 1) {
           const noise = tf
             .randomNormal(latentShape)
             .mul(config.temperature * Math.sqrt(dt));
-          zt = tf.add(zt, noise);
+          res = tf.add(res, noise);
         }
-      }
+        return res;
+      });
+      
+      zt.dispose();
+      zt = nextZt;
+    }
 
-      // 3. Final Decode
-      const decoded = this.vae.decode(zt, labelsTensor);
+    // 3. Final Decode
+    const decoded = tf.tidy(() => this.vae.decode(zt, labelsTensor));
 
-      // 4. Convert to Image (Canvas)
-      const pixels = decoded.squeeze().arraySync();
-      const image = this.arrayToDataURL(pixels);
+    // 4. Convert to Image (Canvas)
+    const pixels = await decoded.squeeze().array();
+    const image = this.arrayToDataURL(pixels);
 
-      return {
-        id: `sample_${Date.now()}_${index}`,
-        image,
-        metadata: { label, steps, temperature: config.temperature },
-      };
-    });
+    // Cleanup
+    tf.dispose([zt, labelsTensor, decoded]);
+
+    return {
+      id: `sample_${Date.now()}_${index}`,
+      image,
+      metadata: { label, steps, temperature: config.temperature },
+    };
+  }
+
+  dispose() {
+    if (this.vae) this.vae.dispose();
+    if (this.drift) this.drift.dispose();
   }
 
   arrayToDataURL(pixels) {

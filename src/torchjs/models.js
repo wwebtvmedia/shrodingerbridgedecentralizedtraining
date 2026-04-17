@@ -70,6 +70,10 @@ class GroupNormalization extends tf.layers.Layer {
   getClassName() {
     return "GroupNormalization";
   }
+
+  dispose() {
+    super.dispose();
+  }
 }
 
 /**
@@ -107,6 +111,10 @@ class NoiseInjection extends tf.layers.Layer {
 
   getClassName() {
     return "NoiseInjection";
+  }
+
+  dispose() {
+    super.dispose();
   }
 }
 
@@ -186,6 +194,10 @@ class PercentileRescale extends tf.layers.Layer {
 
   getClassName() {
     return "PercentileRescale";
+  }
+
+  dispose() {
+    super.dispose();
   }
 }
 
@@ -283,6 +295,14 @@ class ResidualBlock {
       return tf.mul(tf.add(out, shortcut), tf.sigmoid(tf.add(out, shortcut)));
     });
   }
+
+  dispose() {
+    if (this.conv1) this.conv1.dispose();
+    if (this.gn1) this.gn1.dispose();
+    if (this.conv2) this.conv2.dispose();
+    if (this.gn2) this.gn2.dispose();
+    if (this.shortcut) this.shortcut.dispose();
+  }
 }
 
 /**
@@ -352,6 +372,15 @@ class SpatialSplitAttention {
       return tf.add(x_res, out_h);
     });
   }
+
+  dispose() {
+    if (this.ln_h) this.ln_h.dispose();
+    if (this.ln_w) this.ln_w.dispose();
+    if (this.qkv_h) this.qkv_h.dispose();
+    if (this.qkv_w) this.qkv_w.dispose();
+    if (this.proj_h) this.proj_h.dispose();
+    if (this.proj_w) this.proj_w.dispose();
+  }
 }
 
 /**
@@ -408,6 +437,14 @@ class NeuralTokenizer {
       x = this.projection.apply(x);
       return this.norm.apply(x);
     });
+  }
+
+  dispose() {
+    if (this.embedding) this.embedding.dispose();
+    if (this.conv1) this.conv1.dispose();
+    if (this.conv2) this.conv2.dispose();
+    if (this.projection) this.projection.dispose();
+    if (this.norm) this.norm.dispose();
   }
 }
 
@@ -512,6 +549,18 @@ class LabelConditionedBlock {
       return out;
     });
   }
+
+  dispose() {
+    if (this.gn1) this.gn1.dispose();
+    if (this.conv1) this.conv1.dispose();
+    if (this.noise1) this.noise1.dispose();
+    if (this.labelProj) this.labelProj.dispose();
+    if (this.gn2) this.gn2.dispose();
+    if (this.conv2) this.conv2.dispose();
+    if (this.noise2) this.noise2.dispose();
+    if (this.rescale) this.rescale.dispose();
+    if (this.skip) this.skip.dispose();
+  }
 }
 
 /**
@@ -548,6 +597,11 @@ class SubpixelUpsample {
       return tf.mul(h, tf.sigmoid(h));
     });
   }
+
+  dispose() {
+    if (this.conv) this.conv.dispose();
+    if (this.gn) this.gn.dispose();
+  }
 }
 
 /**
@@ -575,6 +629,11 @@ class SharedEmbeddingHead {
       let h = this.proj.apply(x);
       return this.norm.apply(h);
     });
+  }
+
+  dispose() {
+    if (this.proj) this.proj.dispose();
+    if (this.norm) this.norm.dispose();
   }
 }
 
@@ -794,10 +853,30 @@ export class LabelConditionedVAE {
   }
 
   forward(x, labels, textBytes = null) {
-    const [mu, logvar] = this.encode(x, labels, textBytes);
-    const z = this.reparameterize(mu, logvar);
-    const recon = this.decode(z, labels, textBytes);
-    return [recon, mu, logvar];
+    return tf.tidy(() => {
+      const [mu, logvar] = this.encode(x, labels, textBytes);
+      const z = this.reparameterize(mu, logvar);
+      const recon = this.decode(z, labels, textBytes);
+      return [recon, mu, logvar];
+    });
+  }
+
+  dispose() {
+    if (this.textEncoder) this.textEncoder.dispose();
+    if (this.labelEmb) this.labelEmb.dispose();
+    if (this.encIn) this.encIn.dispose();
+    if (this.encBlocks) {
+      this.encBlocks.forEach((b) => b.dispose());
+    }
+    if (this.zMean) this.zMean.dispose();
+    if (this.zLogvar) this.zLogvar.dispose();
+    if (this.imageProj) this.imageProj.dispose();
+    if (this.latentNorm) this.latentNorm.dispose();
+    if (this.decIn) this.decIn.dispose();
+    if (this.decBlocks) {
+      this.decBlocks.forEach((b) => b.dispose());
+    }
+    if (this.decOut) this.decOut.dispose();
   }
 }
 
@@ -819,6 +898,10 @@ class FourierTimeEmbed {
       const cos = tf.cos(args);
       return tf.concat([sin, cos], -1);
     });
+  }
+
+  dispose() {
+    if (this.freqs) this.freqs.dispose();
   }
 }
 
@@ -983,5 +1066,25 @@ export class LabelConditionedDrift {
       const tWeight_bc = tf.reshape(tWeight, [tWeight.shape[0], 1, 1, 1]);
       return tf.mul(out, tf.add(1, tWeight_bc));
     });
+  }
+
+  dispose() {
+    if (this.timeEmbed) this.timeEmbed.dispose();
+    if (this.timeMlp) this.timeMlp.dispose();
+    if (this.timeWeightNet) this.timeWeightNet.dispose();
+    if (this.textEncoder) this.textEncoder.dispose();
+    if (this.labelEmb) this.labelEmb.dispose();
+    if (this.condProj) this.condProj.dispose();
+    if (this.head) this.head.dispose();
+    if (this.down1) this.down1.dispose();
+    if (this.down2Conv) this.down2Conv.dispose();
+    if (this.down2Block) this.down2Block.dispose();
+    if (this.mid1) this.mid1.dispose();
+    if (this.midAttn) this.midAttn.dispose();
+    if (this.mid2) this.mid2.dispose();
+    if (this.up2Conv) this.up2Conv.dispose();
+    if (this.up2Block) this.up2Block.dispose();
+    if (this.up1) this.up1.dispose();
+    if (this.tail) this.tail.dispose();
   }
 }
