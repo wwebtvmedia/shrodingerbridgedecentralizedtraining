@@ -140,12 +140,18 @@ export class EnhancedLabelTrainer {
     
     const checkpoint = await this.saveCheckpoint();
     if (checkpoint.vae_params) {
-      const refVars = Array.from(this.collectVariables(this.vae_ref));
+      const refVars = this.collectVariables(this.vae_ref);
       refVars.forEach((v, i) => {
         if (checkpoint.vae_params[i]) {
-          tf.tidy(() => {
-            v.assign(tf.tensor(checkpoint.vae_params[i], v.shape));
-          });
+          try {
+            tf.tidy(() => {
+              const data = checkpoint.vae_params[i];
+              const tensor = tf.tensor(data, v.shape);
+              v.assign(tensor);
+            });
+          } catch (e) {
+            console.warn(`⚠️ Failed to sync reference variable ${i}: ${e.message}`);
+          }
         }
       });
     }
@@ -160,13 +166,17 @@ export class EnhancedLabelTrainer {
   }
 
   // Robustly collect all variables from a model or object
-  collectVariables(obj, vars = new Set(), visited = new Set()) {
+  collectVariables(obj, vars = [], visited = new Set()) {
     if (!obj || typeof obj !== "object" || visited.has(obj)) return vars;
     visited.add(obj);
 
     // If it's a tf.layers.Layer or tf.Sequential
     if (obj.trainableWeights) {
-      obj.trainableWeights.forEach((w) => vars.add(w.val));
+      obj.trainableWeights.forEach((w) => {
+        if (!vars.includes(w.val)) {
+          vars.push(w.val);
+        }
+      });
     }
 
     // If it has layers (like tf.Sequential)
@@ -174,9 +184,10 @@ export class EnhancedLabelTrainer {
       obj.layers.forEach((l) => this.collectVariables(l, vars, visited));
     }
 
-    // Recursively check all properties
-    for (const key in obj) {
-      if (key === "vae_ref") continue; // Skip reference anchor
+    // Recursively check all properties in sorted order
+    const keys = Object.keys(obj).sort();
+    for (const key of keys) {
+      if (key === "vae_ref" || key === "layers" || key === "trainableWeights") continue;
       const prop = obj[key];
       if (prop && typeof prop === "object" && prop !== obj) {
         if (Array.isArray(prop)) {
@@ -191,11 +202,11 @@ export class EnhancedLabelTrainer {
   }
 
   getVaeVariables() {
-    return Array.from(this.collectVariables(this.vae));
+    return this.collectVariables(this.vae);
   }
 
   getDriftVariables() {
-    return Array.from(this.collectVariables(this.drift));
+    return this.collectVariables(this.drift);
   }
 
   async trainStep(batch, labels, textBytes = null) {
@@ -409,9 +420,15 @@ export class EnhancedLabelTrainer {
       const vaeVars = this.getVaeVariables();
       vaeVars.forEach((v, i) => {
         if (checkpoint.vae_params[i]) {
-          tf.tidy(() => {
-            v.assign(tf.tensor(checkpoint.vae_params[i], v.shape));
-          });
+          try {
+            tf.tidy(() => {
+              const data = checkpoint.vae_params[i];
+              const tensor = tf.tensor(data, v.shape);
+              v.assign(tensor);
+            });
+          } catch (e) {
+            console.warn(`⚠️ Failed to load VAE variable ${i} (${v.name}): ${e.message}`);
+          }
         }
       });
     }
@@ -420,9 +437,15 @@ export class EnhancedLabelTrainer {
       const driftVars = this.getDriftVariables();
       driftVars.forEach((v, i) => {
         if (checkpoint.drift_params[i]) {
-          tf.tidy(() => {
-            v.assign(tf.tensor(checkpoint.drift_params[i], v.shape));
-          });
+          try {
+            tf.tidy(() => {
+              const data = checkpoint.drift_params[i];
+              const tensor = tf.tensor(data, v.shape);
+              v.assign(tensor);
+            });
+          } catch (e) {
+            console.warn(`⚠️ Failed to load Drift variable ${i} (${v.name}): ${e.message}`);
+          }
         }
       });
     }
