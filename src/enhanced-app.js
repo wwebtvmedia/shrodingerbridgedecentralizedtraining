@@ -2,6 +2,7 @@ import { EnhancedSwarmTrainer } from "./core/enhanced-trainer.js";
 import { UIManager } from "./ui/manager.js";
 import { DataImporter } from "./utils/data-importer.js";
 import { InferenceEngine } from "./utils/inference.js";
+import { CONFIG } from "./config.js";
 
 class EnhancedSwarmApp {
   constructor() {

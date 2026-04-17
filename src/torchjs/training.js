@@ -144,8 +144,15 @@ export class EnhancedLabelTrainer {
       refVars.forEach((v, i) => {
         if (checkpoint.vae_params[i]) {
           try {
+            const data = checkpoint.vae_params[i];
+            const expectedSize = v.shape.reduce((a, b) => a * b, 1);
+            const actualSize = Array.isArray(data) ? data.flat(Infinity).length : 0;
+
+            if (expectedSize !== actualSize) {
+              return; // Skip mismatch
+            }
+
             tf.tidy(() => {
-              const data = checkpoint.vae_params[i];
               const tensor = tf.tensor(data, v.shape);
               v.assign(tensor);
             });
@@ -421,8 +428,16 @@ export class EnhancedLabelTrainer {
       vaeVars.forEach((v, i) => {
         if (checkpoint.vae_params[i]) {
           try {
+            const data = checkpoint.vae_params[i];
+            const expectedSize = v.shape.reduce((a, b) => a * b, 1);
+            const actualSize = Array.isArray(data) ? data.flat(Infinity).length : 0;
+            
+            if (expectedSize !== actualSize) {
+               console.warn(`⚠️ Shape mismatch for VAE variable ${i} (${v.name}): Expected ${v.shape} (${expectedSize} values) but got ${actualSize}`);
+               return;
+            }
+
             tf.tidy(() => {
-              const data = checkpoint.vae_params[i];
               const tensor = tf.tensor(data, v.shape);
               v.assign(tensor);
             });
@@ -438,8 +453,16 @@ export class EnhancedLabelTrainer {
       driftVars.forEach((v, i) => {
         if (checkpoint.drift_params[i]) {
           try {
+            const data = checkpoint.drift_params[i];
+            const expectedSize = v.shape.reduce((a, b) => a * b, 1);
+            const actualSize = Array.isArray(data) ? data.flat(Infinity).length : 0;
+
+            if (expectedSize !== actualSize) {
+               console.warn(`⚠️ Shape mismatch for Drift variable ${i} (${v.name}): Expected ${v.shape} (${expectedSize} values) but got ${actualSize}`);
+               return;
+            }
+
             tf.tidy(() => {
-              const data = checkpoint.drift_params[i];
               const tensor = tf.tensor(data, v.shape);
               v.assign(tensor);
             });
