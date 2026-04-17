@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { ModelManager } from "./models.js";
+import { CONFIG } from "../config.js";
 
 class SwarmTrainer {
   constructor(network, phaseManager) {
