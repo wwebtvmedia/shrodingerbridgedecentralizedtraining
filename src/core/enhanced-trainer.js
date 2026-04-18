@@ -33,6 +33,7 @@ class EnhancedSwarmTrainer {
     this.currentPhase = "auto";
     this.isTraining = false;
     this.trainingLoop = null;
+    this.isPerformingTasks = false;
 
     // Neighbor management
     this.neighbors = new Map(); // Active neighbors
@@ -642,25 +643,31 @@ class EnhancedSwarmTrainer {
     if (this.periodicTasks) return;
     this.periodicTasks = setInterval(() => {
       this.performPeriodicTasks();
-    }, 30000);
+    }, 60000);
   }
 
   async performPeriodicTasks() {
-    if (this.database) {
-      await this.database.cleanupOldNeighbors();
-    }
+    if (this.isPerformingTasks) return;
+    this.isPerformingTasks = true;
+    try {
+      if (this.database) {
+        await this.database.cleanupOldNeighbors();
+      }
 
-    if (this.tunnel) {
-      const stats = this.getMetrics();
-      await this.tunnel.sendStatusUpdate(stats, this.getNeighbors());
-    }
+      if (this.tunnel) {
+        const stats = this.getMetrics();
+        await this.tunnel.sendStatusUpdate(stats, this.getNeighbors());
+      }
 
-    await this.broadcastPresence();
-    await this.saveCheckpoint();
+      await this.broadcastPresence();
+      await this.saveCheckpoint();
 
-    if (this.callbacks.onDatabaseUpdate && this.database) {
-      const stats = await this.database.getStatistics();
-      this.callbacks.onDatabaseUpdate(stats);
+      if (this.callbacks.onDatabaseUpdate && this.database) {
+        const stats = await this.database.getStatistics();
+        this.callbacks.onDatabaseUpdate(stats);
+      }
+    } finally {
+      this.isPerformingTasks = false;
     }
   }
 

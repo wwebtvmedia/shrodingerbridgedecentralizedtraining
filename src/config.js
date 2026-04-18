@@ -7,7 +7,7 @@ export const CONFIG = {
   // Dataset configuration
   DATASET_NAME: "STL10",
   NUM_CLASSES: 11, // 10 real classes + 1 NULL class (Index 10) for CFG
-  BATCH_SIZE: 16,
+  BATCH_SIZE: 8,
   LABEL_EMB_DIM: 128,
   USE_CONTEXT: true,
   CONTEXT_DIM: 64,
@@ -94,7 +94,7 @@ export const CONFIG = {
   USE_KPI_TRACKING: true,
   TARGET_SNR: 30.0,
   SNAPSHOT_INTERVAL: 20,
-  CHECKPOINT_INTERVAL: 5,
+  CHECKPOINT_INTERVAL: 10,
   SNAPSHOT_KEEP: 5,
   KPI_WINDOW_SIZE: 100,
   EARLY_STOP_PATIENCE: 15,

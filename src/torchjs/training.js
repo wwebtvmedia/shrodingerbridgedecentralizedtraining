@@ -265,7 +265,8 @@ export class EnhancedLabelTrainer {
 
         this.opt_vae.applyGradients(gradsObj.grads);
         const lossVal = gradsObj.value.dataSync()[0];
-        tf.dispose(gradsObj);
+        tf.dispose(gradsObj.value);
+        tf.dispose(gradsObj.grads);
         return { loss: lossVal, metrics: { phase: 'vae' } };
       } else {
         const driftVars = this.getDriftVariables();
@@ -336,7 +337,8 @@ export class EnhancedLabelTrainer {
 
         this.opt_drift.applyGradients(gradsObj.grads);
         const lossVal = gradsObj.value.dataSync()[0];
-        tf.dispose(gradsObj);
+        tf.dispose(gradsObj.value);
+        tf.dispose(gradsObj.grads);
         
         // Phase 3: Also update VAE if needed
         if (this.phase === 3) {
@@ -348,7 +350,8 @@ export class EnhancedLabelTrainer {
              });
            }, vVars);
            this.opt_vae.applyGradients(vGrads.grads);
-           tf.dispose(vGrads);
+           tf.dispose(vGrads.value);
+           tf.dispose(vGrads.grads);
         }
 
         return { 
