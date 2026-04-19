@@ -14,22 +14,10 @@
       }
     </script>
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
+      * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
-          sans-serif;
-        background: linear-gradient(
-          135deg,
-          #0f0c29 0%,
-          #302b63 50%,
-          #24243e 100%
-        );
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
         min-height: 100vh;
         display: flex;
         justify-content: center;
@@ -37,7 +25,6 @@
         padding: 20px;
         color: #e0e0e0;
       }
-
       .container {
         background: rgba(255, 255, 255, 0.05);
         backdrop-filter: blur(15px);
@@ -49,7 +36,6 @@
         width: 100%;
         text-align: center;
       }
-
       h1 {
         color: #fff;
         font-size: 2.8rem;
@@ -59,22 +45,8 @@
         background-clip: text;
         color: transparent;
       }
-
-      .subtitle {
-        color: #aaa;
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
-        line-height: 1.6;
-      }
-
-      .button-container {
-        display: flex;
-        flex-direction: row;
-        justify-content: center;
-        gap: 1.5rem;
-        margin: 3rem 0;
-      }
-
+      .subtitle { color: #aaa; font-size: 1.2rem; margin-bottom: 2rem; line-height: 1.6; }
+      .button-container { display: flex; flex-direction: row; justify-content: center; gap: 1.5rem; margin: 3rem 0; }
       .btn {
         display: inline-block;
         padding: 18px 36px;
@@ -87,28 +59,10 @@
         cursor: pointer;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
       }
-
-      .btn-primary {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        color: #0f0c29;
-      }
-
-      .btn-primary:hover {
-        transform: translateY(-5px) scale(1.02);
-        box-shadow: 0 12px 30px rgba(79, 172, 254, 0.4);
-      }
-
-      .btn-secondary {
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-      }
-
-      .btn-secondary:hover {
-        transform: translateY(-5px);
-        background: rgba(255, 255, 255, 0.2);
-      }
-
+      .btn-primary { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #0f0c29; }
+      .btn-primary:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 12px 30px rgba(79, 172, 254, 0.4); }
+      .btn-secondary { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); }
+      .btn-secondary:hover { transform: translateY(-5px); background: rgba(255, 255, 255, 0.2); }
       .features {
         text-align: left;
         margin: 2rem 0;
@@ -117,74 +71,18 @@
         border-radius: 15px;
         border: 1px solid rgba(255, 255, 255, 0.05);
       }
-
-      .features h3 {
-        color: #4facfe;
-        margin-bottom: 1.5rem;
-        text-align: center;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        font-size: 0.9rem;
-      }
-
-      .features ul {
-        list-style: none;
-        padding-left: 0;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
-      }
-
-      .features li {
-        padding: 0.5rem 0;
-        color: #ccc;
-        display: flex;
-        align-items: center;
-        font-size: 0.95rem;
-      }
-
-      .features li:before {
-        content: "✦";
-        color: #00f2fe;
-        margin-right: 12px;
-      }
-
-      .info-box {
-        background: rgba(79, 172, 254, 0.1);
-        border-left: 4px solid #4facfe;
-        padding: 1.2rem;
-        border-radius: 8px;
-        margin: 2rem 0;
-        text-align: left;
-      }
-
-      .info-box h4 {
-        color: #4facfe;
-        margin-bottom: 0.5rem;
-      }
-
-      .info-box p {
-        color: #ccc;
-        font-size: 0.9rem;
-        margin-bottom: 0;
-      }
-
-      footer {
-        margin-top: 2rem;
-        color: #666;
-        font-size: 0.85rem;
-      }
-
+      .features h3 { color: #4facfe; margin-bottom: 1.5rem; text-align: center; text-transform: uppercase; letter-spacing: 2px; font-size: 0.9rem; }
+      .features ul { list-style: none; padding-left: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .features li { padding: 0.5rem 0; color: #ccc; display: flex; align-items: center; font-size: 0.95rem; }
+      .features li:before { content: "✦"; color: #00f2fe; margin-right: 12px; }
+      .info-box { background: rgba(79, 172, 254, 0.1); border-left: 4px solid #4facfe; padding: 1.2rem; border-radius: 8px; margin: 2rem 0; text-align: left; }
+      .info-box h4 { color: #4facfe; margin-bottom: 0.5rem; }
+      .info-box p { color: #ccc; font-size: 0.9rem; margin-bottom: 0; }
+      footer { margin-top: 2rem; color: #666; font-size: 0.85rem; }
       @media (max-width: 768px) {
-        .container {
-          padding: 2rem;
-        }
-        .button-container {
-          flex-direction: column;
-        }
-        .features ul {
-          grid-template-columns: 1fr;
-        }
+        .container { padding: 2rem; }
+        .button-container { flex-direction: column; }
+        .features ul { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -197,17 +95,15 @@
       </p>
 
       <div class="button-container">
-        <a href="enhanced-index.html" class="btn btn-primary">
-          🚀 Launch Swarm Trainer
-        </a>
-        <a href="readme.html" class="btn btn-secondary"> 📖 Technical Docs </a>
+        <a href="enhanced-index.html" class="btn btn-primary"> 🚀 Launch Swarm Trainer </a>
+        <a href="README.md" class="btn btn-secondary"> 📖 Technical Docs </a>
       </div>
 
       <div class="features">
         <h3>System Capabilities</h3>
         <ul>
           <li>Real Backpropagation Training</li>
-          <li>MLP-Mixer Spatial Architecture</li>
+          <li>LoRA Weight Adaptation</li>
           <li>WebGL Hardware Acceleration</li>
           <li>P2P Model Synchronization</li>
           <li>Schrödinger Bridge SDE Sampling</li>
@@ -220,9 +116,8 @@
       <div class="info-box">
         <h4>⚡ Hardware Optimized</h4>
         <p>
-          This portal automatically detects your local GPU capabilities via
-          WebGL to run high-performance tensor operations directly in your
-          browser tab.
+          Optimized for high-resolution (96x96) generative models using
+          low-rank adaptation (LoRA) and axial attention mechanisms.
         </p>
       </div>
 
@@ -230,212 +125,19 @@
         <h3>Interactive Training Demos</h3>
         <ul style="grid-template-columns: 1fr">
           <li style="display: block">
-            <a
-              href="/tokenizer-demo"
-              style="
-                color: #00f2fe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">🔤</span>
-              LLM Tokenization Interactive Demo
+            <a href="/tokenizer-demo" style="color: #00f2fe; text-decoration: none; font-weight: 600; font-size: 1.1rem; display: flex; align-items: center;">
+              <span style="margin-right: 15px">🔤</span> LLM Tokenization Interactive Demo
             </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              Visualize how text is decomposed into discrete tokens for model processing.
-            </p>
           </li>
           <li style="display: block; margin-top: 15px">
-            <a
-              href="/embedding-demo"
-              style="
-                color: #00f2fe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">💠</span>
-              Vector Embedding Exploration
+            <a href="/rag-demo" style="color: #00f2fe; text-decoration: none; font-weight: 600; font-size: 1.1rem; display: flex; align-items: center;">
+              <span style="margin-right: 15px">📚</span> RAG with ChromaDB & Memory
             </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              Deep dive into high-dimensional semantic spaces and word relationships.
-            </p>
           </li>
           <li style="display: block; margin-top: 15px">
-            <a
-              href="/attention-demo"
-              style="
-                color: #00f2fe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">🔍</span>
-              Multi-Head Attention Mechanism
+            <a href="/attention-demo" style="color: #00f2fe; text-decoration: none; font-weight: 600; font-size: 1.1rem; display: flex; align-items: center;">
+              <span style="margin-right: 15px">🔍</span> Multi-Head Attention Mechanism
             </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              Interactive visualization of the core mechanism behind modern Transformers.
-            </p>
-          </li>
-          <li style="display: block; margin-top: 15px">
-            <a
-              href="/embedding-render"
-              style="
-                color: #00f2fe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">🎨</span>
-              Semantic Embedding Visualizer
-            </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              Visualize high-dimensional semantic relationships in a rendered 2D/3D space.
-            </p>
-          </li>
-          <li style="display: block; margin-top: 15px">
-            <a
-              href="/positional-encoding"
-              style="
-                color: #00f2fe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">📍</span>
-              Positional Encoding Matrix
-            </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              Explore how models preserve sequence order through trigonometric signal injection.
-            </p>
-          </li>
-          <li style="display: block; margin-top: 15px">
-            <a
-              href="/display-3d"
-              style="
-                color: #00f2fe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">🧊</span>
-              3D Tensor & Weight Visualization
-            </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              Interactive 3D rendering of model weights and tensor transformations.
-            </p>
-          </li>
-          <li style="display: block; margin-top: 15px">
-            <a
-              href="/rag-demo"
-              style="
-                color: #00f2fe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">📚</span>
-              RAG with ChromaDB & Memory
-            </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              Retrieval Augmented Generation demo utilizing vector databases and conversational context.
-            </p>
-          </li>
-          <li style="display: block; margin-top: 15px">
-            <a
-              href="/scroll-screen"
-              style="
-                color: #00f2fe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">📜</span>
-              Dynamic Context Scroll View
-            </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              Visualization of sliding window attention and context length management.
-            </p>
           </li>
         </ul>
       </div>
@@ -444,188 +146,27 @@
         <h3>Article Repertory</h3>
         <ul style="grid-template-columns: 1fr">
           <li style="display: block">
-            <a
-              href="beyond-labor.html"
-              style="
-                color: #4facfe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">📄</span>
-              The Horizon of Utility: Beyond the Eclipse of Labor
+            <a href="knowledge-base.html" style="color: #4facfe; text-decoration: none; font-weight: 600; font-size: 1.1rem; display: flex; align-items: center;">
+              <span style="margin-right: 15px">📄</span> Swarm Knowledge Base
             </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              An exploration of human identity, agentic AI, and the transition
-              from labor to presence in a post-work era.
-            </p>
-          </li>
-          <li style="display: block; margin-top: 20px">
-            <a
-              href="swarm-architecture.html"
-              style="
-                color: #4facfe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">🕸️</span>
-              The Architecture of Swarms: Decentralized Intelligence
-            </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              Technical deep-dive into the Schrödinger Bridge, P2P connectivity, and browser-native GPU acceleration.
-            </p>
-          </li>
-          <li style="display: block; margin-top: 20px">
-            <a
-              href="hardware-sovereignty.html"
-              style="
-                color: #4facfe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">🛡️</span>
-              Hardware Sovereignty: Reclaiming the Means of Inference
-            </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              Why local compute and the "Post-Cloud" vision are essential for the next generation of agentic AI.
-            </p>
-          </li>
-          <li style="display: block; margin-top: 20px">
-            <a
-              href="cognitive-agency.html"
-              style="
-                color: #4facfe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">🧠</span>
-              The Dawn of Cognitive Agency: From Execution to Orchestration
-            </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              How the democratization of AI agents is shifting value from technical skill to strategic discernment and ethical governance.
-            </p>
-          </li>
-          <li style="display: block; margin-top: 20px">
-            <a
-              href="attention-to-intention.html"
-              style="
-                color: #4facfe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">🔗</span>
-              From Attention to Intention: The Death of the Platform Intermediary
-            </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              The transition from centralized platforms to a decentralized Protocol of Trust and the rise of the Intention Economy.
-            </p>
-          </li>
-          <li style="display: block; margin-top: 20px">
-            <a
-              href="sovereign-action.html"
-              style="
-                color: #4facfe;
-                text-decoration: none;
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: flex;
-                align-items: center;
-              "
-            >
-              <span style="margin-right: 15px">⚖️</span>
-              From Orchestration to Intention: The Manifesto of Sovereign Action
-            </a>
-            <p
-              style="
-                margin-top: 5px;
-                color: #888;
-                font-size: 0.9rem;
-                margin-left: 35px;
-              "
-            >
-              A framework for trust: fusing AI Agency with Blockchain Integrity to restore individual sovereignty.
+            <p style="margin-top: 5px; color: #888; font-size: 0.9rem; margin-left: 35px;">
+              Consolidated technical deep-dives and philosophical explorations into decentralized intelligence.
             </p>
           </li>
         </ul>
       </div>
 
-      <footer>
-        <p>Version 0.2.0-Mixer | Last updated: April 2026</p>
-        <p style="margin-top: 5px; opacity: 0.6">
-          Real-time collaborative training for next-gen generative models.
+      <div class="info-box" style="border-left-color: #00f2fe">
+        <h4>🌐 Open Network Protocol</h4>
+        <p>
+          Every browser node is a peer. The swarm grows organically, sharing
+          intelligence across the global digital substrate.
         </p>
+      </div>
+
+      <footer>
+        <p>Swarm Schrödinger Bridge Project | April 2026 | MIT License</p>
       </footer>
     </div>
-
-    <script>
-      document.addEventListener("DOMContentLoaded", function () {
-        const buttons = document.querySelectorAll(".btn");
-        buttons.forEach((button, index) => {
-          button.style.opacity = "0";
-          button.style.transform = "translateY(20px)";
-
-          setTimeout(() => {
-            button.style.transition =
-              "all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
-            button.style.opacity = "1";
-            button.style.transform = "translateY(0)";
-          }, index * 150);
-        });
-      });
-    </script>
   </body>
 </html>

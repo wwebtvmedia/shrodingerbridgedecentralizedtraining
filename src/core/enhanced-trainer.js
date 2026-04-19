@@ -4,6 +4,8 @@ import { PhaseManager } from "./phase.js";
 import { ModelManager } from "./models.js";
 import { CONFIG } from "../config.js";
 import { Validator } from "../utils/validator.js";
+import { SarsaBridgeOptimizer } from "./sarsa-optimizer.js";
+import { TrajectoryAdvantageEstimator } from "./adaptive-logic.js";
 
 class EnhancedSwarmTrainer {
   constructor(config = {}) {
@@ -26,6 +28,8 @@ class EnhancedSwarmTrainer {
       : null;
     this.phaseManager = new PhaseManager();
     this.modelManager = new ModelManager();
+    this.sarsaOptimizer = new SarsaBridgeOptimizer();
+    this.advantageEstimator = new TrajectoryAdvantageEstimator(["vae", "drift"]);
 
     // Training state
     this.id = this.generateId();
@@ -34,6 +38,12 @@ class EnhancedSwarmTrainer {
     this.isTraining = false;
     this.trainingLoop = null;
     this.isPerformingTasks = false;
+
+    // SARSA tracking
+    this.lastLoss = 1.0;
+    this.lastDeltaLoss = 0;
+    this.lastStepTime = 0;
+    this.currentTask = "both";
 
     // Neighbor management
     this.neighbors = new Map(); // Active neighbors
@@ -233,10 +243,31 @@ class EnhancedSwarmTrainer {
   async trainStep() {
     if (!this.isTraining) return;
 
-    // Determine phase
-    if (this.currentPhase === "auto") {
-      this.currentPhase = this.phaseManager.determinePhase(this.currentEpoch);
+    const startTime = performance.now();
+
+    // 1. Determine task using SARSA
+    // Sarsa update needs the result of the PREVIOUS action to update its Q-value
+    const sarsaResult = this.sarsaOptimizer.update(
+      this.currentPhase,
+      this.lastLoss,
+      this.lastDeltaLoss,
+      this.lastStepTime,
+    );
+
+    this.currentTask = sarsaResult.actionName;
+
+    // Use currentPhase from phaseManager if auto, otherwise use manual phase
+    let activePhase = this.currentPhase;
+    if (activePhase === "auto") {
+      activePhase = this.phaseManager.determinePhase(this.currentEpoch);
     }
+
+    // Override phase based on SARSA task if it's more specific
+    // Task 0: VAE, Task 1: Drift, Task 2: Both
+    let taskPhase = activePhase;
+    if (this.currentTask === "vae") taskPhase = "vae";
+    else if (this.currentTask === "drift") taskPhase = "drift";
+    else if (this.currentTask === "both") taskPhase = "both";
 
     const targetBatchSize = this.config.batchSize || 16;
     let batch = [];
@@ -261,12 +292,24 @@ class EnhancedSwarmTrainer {
       labels.push(Math.floor(Math.random() * (this.config.numClasses || 10)));
     }
 
-    // 3. Train epoch
+    // 3. Train epoch with SARSA-selected phase/task
     const { loss, metrics } = await this.modelManager.trainStep(
       batch,
       labels,
-      this.currentPhase,
+      taskPhase,
     );
+
+    // Update impact for the chosen task
+    this.advantageEstimator.updateImpact(
+      this.currentTask,
+      metrics?.gradientNorm || 1.0,
+      this.lastLoss - loss,
+    );
+
+    // Calculate metrics for next SARSA update
+    this.lastDeltaLoss = this.lastLoss - loss;
+    this.lastLoss = loss;
+    this.lastStepTime = performance.now() - startTime;
 
     // Update epoch
     this.currentEpoch++;
@@ -276,7 +319,8 @@ class EnhancedSwarmTrainer {
     if (this.database) {
       await this.database.saveResult({
         epoch: this.currentEpoch,
-        phase: this.currentPhase,
+        phase: taskPhase,
+        task: this.currentTask,
         loss,
         metrics,
         timestamp: Date.now(),
@@ -284,8 +328,8 @@ class EnhancedSwarmTrainer {
       this.metrics.databaseOperations++;
     }
 
-    // Share result with neighbors
-    await this.shareTrainingResult(loss, metrics);
+    // Share result with neighbors (Gossip specific to task if possible)
+    await this.shareTrainingResult(loss, metrics, this.currentTask);
 
     // Check for synchronization
     if (this.currentEpoch % this.config.syncInterval === 0) {
@@ -313,12 +357,13 @@ class EnhancedSwarmTrainer {
     return data;
   }
 
-  async shareTrainingResult(loss, metrics) {
+  async shareTrainingResult(loss, metrics, task = "both") {
     const result = {
       type: "TRAINING_RESULT",
       trainerId: this.id,
       epoch: this.currentEpoch,
       phase: this.currentPhase,
+      task: task,
       loss,
       metrics,
       modelHash: await this.modelManager.getModelHash(),
@@ -717,6 +762,10 @@ class EnhancedSwarmTrainer {
   getDatabaseStats() {
     if (!this.database) return null;
     return this.database.getStatistics();
+  }
+
+  getSarsaStats() {
+    return this.sarsaOptimizer.getStats();
   }
 
   setExplorationRate(rate) {

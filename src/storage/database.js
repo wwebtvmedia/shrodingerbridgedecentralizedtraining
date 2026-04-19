@@ -1,7 +1,7 @@
 class LocalDatabase {
   constructor(name = "swarm_training") {
     this.dbName = name;
-    this.dbVersion = 1;
+    this.dbVersion = 2;
     this.db = null;
     this.initialized = false;
   }
@@ -53,7 +53,13 @@ class LocalDatabase {
           });
           resultStore.createIndex("epoch", "epoch", { unique: false });
           resultStore.createIndex("phase", "phase", { unique: false });
+          resultStore.createIndex("task", "task", { unique: false });
           resultStore.createIndex("timestamp", "timestamp", { unique: false });
+        } else {
+          const resultStore = event.target.transaction.objectStore("results");
+          if (!resultStore.indexNames.contains("task")) {
+            resultStore.createIndex("task", "task", { unique: false });
+          }
         }
 
         if (!db.objectStoreNames.contains("checkpoints")) {

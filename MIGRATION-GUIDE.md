@@ -1,8 +1,22 @@
 # Migration Guide: Evolution of the Swarm System
 
+> [!NOTE]
+> This guide details the transition from the legacy `js-pytorch` (MLP-Mixer) architecture to the current **TensorFlow.js** (96x96 CNN) system.
+
+---
+
+## 🚦 Migration Status
+- [x] **Phase 1**: Dependency update (TFJS)
+- [x] **Phase 2**: CNN Architecture implementation
+- [x] **Phase 3**: LoRA Integration
+- [x] **Phase 4**: 96x96 Resolution Support
+- [ ] **Phase 5**: WebGPU Optimization (Experimental)
+
+---
+
 ## 1. Environment Variables Migration
 
-_See the previous section for details on migrating from hardcoded URLs to `.env` based configuration._
+Legacy hardcoded URLs have been replaced with `.env` based configuration. Ensure your `.env` file is populated based on `.env.template`.
 
 ---
 
@@ -18,82 +32,70 @@ The system has evolved from an MLP-Mixer architecture to a state-of-the-art, hig
 - **Training**: Improved **U-Net** based drift networks for superior generative quality.
 - **Inference**: High-fidelity Schrödinger Bridge sampling with iterative Euler updates.
 
-### Migration Steps for Developers
+### 📝 Quick Checklist for Developers
 
-#### Step 1: Update Dependencies
+- [ ] Run `npm install @tensorflow/tfjs`
+- [ ] Clear Local IndexedDB (Models are incompatible)
+- [ ] Enable "Hardware Acceleration" in Browser
+- [ ] Update `.env` with new consolidation server URLs
 
-Ensure you have the latest TensorFlow.js packages:
+### 📊 Comparative Analysis
 
-```bash
-npm install @tensorflow/tfjs
-```
+| Feature | Legacy (js-pytorch) | Current (TensorFlow.js) |
+| :--- | :--- | :--- |
+| **Architecture** | MLP-Mixer | **CNN Residual + Attention** |
+| **Image Size** | 32x32 | **96x96** |
+| **Latent Space** | 64-dim (Flat) | **12x12x8 (4D Tensor)** |
+| **Resolution** | 1,024 pixels | **9,216 pixels** |
+| **Optimization** | Adam | **Adam (LR: 2e-4)** |
+| **Adaptation** | None | **LoRA (Rank: 8, Alpha: 16)** |
 
-#### Step 2: Clear Local Database
-
-Since the model architecture and resolution (96x96) have changed significantly, old checkpoints in IndexedDB/LocalStorage are **incompatible**.
-
-1. Open the Training Dashboard.
-2. Click **"Clear DB"** or **"Cleanup"** in the Local Database panel.
-3. Refresh the page to initialize the new CNN weights.
-
-#### Step 3: Enable Hardware Acceleration
-
-For 96x96 resolution, hardware acceleration is **mandatory**:
-
-- **Chrome**: `chrome://settings/system` -> "Use graphics acceleration when available".
-- **WebGL/WebGPU**: TFJS will automatically detect the best available backend.
-
-### New Model Specifications
-
-| Feature      | Old (js-pytorch) | New (TensorFlow.js)           |
-| ------------ | ---------------- | ----------------------------- |
-| Architecture | MLP-Mixer        | **CNN Residual + Attention**  |
-| Image Size   | 32x32            | **96x96**                     |
-| Latent Space | 64-dim (Flat)    | **12x12x8 (4D Tensor)**       |
-| Resolution   | 1,024 pixels     | **9,216 pixels**              |
-| Optimization | Adam             | **Adam (LR: 2e-4)**           |
-| Adaptation   | N/A              | **LoRA (Rank: 8, Alpha: 16)** |
+---
 
 ## 3. Training Paradigm: Three-Phase Evolution
 
-The system now follows a structured Three-Phase training schedule to ensure stable convergence:
+The system now follows a structured Three-Phase training schedule:
 
 1.  **Phase 1: VAE Optimization**: Focuses on learning the latent manifold and reconstruction.
-2.  **Phase 2: Drift Learning**: Freezes the VAE and trains the U-Net drift network to model the Schrödinger Bridge.
-3.  **Phase 3: Joint Refinement**: Co-optimizes both networks with adaptive loss weighting for maximum fidelity.
+2.  **Phase 2: Drift Learning**: Freezes the VAE and trains the U-Net drift network.
+3.  **Phase 3: Joint Refinement**: Co-optimizes both networks with adaptive loss weighting.
 
 ## 4. Efficiency with LoRA (Low-Rank Adaptation)
 
 To minimize the bandwidth required for P2P synchronization, we have implemented LoRA:
 
 - **Freezing Base Weights**: The massive 96x96 CNN weights are frozen during swarm sync.
-- **Trainable Adapters**: Only the low-rank matrices (A and B) are updated and shared between peers.
-- **Bandwidth Reduction**: Synchronization is now ~10x faster compared to sharing full model weights.
+- **Trainable Adapters**: Only the low-rank matrices (A and B) are updated and shared.
+- **Bandwidth Reduction**: Synchronization is now **~10x faster** compared to full model weight sharing.
 
-## 5. Architecture Benefits
+---
 
-### Why CNN Residual + Axial Attention?
+## 5. Adaptive Logic & SARSA Optimization
 
-While MLP-Mixer provided a workaround for missing convolutions, TensorFlow.js supports full convolutional pipelines:
+The system now features an **Adaptive Co-Training (ACT)** layer powered by **SARSA (State-Action-Reward-State-Action)** reinforcement learning.
 
-1.  **Inductive Bias**: Convolutions are naturally suited for 96x96 image data.
-2.  **Residual Learning**: Skip connections allow for much deeper and more stable networks.
-3.  **Axial Attention**: Spatial Split Attention enables long-range dependencies without the $O(N^2)$ cost of full self-attention.
-4.  **U-Net Drift**: The U-Net structure in the drift network provides precise multi-scale control over noise transformation.
+- **Dynamic Task Selection**: The swarm now automatically decides whether to focus on **VAE** (manifold), **Drift** (trajectory), or **Both** based on which action provides the highest "Reward" (Loss Improvement per Millisecond).
+- **Hardware Profile Adaptation**: Weaker nodes (like Raspberry Pi 3) will naturally learn to prioritize VAE training if the Joint training consumes too much time or causes instability.
+- **Trajectory Advantage Estimation**: Using the **TrajectoryAdvantageEstimator**, the system now identifies high-impact layer updates, allowing for selective gossip and reduced bandwidth usage.
 
-## Troubleshooting AI Initialization
+### How it works:
+1.  **Observe**: Current phase and loss magnitude.
+2.  **Act**: Select a training task (VAE, Drift, or Both).
+3.  **Reward**: Measure `Delta_Loss / Training_Time`.
+4.  **Update**: Adjust the Q-table to favor efficient training paths in the future.
+
+---
+
+## ⚠️ Troubleshooting AI Initialization
 
 ### Issue: "ValueError: The first layer in a Sequential model must get an inputShape"
+- **Cause**: Incorrect layer initialization.
+- **Solution**: Ensure `inputShape` is provided to the first layer (e.g., `inputShape: [null, null, channels]`).
 
-**Cause**: Incorrect layer initialization in TFJS Sequential models.
-**Solution**: Ensure `inputShape` is provided to the first layer (e.g., `inputShape: [null, null, channels]`).
+### Issue: Out of Memory (OOM)
+- **Cause**: 96x96 CNNs require significant VRAM.
+- **Solution**: Reduce `BATCH_SIZE` in `src/config.js` or close other browser tabs.
 
-### Issue: Out of Memory (OOM) on RPi or Low-End Devices
-
-**Cause**: 96x96 CNNs require significant VRAM/RAM.
-**Solution**: Reduce `BATCH_SIZE` in `src/config.js` or ensure only one browser tab is active.
-
-### Issue: "Cannot compute gradient: gradient function not found for DepthToSpace"
-
-**Cause**: Some TFJS operations lack gradient support on certain backends.
-**Solution**: The system now uses `UpSampling2d + Conv2d` instead of `DepthToSpace` for improved compatibility.
+### Issue: "Cannot compute gradient: DepthToSpace"
+- **Cause**: Lack of gradient support in some TFJS backends.
+- **Solution**: We now use `UpSampling2d + Conv2d` for improved compatibility.

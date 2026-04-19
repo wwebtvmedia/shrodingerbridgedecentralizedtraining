@@ -197,26 +197,29 @@ class ModelConsolidationServer {
     this.app.get("/enhanced-index.html", (req, res) =>
       res.sendFile(path.join(__dirname, "../enhanced-index.html")),
     );
-    this.app.get("/readme.html", (req, res) =>
-      res.sendFile(path.join(__dirname, "../readme.html")),
+    this.app.get("/knowledge-base.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../knowledge-base.html")),
     );
     this.app.get("/beyond-labor.html", (req, res) =>
-      res.sendFile(path.join(__dirname, "../beyond-labor.html")),
+      res.redirect("/knowledge-base.html#beyond-labor")
     );
     this.app.get("/swarm-architecture.html", (req, res) =>
-      res.sendFile(path.join(__dirname, "../swarm-architecture.html")),
+      res.redirect("/knowledge-base.html#swarm-architecture")
     );
     this.app.get("/hardware-sovereignty.html", (req, res) =>
-      res.sendFile(path.join(__dirname, "../hardware-sovereignty.html")),
+      res.redirect("/knowledge-base.html#hardware-sovereignty")
     );
     this.app.get("/cognitive-agency.html", (req, res) =>
-      res.sendFile(path.join(__dirname, "../cognitive-agency.html")),
+      res.redirect("/knowledge-base.html#cognitive-agency")
     );
     this.app.get("/attention-to-intention.html", (req, res) =>
-      res.sendFile(path.join(__dirname, "../attention-to-intention.html")),
+      res.redirect("/knowledge-base.html#intention-economy")
     );
     this.app.get("/sovereign-action.html", (req, res) =>
-      res.sendFile(path.join(__dirname, "../sovereign-action.html")),
+      res.redirect("/knowledge-base.html#intention-economy")
+    );
+    this.app.get("/readme.html", (req, res) =>
+      res.redirect("/README.md")
     );
     this.app.get("/tokenizer-demo", (req, res) =>
       res.sendFile(path.join(__dirname, "../demotokenizer/tokenizationDemo.html")),
