@@ -218,6 +218,7 @@ h1 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  min-height: 200px; /* Force minimum height to prevent collapse */
 }
 
 canvas {
@@ -225,6 +226,8 @@ canvas {
   border-radius: 12px;
   padding: 8px;
   width: 100% !important;
+  height: 200px !important; /* Force fixed height for stability */
+  max-height: 200px;
 }
 
 /* Phase Toggle */
@@ -331,6 +334,7 @@ input[type="range"] {
   }
   .charts {
     grid-template-columns: 1fr;
+    min-height: 416px; /* 200px * 2 + gap */
   }
 }
 
