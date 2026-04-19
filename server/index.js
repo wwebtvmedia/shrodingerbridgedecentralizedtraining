@@ -97,7 +97,7 @@ class ModelConsolidationServer {
 
     // File paths
     this.modelsDir = path.join(__dirname, "../models");
-    this.latestModelPath = path.join(__dirname, "../latest.pt");
+    this.latestModelPath = path.join(__dirname, "../checkpoints/latest.pt");
 
     // Ensure directories exist
     this.ensureDirectories();

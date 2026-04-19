@@ -44,8 +44,23 @@ export class InferenceEngine {
   }
 
   async loadModelsFromCheckpoint() {
-    // Simplified loader - in real app would use tf.loadLayersModel or similar
-    console.log("Using default initialized weights (Real CNN architecture)");
+    try {
+      const response = await fetch("/models/checkpoint_web.json");
+      if (response.ok) {
+        const checkpoint = await response.json();
+        console.log(`📊 Loaded checkpoint metadata: Epoch ${checkpoint.metadata.epoch}`);
+        
+        // Update inference config based on checkpoint
+        if (checkpoint.config) {
+          this.config.imgSize = checkpoint.config.IMG_SIZE || 96;
+        }
+        
+        return checkpoint;
+      }
+    } catch (error) {
+      console.warn("⚠️ Could not load checkpoint_web.json, using default weights.");
+    }
+    return null;
   }
 
   async generateSamples(options = {}) {

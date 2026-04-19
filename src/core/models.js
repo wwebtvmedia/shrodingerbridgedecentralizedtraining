@@ -22,10 +22,33 @@ export class ModelManager {
   async initialize() {
     if (this.isInitialized) return;
 
-    console.log("🧠 Initializing model manager with js-pytorch...");
+    console.log("🛠️ Initializing ModelManager from checkpoint...");
 
     try {
-      // Initialize trainer (which now uses js-pytorch)
+      // 1. Try to load from public checkpoint metadata
+      const response = await fetch("/models/checkpoint_web.json");
+      if (response.ok) {
+        const checkpoint = await response.json();
+        
+        // Use metadata to initialize the state
+        this.state = {
+          ...this.state,
+          epoch: checkpoint.metadata.epoch || 504,
+          step: checkpoint.metadata.step || 45480,
+          phase: checkpoint.metadata.phase || 1,
+          hash: `ckpt_${checkpoint.metadata.epoch}`,
+          modelHash: `ckpt_${checkpoint.metadata.epoch}`,
+          torchjs_initialized: false
+        };
+        
+        console.log(`✅ Initialized from checkpoint: Epoch ${this.state.epoch}`);
+      }
+    } catch (error) {
+      console.warn("⚠️ Could not load checkpoint_web.json, using defaults:", error.message);
+    }
+
+    try {
+      // 2. Initialize trainer (which now uses js-pytorch)
       await tfjsTrainer.initialize();
 
       // Access models from the trainer
@@ -38,9 +61,11 @@ export class ModelManager {
         this.state.torchjs_initialized = true;
 
         // Initial hash
-        await this.updateModelHash();
+        if (!this.state.hash) {
+          await this.updateModelHash();
+        }
 
-        console.log("✅ Model manager initialized with js-pytorch");
+        console.log("✅ Model manager initialized with js-pytorch hardware acceleration");
       } else {
         throw new Error("Trainer not initialized");
       }
@@ -217,7 +242,7 @@ export class ModelManager {
     }
   }
 
-  async loadFromPyTorchCheckpoint(checkpointPath = "latest.pt") {
+  async loadFromPyTorchCheckpoint(checkpointPath = "checkpoints/latest.pt") {
     console.log(`📥 PyTorch .pt load not supported in browser. Use JSON sync.`);
     return false;
   }

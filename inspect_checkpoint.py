@@ -9,7 +9,7 @@ import json
 import sys
 from pathlib import Path
 
-def inspect_checkpoint(path='latest.pt'):
+def inspect_checkpoint(path='checkpoints/latest.pt'):
     """Inspect a PyTorch checkpoint and print its structure."""
     path_obj = Path(path)
     if not path_obj.exists():

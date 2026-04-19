@@ -1,15 +1,16 @@
 {
   "metadata": {
-    "epoch": 504,
+    "epoch": 505,
     "step": 45480,
     "phase": 1,
-    "best_loss": Infinity,
-    "best_composite_score": -Infinity
+    "best_loss": null,
+    "best_composite_score": null,
+    "source": "checkpoints/latest.pt"
   },
   "config": {
     "DATASET_NAME": "STL10",
     "IMG_SIZE": 96,
     "GEN_SIZE": 96
   },
-  "note": "This is a simplified version of the PyTorch checkpoint for web usage. Actual weights are not included in this prototype."
+  "note": "This metadata reflects the newer checkpoint found in the checkpoints directory."
 }

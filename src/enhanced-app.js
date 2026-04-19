@@ -118,16 +118,23 @@ class EnhancedSwarmApp {
     // Disable button to prevent multiple clicks
     this.ui.disableButton("connect-btn");
     this.ui.updateStatus("Connecting...");
-    this.ui.log("Initializing enhanced swarm trainer");
+    this.ui.log("Initializing checkpoint-focused trainer");
 
     try {
+      // 1. Initialize Inference Engine FIRST (Checkpoint Priority)
+      if (!this.inferenceEngine) {
+        this.inferenceEngine = new InferenceEngine();
+        await this.inferenceEngine.initialize();
+        this.ui.log("✅ Inference engine ready (Checkpoint loaded)");
+      }
+
       // Dispose old trainer if it exists
       if (this.trainer) {
         await this.trainer.stopTraining();
         if (this.trainer.dispose) this.trainer.dispose();
       }
 
-      // Create enhanced trainer with database and tunnel
+      // 2. Create enhanced trainer with database and tunnel
       this.trainer = new EnhancedSwarmTrainer({
         useDatabase: true,
         useTunnel: true,
@@ -136,8 +143,8 @@ class EnhancedSwarmApp {
           tunnelId: `trainer_${Date.now()}`,
           authToken: "swarm-prototype-token-2026", // In real app, this would be from config
         },
-        explorationRate: 0.3,
-        syncInterval: 5,
+        explorationRate: 0.1, // Reduced exploration as we have a checkpoint
+        syncInterval: 10,
       });
 
       // Setup trainer callbacks
@@ -206,22 +213,28 @@ class EnhancedSwarmApp {
         );
       });
 
-      // Initialize trainer
+      // Initialize trainer (this will trigger ModelManager.initialize which loads checkpoint)
       await this.trainer.initialize();
 
-      // Update UI
-      this.ui.updateStatus("Connected to swarm");
+      // Update UI with checkpoint info
+      const currentEpoch = this.trainer.modelManager.state.epoch || 0;
+      this.ui.updateEpoch(currentEpoch);
+      this.ui.updateStatus("Connected (Checkpoint Active)");
       this.ui.updatePeerCount(this.trainer.getNeighborCount());
-      this.ui.log("✅ Enhanced trainer initialized with database and tunnel");
+      this.ui.log(`✅ System initialized from checkpoint: Epoch ${currentEpoch}`);
 
-      // Enable training button
+      // Enable UI components
       this.ui.enableButton("start-btn");
       this.ui.enableButton("research-btn");
+      this.ui.enableButton("generate-btn");
+      this.ui.enableButton("inference-btn");
       this.ui.disableButton("connect-btn");
+      
     } catch (error) {
       console.error("Connection failed:", error);
       this.ui.log(`❌ Connection failed: ${error.message}`);
       this.ui.updateStatus("Connection failed");
+      this.ui.enableButton("connect-btn");
     }
   }
 

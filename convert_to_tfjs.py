@@ -4,7 +4,7 @@ import json
 import os
 import struct
 
-def convert_pt_to_tfjs(pt_path='latest.pt', output_dir='public/models/tfjs_weights'):
+def convert_pt_to_tfjs(pt_path='checkpoints/latest.pt', output_dir='public/models/tfjs_weights'):
     print(f"📦 Loading PyTorch checkpoint: {pt_path}")
     if not os.path.exists(pt_path):
         print(f"❌ Error: {pt_path} not found.")
