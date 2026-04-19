@@ -221,10 +221,10 @@ class SwarmTrainer {
 
     // Notify
     if (this.onModelAdopted) {
-      this.onModelAdopted(bestModel.peerId, randomEpoch);
+      this.onModelAdopted(bestModel.peerId, this.currentEpoch);
     }
 
-    console.log(`✅ Synchronized to epoch ${randomEpoch}`);
+    console.log(`✅ Synchronized to epoch ${this.currentEpoch}`);
   }
 
   evaluateIncomingModel(modelData) {

@@ -5,7 +5,10 @@ import { ModelManager } from "./models.js";
 import { CONFIG } from "../config.js";
 import { Validator } from "../utils/validator.js";
 import { SarsaBridgeOptimizer } from "./sarsa-optimizer.js";
-import { TrajectoryAdvantageEstimator } from "./adaptive-logic.js";
+import {
+  TrajectoryAdvantageEstimator,
+  EvolutionaryOptimizer,
+} from "./adaptive-logic.js";
 
 class EnhancedSwarmTrainer {
   constructor(config = {}) {
@@ -15,6 +18,8 @@ class EnhancedSwarmTrainer {
       tunnelConfig: {},
       syncInterval: 5, // Epochs between sync checks
       explorationRate: 0.3,
+      mutationRate: 0.05,
+      mutationScale: 0.01,
       maxNeighbors: 50,
       batchSize: CONFIG.BATCH_SIZE || 16,
       numClasses: CONFIG.NUM_CLASSES || 10,
@@ -29,7 +34,14 @@ class EnhancedSwarmTrainer {
     this.phaseManager = new PhaseManager();
     this.modelManager = new ModelManager();
     this.sarsaOptimizer = new SarsaBridgeOptimizer();
-    this.advantageEstimator = new TrajectoryAdvantageEstimator(["vae", "drift"]);
+    this.advantageEstimator = new TrajectoryAdvantageEstimator([
+      "vae",
+      "drift",
+    ]);
+    this.evoOptimizer = new EvolutionaryOptimizer(
+      this.config.mutationRate,
+      this.config.mutationScale,
+    );
 
     // Training state
     this.id = this.generateId();
@@ -428,7 +440,29 @@ class EnhancedSwarmTrainer {
 
     if (!modelData) return;
 
-    const success = await this.modelManager.loadModel(modelData);
+    // HYBRID EVOLUTIONARY STEP:
+    // Instead of direct replacement, we can sometimes perform crossover or mutation
+    const currentModel = await this.modelManager.getState();
+    let finalModelData = modelData;
+
+    if (Math.random() < 0.4 && currentModel && currentModel.parameters) {
+      console.log("🧬 Performing evolutionary crossover with neighbor model");
+      finalModelData = {
+        ...modelData,
+        parameters: this.evoOptimizer.crossover(
+          currentModel.parameters,
+          modelData.parameters || modelData,
+        ),
+      };
+    } else if (Math.random() < 0.2) {
+      console.log("🧪 Performing model mutation for diversity");
+      finalModelData = {
+        ...modelData,
+        parameters: this.evoOptimizer.mutate(modelData.parameters || modelData),
+      };
+    }
+
+    const success = await this.modelManager.loadModel(finalModelData);
     if (!success) return;
 
     // Synchronize to the neighbor's actual epoch
@@ -442,13 +476,13 @@ class EnhancedSwarmTrainer {
         type: "SYNC_EVENT",
         epoch: this.currentEpoch,
         sourcePeer: neighbor.peerId,
-        targetEpoch: randomEpoch,
+        targetEpoch: this.currentEpoch,
         timestamp: Date.now(),
       });
     }
 
     if (this.callbacks.onSyncEvent) {
-      this.callbacks.onSyncEvent(neighbor.peerId, randomEpoch);
+      this.callbacks.onSyncEvent(neighbor.peerId, this.currentEpoch);
     }
   }
 

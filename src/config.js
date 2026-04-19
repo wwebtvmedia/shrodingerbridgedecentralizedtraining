@@ -147,7 +147,10 @@ export function setTrainingPhase(epoch) {
 
 export function klDivergenceSpatial(mu, logvar) {
   // KL divergence: 0.5 * (exp(logvar) + mu^2 - 1 - logvar)
-  const kl = tf.mul(0.5, tf.sub(tf.add(tf.exp(logvar), tf.square(mu)), tf.add(1, logvar)));
+  const kl = tf.mul(
+    0.5,
+    tf.sub(tf.add(tf.exp(logvar), tf.square(mu)), tf.add(1, logvar)),
+  );
   const kl_sum = tf.sum(kl, [1, 2, 3]); // sum over spatial dimensions
   const kl_clamped = tf.maximum(kl_sum, CONFIG.FREE_BITS);
   return tf.mean(kl_clamped);

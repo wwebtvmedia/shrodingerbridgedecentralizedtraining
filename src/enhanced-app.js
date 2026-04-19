@@ -221,7 +221,9 @@ class EnhancedSwarmApp {
       this.ui.updateEpoch(currentEpoch);
       this.ui.updateStatus("Connected (Checkpoint Active)");
       this.ui.updatePeerCount(this.trainer.getNeighborCount());
-      this.ui.log(`✅ System initialized from checkpoint: Epoch ${currentEpoch}`);
+      this.ui.log(
+        `✅ System initialized from checkpoint: Epoch ${currentEpoch}`,
+      );
 
       // Enable UI components
       this.ui.enableButton("start-btn");
@@ -229,7 +231,6 @@ class EnhancedSwarmApp {
       this.ui.enableButton("generate-btn");
       this.ui.enableButton("inference-btn");
       this.ui.disableButton("connect-btn");
-      
     } catch (error) {
       console.error("Connection failed:", error);
       this.ui.log(`❌ Connection failed: ${error.message}`);

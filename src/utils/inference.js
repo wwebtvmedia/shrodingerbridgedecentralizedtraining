@@ -48,17 +48,21 @@ export class InferenceEngine {
       const response = await fetch("/models/checkpoint_web.json");
       if (response.ok) {
         const checkpoint = await response.json();
-        console.log(`📊 Loaded checkpoint metadata: Epoch ${checkpoint.metadata.epoch}`);
-        
+        console.log(
+          `📊 Loaded checkpoint metadata: Epoch ${checkpoint.metadata.epoch}`,
+        );
+
         // Update inference config based on checkpoint
         if (checkpoint.config) {
           this.config.imgSize = checkpoint.config.IMG_SIZE || 96;
         }
-        
+
         return checkpoint;
       }
     } catch (error) {
-      console.warn("⚠️ Could not load checkpoint_web.json, using default weights.");
+      console.warn(
+        "⚠️ Could not load checkpoint_web.json, using default weights.",
+      );
     }
     return null;
   }
@@ -118,7 +122,7 @@ export class InferenceEngine {
     const dt = 1.0 / steps;
     for (let step = 0; step < steps; step++) {
       const t = step / steps;
-      
+
       const nextZt = tf.tidy(() => {
         const tTensor = tf.tensor([[t]]);
         // Compute drift
@@ -135,7 +139,7 @@ export class InferenceEngine {
         }
         return res;
       });
-      
+
       zt.dispose();
       zt = nextZt;
     }

@@ -15,7 +15,9 @@ async function testSarsa() {
 
   for (const s of states) {
     const result = optimizer.update(s.phase, s.loss, s.delta, s.time);
-    console.log(`State: ${s.phase}_${s.loss > 0.5 ? "high" : "med"}, Action: ${result.actionName}, Q-Values: ${result.qValues}`);
+    console.log(
+      `State: ${s.phase}_${s.loss > 0.5 ? "high" : "med"}, Action: ${result.actionName}, Q-Values: ${result.qValues}`,
+    );
   }
 
   const stats = optimizer.getStats();

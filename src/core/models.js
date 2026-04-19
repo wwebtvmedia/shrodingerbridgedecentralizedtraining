@@ -29,7 +29,7 @@ export class ModelManager {
       const response = await fetch("/models/checkpoint_web.json");
       if (response.ok) {
         const checkpoint = await response.json();
-        
+
         // Use metadata to initialize the state
         this.state = {
           ...this.state,
@@ -38,13 +38,18 @@ export class ModelManager {
           phase: checkpoint.metadata.phase || 1,
           hash: `ckpt_${checkpoint.metadata.epoch}`,
           modelHash: `ckpt_${checkpoint.metadata.epoch}`,
-          torchjs_initialized: false
+          torchjs_initialized: false,
         };
-        
-        console.log(`✅ Initialized from checkpoint: Epoch ${this.state.epoch}`);
+
+        console.log(
+          `✅ Initialized from checkpoint: Epoch ${this.state.epoch}`,
+        );
       }
     } catch (error) {
-      console.warn("⚠️ Could not load checkpoint_web.json, using defaults:", error.message);
+      console.warn(
+        "⚠️ Could not load checkpoint_web.json, using defaults:",
+        error.message,
+      );
     }
 
     try {
@@ -65,7 +70,9 @@ export class ModelManager {
           await this.updateModelHash();
         }
 
-        console.log("✅ Model manager initialized with js-pytorch hardware acceleration");
+        console.log(
+          "✅ Model manager initialized with js-pytorch hardware acceleration",
+        );
       } else {
         throw new Error("Trainer not initialized");
       }
@@ -141,8 +148,8 @@ export class ModelManager {
       // Get real weights for hash
       const sample_weights = await tfjsTrainer.getHashSample();
       // Use small part of weights for stable but unique hash
-      const sample = Array.isArray(sample_weights) 
-        ? sample_weights.flat().slice(0, 10) 
+      const sample = Array.isArray(sample_weights)
+        ? sample_weights.flat().slice(0, 10)
         : [Math.random()];
 
       const sum = sample.reduce(

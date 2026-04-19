@@ -6,6 +6,7 @@
 ---
 
 ## 🚦 Migration Status
+
 - [x] **Phase 1**: Dependency update (TFJS)
 - [x] **Phase 2**: CNN Architecture implementation
 - [x] **Phase 3**: LoRA Integration
@@ -41,14 +42,14 @@ The system has evolved from an MLP-Mixer architecture to a state-of-the-art, hig
 
 ### 📊 Comparative Analysis
 
-| Feature | Legacy (js-pytorch) | Current (TensorFlow.js) |
-| :--- | :--- | :--- |
-| **Architecture** | MLP-Mixer | **CNN Residual + Attention** |
-| **Image Size** | 32x32 | **96x96** |
-| **Latent Space** | 64-dim (Flat) | **12x12x8 (4D Tensor)** |
-| **Resolution** | 1,024 pixels | **9,216 pixels** |
-| **Optimization** | Adam | **Adam (LR: 2e-4)** |
-| **Adaptation** | None | **LoRA (Rank: 8, Alpha: 16)** |
+| Feature          | Legacy (js-pytorch) | Current (TensorFlow.js)       |
+| :--------------- | :------------------ | :---------------------------- |
+| **Architecture** | MLP-Mixer           | **CNN Residual + Attention**  |
+| **Image Size**   | 32x32               | **96x96**                     |
+| **Latent Space** | 64-dim (Flat)       | **12x12x8 (4D Tensor)**       |
+| **Resolution**   | 1,024 pixels        | **9,216 pixels**              |
+| **Optimization** | Adam                | **Adam (LR: 2e-4)**           |
+| **Adaptation**   | None                | **LoRA (Rank: 8, Alpha: 16)** |
 
 ---
 
@@ -79,6 +80,7 @@ The system now features an **Adaptive Co-Training (ACT)** layer powered by **SAR
 - **Trajectory Advantage Estimation**: Using the **TrajectoryAdvantageEstimator**, the system now identifies high-impact layer updates, allowing for selective gossip and reduced bandwidth usage.
 
 ### How it works:
+
 1.  **Observe**: Current phase and loss magnitude.
 2.  **Act**: Select a training task (VAE, Drift, or Both).
 3.  **Reward**: Measure `Delta_Loss / Training_Time`.
@@ -89,13 +91,16 @@ The system now features an **Adaptive Co-Training (ACT)** layer powered by **SAR
 ## ⚠️ Troubleshooting AI Initialization
 
 ### Issue: "ValueError: The first layer in a Sequential model must get an inputShape"
+
 - **Cause**: Incorrect layer initialization.
 - **Solution**: Ensure `inputShape` is provided to the first layer (e.g., `inputShape: [null, null, channels]`).
 
 ### Issue: Out of Memory (OOM)
+
 - **Cause**: 96x96 CNNs require significant VRAM.
 - **Solution**: Reduce `BATCH_SIZE` in `src/config.js` or close other browser tabs.
 
 ### Issue: "Cannot compute gradient: DepthToSpace"
+
 - **Cause**: Lack of gradient support in some TFJS backends.
 - **Solution**: We now use `UpSampling2d + Conv2d` for improved compatibility.

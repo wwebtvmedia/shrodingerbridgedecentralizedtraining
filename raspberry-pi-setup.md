@@ -8,6 +8,7 @@ Comprehensive guide for deploying the **Swarm Consolidation Server** on Raspberr
 ---
 
 ## 📑 Table of Contents
+
 - [🎯 Overview](#-overview)
 - [📋 Prerequisites](#-prerequisites)
 - [🚀 Quick Setup (Automated)](#-quick-setup-automated)
@@ -51,6 +52,7 @@ chmod +x setup-raspberry-pi.sh
 ## 🛠️ Manual Setup Steps
 
 ### 1. Dependency Installation
+
 ```bash
 sudo apt update && sudo apt upgrade -y
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
@@ -58,6 +60,7 @@ sudo apt install -y nodejs git
 ```
 
 ### 2. Service Configuration
+
 Create a systemd unit file at `/etc/systemd/system/consolidation-server.service`:
 
 ```ini
@@ -83,12 +86,15 @@ WantedBy=multi-user.target
 ## 🛡️ Security & Performance
 
 ### Memory Optimization
+
 For stability on RPi, we recommend increasing the swap size:
+
 1.  Edit `/etc/dphys-swapfile`.
 2.  Set `CONF_SWAPSIZE=2048`.
 3.  Run `sudo dphys-swapfile setup && sudo dphys-swapfile swapon`.
 
 ### Network Security
+
 > [!IMPORTANT]
 > **Never** expose port 8080 directly to the internet. Always use the **Cloudflare Tunnel** method described in [cloudflare-raspberry-pi-guide.md](./cloudflare-raspberry-pi-guide.md).
 
@@ -96,11 +102,12 @@ For stability on RPi, we recommend increasing the swap size:
 
 ## ❓ Troubleshooting
 
-| Issue | Solution |
-| :--- | :--- |
-| **Service won't start** | Check logs: `sudo journalctl -u consolidation-server -xe`. |
-| **Out of Memory** | Increase swap size or reduce `BATCH_SIZE` in `src/config.js`. |
-| **Permission Denied** | Ensure the `pi` user owns the project directory: `chown -R pi:pi .`. |
+| Issue                   | Solution                                                             |
+| :---------------------- | :------------------------------------------------------------------- |
+| **Service won't start** | Check logs: `sudo journalctl -u consolidation-server -xe`.           |
+| **Out of Memory**       | Increase swap size or reduce `BATCH_SIZE` in `src/config.js`.        |
+| **Permission Denied**   | Ensure the `pi` user owns the project directory: `chown -R pi:pi .`. |
 
 ---
+
 _Last updated: April 19, 2026_

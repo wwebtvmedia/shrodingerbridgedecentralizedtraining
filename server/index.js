@@ -201,46 +201,54 @@ class ModelConsolidationServer {
       res.sendFile(path.join(__dirname, "../knowledge-base.html")),
     );
     this.app.get("/beyond-labor.html", (req, res) =>
-      res.redirect("/knowledge-base.html#beyond-labor")
+      res.redirect("/knowledge-base.html#beyond-labor"),
     );
     this.app.get("/swarm-architecture.html", (req, res) =>
-      res.redirect("/knowledge-base.html#swarm-architecture")
+      res.redirect("/knowledge-base.html#swarm-architecture"),
     );
     this.app.get("/hardware-sovereignty.html", (req, res) =>
-      res.redirect("/knowledge-base.html#hardware-sovereignty")
+      res.redirect("/knowledge-base.html#hardware-sovereignty"),
     );
     this.app.get("/cognitive-agency.html", (req, res) =>
-      res.redirect("/knowledge-base.html#cognitive-agency")
+      res.redirect("/knowledge-base.html#cognitive-agency"),
     );
     this.app.get("/attention-to-intention.html", (req, res) =>
-      res.redirect("/knowledge-base.html#intention-economy")
+      res.redirect("/knowledge-base.html#intention-economy"),
     );
     this.app.get("/sovereign-action.html", (req, res) =>
-      res.redirect("/knowledge-base.html#intention-economy")
+      res.redirect("/knowledge-base.html#intention-economy"),
     );
-    this.app.get("/readme.html", (req, res) =>
-      res.redirect("/README.md")
-    );
+    this.app.get("/readme.html", (req, res) => res.redirect("/README.md"));
     this.app.get("/tokenizer-demo", (req, res) =>
-      res.sendFile(path.join(__dirname, "../demotokenizer/tokenizationDemo.html")),
+      res.sendFile(
+        path.join(__dirname, "../demotokenizer/tokenizationDemo.html"),
+      ),
     );
     this.app.get("/embedding-demo", (req, res) =>
       res.sendFile(path.join(__dirname, "../demotokenizer/embeddingDemo.html")),
     );
     this.app.get("/attention-demo", (req, res) =>
-      res.sendFile(path.join(__dirname, "../demotokenizer/multiheadattentionDemo.html")),
+      res.sendFile(
+        path.join(__dirname, "../demotokenizer/multiheadattentionDemo.html"),
+      ),
     );
     this.app.get("/embedding-render", (req, res) =>
-      res.sendFile(path.join(__dirname, "../demotokenizer/render_embedding.html")),
+      res.sendFile(
+        path.join(__dirname, "../demotokenizer/render_embedding.html"),
+      ),
     );
     this.app.get("/positional-encoding", (req, res) =>
-      res.sendFile(path.join(__dirname, "../demotokenizer/codage_posembedded.html")),
+      res.sendFile(
+        path.join(__dirname, "../demotokenizer/codage_posembedded.html"),
+      ),
     );
     this.app.get("/display-3d", (req, res) =>
       res.sendFile(path.join(__dirname, "../demotokenizer/display_3d.html")),
     );
     this.app.get("/rag-demo", (req, res) =>
-      res.sendFile(path.join(__dirname, "../demotokenizer/ragchromadbwithprev.html")),
+      res.sendFile(
+        path.join(__dirname, "../demotokenizer/ragchromadbwithprev.html"),
+      ),
     );
     this.app.get("/scroll-screen", (req, res) =>
       res.sendFile(path.join(__dirname, "../demotokenizer/scrolscreen.html")),

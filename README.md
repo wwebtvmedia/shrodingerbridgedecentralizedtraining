@@ -9,6 +9,7 @@ A decentralized, self-organizing swarm training system for Schrödinger Bridge m
 ---
 
 ## 📑 Table of Contents
+
 - [📖 Abstract](#-abstract)
 - [✨ Key Features](#-key-features)
 - [🏗️ System Architecture](#️-system-architecture)
@@ -40,26 +41,30 @@ This project implements a distributed training environment for high-resolution (
 ## 🏗️ System Architecture
 
 ### CNN Residual Architecture (96x96)
+
 1.  **Residual Blocks**: Deep feature extraction with stable gradient flow.
 2.  **Spatial Split Attention**: Axial attention for long-range dependencies.
 3.  **Subpixel Upsampling**: High-fidelity reconstruction.
 4.  **Label Conditioning**: FiLM-based modulation for class-conditional generation.
 
 ### Core Components
-| Component | File | Description |
-| :--- | :--- | :--- |
-| **SwarmTrainer** | `src/core/trainer.js` | Manages local training loop & evolutionary optimization. |
-| **ModelManager** | `src/core/models.js` | TF.js model management (12x12x8 latent space). |
-| **TorchJSTrainer** | `src/torchjs/integration.js` | Hardware-accelerated training pipeline. |
-| **InferenceEngine** | `src/utils/inference.js` | SDE-based sampling (Reverse SDE). |
+
+| Component           | File                         | Description                                              |
+| :------------------ | :--------------------------- | :------------------------------------------------------- |
+| **SwarmTrainer**    | `src/core/trainer.js`        | Manages local training loop & evolutionary optimization. |
+| **ModelManager**    | `src/core/models.js`         | TF.js model management (12x12x8 latent space).           |
+| **TorchJSTrainer**  | `src/torchjs/integration.js` | Hardware-accelerated training pipeline.                  |
+| **InferenceEngine** | `src/utils/inference.js`     | SDE-based sampling (Reverse SDE).                        |
 
 ## 🧮 Mathematical Foundations
 
 ### Schrödinger Bridge Formulation
+
 The Schrödinger Bridge finds the optimal drift \( u^\*(x, t) \) that connects noise to data distribution while minimizing energy:
 \[ \mathbb{E}\left[\int_0^T \frac{1}{2} \|u(X_t, t)\|^2 dt\right] \]
 
 ### Low-Rank Adaptation (LoRA)
+
 - **Rank-8 Adapters**: Minimizes trainable parameters.
 - **Fast Sync**: Only LoRA weights are exchanged, reducing network overhead by ~10x.
 
@@ -83,17 +88,21 @@ The Schrödinger Bridge finds the optimal drift \( u^\*(x, t) \) that connects n
 ## 🚀 Getting Started
 
 ### 1. Installation
+
 ```bash
 npm install
 ```
 
 ### 2. Run Development Environment
+
 ```bash
 npm run dev
 ```
+
 Open `http://localhost:3000` in multiple tabs to witness the swarm in action.
 
 ### 3. Build for Production
+
 ```bash
 npm run build
 ```
@@ -108,6 +117,7 @@ npm run build
 ## 📝 Reviewer Quick Start
 
 To effectively review this implementation:
+
 1.  **Check `src/core/sarsa-optimizer.js`**: Understand the reinforcement learning logic for task selection.
 2.  **Check `src/core/phase.js`**: Understand the three-phase training state machine.
 3.  **Check `src/torchjs/lora.js`**: Review the low-rank adaptation implementation for TF.js layers.
@@ -115,4 +125,5 @@ To effectively review this implementation:
 5.  **Run `node tests/sarsa.test.js`**: Validate the SARSA Q-learning logic.
 
 ---
+
 _Last updated: April 19, 2026_
