@@ -2,8 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>Swarm AI Console | Schrödinger Bridge</title>
+    <link rel="manifest" href="/manifest.json" />
 
     <!-- Google Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -289,6 +293,26 @@
       console.log("✅ seedrandom initialized");
     </script>
     <script type="module" src="/src/enhanced-app.js"></script>
+    <script>
+      // Attempt to lock orientation to portrait on mobile devices
+      if (screen.orientation && screen.orientation.lock) {
+        window.addEventListener("load", () => {
+          // Some browsers require full screen to lock orientation
+          document.addEventListener(
+            "click",
+            () => {
+              // Silently attempt lock on first interaction if possible
+              screen.orientation.lock("portrait").catch((err) => {
+                console.log(
+                  "Orientation lock not possible without fullscreen or not supported.",
+                );
+              });
+            },
+            { once: true },
+          );
+        });
+      }
+    </script>
     <script>
       (function checkDependencies() {
         const loader = document.getElementById("dependency-loader");

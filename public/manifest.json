@@ -1,0 +1,16 @@
+{
+  "name": "Swarm AI console",
+  "short_name": "Swarm AI",
+  "start_url": "/enhanced-index.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#111315",
+  "theme_color": "#111315",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

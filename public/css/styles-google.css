@@ -43,12 +43,17 @@ body {
   color: var(--on-surface);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  width: 100%;
+  position: relative;
 }
 
 .container {
   max-width: 1280px;
   margin: 0 auto;
   padding: 24px;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 /* App Bar / Header */
@@ -62,6 +67,8 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 h1 {
@@ -324,5 +331,33 @@ input[type="range"] {
   }
   .charts {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .container {
+    padding: 16px;
+  }
+  .panel {
+    padding: 16px;
+  }
+  .database-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .sample-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  h1 {
+    font-size: 22px;
+  }
+  .header-nav {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .nav-buttons {
+    width: 100%;
+  }
+  .nav-buttons .btn {
+    width: 100%;
   }
 }
