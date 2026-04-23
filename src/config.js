@@ -26,20 +26,20 @@ export const CONFIG = {
 
   // Loss weights (Updated for quality)
   KL_WEIGHT: 0.002,
-  RECON_WEIGHT: 5.0,
+  RECON_WEIGHT: 8.0, // Increased from 5.0 to reduce blur
   DRIFT_WEIGHT: 1.0,
-  DIVERSITY_WEIGHT: 1.5,
-  CONSISTENCY_WEIGHT: 1.0,
-  PHASE3_RECON_SCALE: 0.8,
-  PERCEPTUAL_WEIGHT: 1.5,
-  SSIM_WEIGHT: 1.0,
-  LPIPS_WEIGHT: 0.3,
-  EDGE_WEIGHT: 0.3,
-  TV_WEIGHT: 0.02,
+  DIVERSITY_WEIGHT: 1.2, // Slightly reduced to focus on quality
+  CONSISTENCY_WEIGHT: 1.2, // Increased for stability
+  PHASE3_RECON_SCALE: 0.9, // Increased for joint phase
+  PERCEPTUAL_WEIGHT: 2.5, // Increased from 1.5 to capture more detail
+  SSIM_WEIGHT: 1.5, // Increased from 1.0
+  LPIPS_WEIGHT: 0.5, // Increased from 0.3
+  EDGE_WEIGHT: 0.5, // Increased from 0.3 for sharpness
+  TV_WEIGHT: 0.05, // Increased from 0.02 to reduce noise motifs
 
   // VAE specific
   LATENT_SCALE: 1.0,
-  FREE_BITS: 1.0,
+  FREE_BITS: 0.8, // Reduced from 1.0 to encourage better encoding
   USE_NEURAL_TOKENIZER: false,
   USE_PROJECTION_HEADS: true,
   USE_FOURIER_FEATURES: false,

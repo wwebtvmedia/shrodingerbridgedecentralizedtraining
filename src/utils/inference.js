@@ -58,10 +58,15 @@ export class InferenceEngine {
         }
 
         return checkpoint;
+      } else {
+        console.warn(
+          `⚠️ Checkpoint file not found (status ${response.status}), using untrained models.`,
+        );
       }
     } catch (error) {
       console.warn(
         "⚠️ Could not load checkpoint_web.json, using default weights.",
+        error,
       );
     }
     return null;
@@ -204,5 +209,31 @@ export class InferenceEngine {
         0,
       ),
     };
+  }
+
+  async generateWithLabel(label, options = {}) {
+    console.log(`🔢 Generating label-conditioned samples with label ${label}`);
+    return this.generateSamples({
+      ...options,
+      label: label,
+    });
+  }
+
+  async generateWithPrompt(prompt, options = {}) {
+    console.log(`📝 Generating text-conditioned samples with prompt: "${prompt}"`);
+    // For now, treat as unconditional since text conditioning not implemented
+    // TODO: integrate neural tokenizer for text conditioning
+    return this.generateSamples({
+      ...options,
+      label: undefined,
+    });
+  }
+
+  async generateUnconditional(options = {}) {
+    console.log(`🎲 Generating unconditional samples`);
+    return this.generateSamples({
+      ...options,
+      label: undefined,
+    });
   }
 }

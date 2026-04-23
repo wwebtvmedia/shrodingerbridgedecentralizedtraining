@@ -175,7 +175,7 @@ export class EnhancedLabelTrainer {
     if (this.vae_ref) {
       this.vae_ref.dispose();
     }
-    this.vae_ref = new LabelConditionedVAE();
+    this.vae_ref = new LabelConditionedVAE("vae_ref");
 
     const checkpoint = await this.saveCheckpoint();
     if (checkpoint.vae_params) {
@@ -220,32 +220,39 @@ export class EnhancedLabelTrainer {
     if (!obj || typeof obj !== "object" || visited.has(obj)) return vars;
     visited.add(obj);
 
-    // If it's a tf.layers.Layer or tf.Sequential
+    // 1. If it's a Layer, get its weights and then its sub-components
     if (obj.trainableWeights) {
       obj.trainableWeights.forEach((w) => {
-        if (!vars.includes(w.val)) {
-          vars.push(w.val);
+        const v = w.val || w;
+        if (v instanceof tf.Variable && !vars.includes(v)) {
+          vars.push(v);
         }
       });
     }
 
-    // If it has layers (like tf.Sequential)
-    if (obj.layers) {
+    // 2. If it's a Sequential or Model, it has a layers property
+    if (obj.layers && Array.isArray(obj.layers)) {
       obj.layers.forEach((l) => this.collectVariables(l, vars, visited));
     }
 
-    // Recursively check all properties in sorted order
-    const keys = Object.keys(obj).sort();
+    // 3. Recursively check custom properties (like encBlocks, decBlocks, etc.)
+    const keys = Object.keys(obj);
     for (const key of keys) {
-      if (key === "vae_ref" || key === "layers" || key === "trainableWeights")
+      // Skip internal properties, already visited ones, and known non-model properties
+      if (
+        key.startsWith("_") ||
+        key === "layers" ||
+        key === "trainableWeights" ||
+        key === "vae_ref" ||
+        key === "ou_ref" ||
+        key === "opt_vae" ||
+        key === "opt_drift"
+      )
         continue;
+
       const prop = obj[key];
-      if (prop && typeof prop === "object" && prop !== obj) {
-        if (Array.isArray(prop)) {
-          prop.forEach((item) => this.collectVariables(item, vars, visited));
-        } else {
-          this.collectVariables(prop, vars, visited);
-        }
+      if (prop && typeof prop === "object") {
+        this.collectVariables(prop, vars, visited);
       }
     }
 

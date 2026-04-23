@@ -564,17 +564,18 @@ class LabelConditionedBlock {
 }
 
 /**
- * Subpixel Upsampling using tf.depthToSpace
+ * Subpixel Upsampling (Replaced tf.depthToSpace with Conv2DTranspose for differentiability)
  */
 class SubpixelUpsample {
   constructor(inChannels, outChannels, upscaleFactor = 2, name) {
     this.name = name;
     this.upscaleFactor = upscaleFactor;
-    // We need outChannels * (upscaleFactor^2) filters
+
     this.conv = wrapWithLoRA(
-      tf.layers.conv2d({
-        filters: outChannels * upscaleFactor ** 2,
+      tf.layers.conv2dTranspose({
+        filters: outChannels,
         kernelSize: 3,
+        strides: upscaleFactor,
         padding: "same",
         name: `${name}/conv`,
       }),
@@ -591,8 +592,6 @@ class SubpixelUpsample {
   forward(x) {
     return tf.tidy(() => {
       let h = this.conv.apply(x);
-      // depthToSpace expects [B, H, W, C] and block_size
-      h = tf.depthToSpace(h, this.upscaleFactor);
       h = this.gn.apply(h);
       return tf.mul(h, tf.sigmoid(h));
     });
@@ -641,7 +640,8 @@ class SharedEmbeddingHead {
  * Label Conditioned VAE
  */
 export class LabelConditionedVAE {
-  constructor() {
+  constructor(name = "vae") {
+    this.name = name;
     this.latentChannels = CONFIG.LATENT_CHANNELS || 8;
     this.labelDim = CONFIG.LABEL_EMB_DIM || 128;
 
@@ -652,13 +652,13 @@ export class LabelConditionedVAE {
         256,
         512,
         this.labelDim,
-        "vae/text_enc",
+        `${name}/text_enc`,
       );
     } else {
       this.labelEmb = tf.layers.embedding({
         inputDim: CONFIG.NUM_CLASSES || 11,
         outputDim: this.labelDim,
-        name: "vae/label_emb",
+        name: `${name}/label_emb`,
       });
     }
 
@@ -678,19 +678,19 @@ export class LabelConditionedVAE {
           CONFIG.IMG_SIZE,
           3 + this.fourierChannels,
         ],
-        name: "vae/enc_in",
+        name: `${name}/enc_in`,
       }),
       CONFIG.LORA_R,
       CONFIG.LORA_ALPHA,
     );
 
     this.encBlocks = [
-      new ResidualBlock(64, 128, 2, "vae/enc_block0"), // 96 -> 48
-      new LabelConditionedBlock(128, 128, lDim, "vae/enc_cond0"),
-      new ResidualBlock(128, 256, 2, "vae/enc_block1"), // 48 -> 24
-      new SpatialSplitAttention(256, 4, "vae/enc_attn0"),
-      new LabelConditionedBlock(256, 512, lDim, "vae/enc_cond1"),
-      new ResidualBlock(512, 512, 2, "vae/enc_block2"), // 24 -> 12
+      new ResidualBlock(64, 128, 2, `${name}/enc_block0`), // 96 -> 48
+      new LabelConditionedBlock(128, 128, lDim, `${name}/enc_cond0`),
+      new ResidualBlock(128, 256, 2, `${name}/enc_block1`), // 48 -> 24
+      new SpatialSplitAttention(256, 4, `${name}/enc_attn0`),
+      new LabelConditionedBlock(256, 512, lDim, `${name}/enc_cond1`),
+      new ResidualBlock(512, 512, 2, `${name}/enc_block2`), // 24 -> 12
     ];
 
     this.zMean = wrapWithLoRA(
@@ -698,7 +698,7 @@ export class LabelConditionedVAE {
         filters: this.latentChannels,
         kernelSize: 3,
         padding: "same",
-        name: "vae/z_mean",
+        name: `${name}/z_mean`,
       }),
       CONFIG.LORA_R,
       CONFIG.LORA_ALPHA,
@@ -708,7 +708,7 @@ export class LabelConditionedVAE {
         filters: this.latentChannels,
         kernelSize: 3,
         padding: "same",
-        name: "vae/z_logvar",
+        name: `${name}/z_logvar`,
       }),
       CONFIG.LORA_R,
       CONFIG.LORA_ALPHA,
@@ -719,7 +719,7 @@ export class LabelConditionedVAE {
       this.imageProj = new SharedEmbeddingHead(
         this.latentChannels * CONFIG.LATENT_H * CONFIG.LATENT_W,
         lDim,
-        "vae/image_proj",
+        `${name}/image_proj`,
       );
     }
 
@@ -727,30 +727,30 @@ export class LabelConditionedVAE {
     this.latentNorm = new GroupNormalization(
       Math.min(8, this.latentChannels),
       1e-5,
-      "vae/latent_norm",
+      `${name}/latent_norm`,
     );
     this.decIn = wrapWithLoRA(
       tf.layers.conv2d({
         filters: 512,
         kernelSize: 3,
         padding: "same",
-        name: "vae/dec_in",
+        name: `${name}/dec_in`,
       }),
       CONFIG.LORA_R,
       CONFIG.LORA_ALPHA,
     );
 
     this.decBlocks = [
-      new SubpixelUpsample(512, 256, 2, "vae/dec_up0"), // 12 -> 24
-      new LabelConditionedBlock(256, 256, lDim, "vae/dec_cond0"),
-      new SpatialSplitAttention(256, 4, "vae/dec_attn0"),
+      new SubpixelUpsample(512, 256, 2, `${name}/dec_up0`), // 12 -> 24
+      new LabelConditionedBlock(256, 256, lDim, `${name}/dec_cond0`),
+      new SpatialSplitAttention(256, 4, `${name}/dec_attn0`),
 
-      new SubpixelUpsample(256, 128, 2, "vae/dec_up1"), // 24 -> 48
-      new LabelConditionedBlock(128, 128, lDim, "vae/dec_cond1"),
-      new SpatialSplitAttention(128, 4, "vae/dec_attn1"),
+      new SubpixelUpsample(256, 128, 2, `${name}/dec_up1`), // 24 -> 48
+      new LabelConditionedBlock(128, 128, lDim, `${name}/dec_cond1`),
+      new SpatialSplitAttention(128, 4, `${name}/dec_attn1`),
 
-      new SubpixelUpsample(128, 64, 2, "vae/dec_up2"), // 48 -> 96
-      new LabelConditionedBlock(64, 64, lDim, "vae/dec_cond2"),
+      new SubpixelUpsample(128, 64, 2, `${name}/dec_up2`), // 48 -> 96
+      new LabelConditionedBlock(64, 64, lDim, `${name}/dec_cond2`),
     ];
 
     this.decOut = wrapWithLoRA(
@@ -758,7 +758,7 @@ export class LabelConditionedVAE {
         filters: 3,
         kernelSize: 3,
         padding: "same",
-        name: "vae/dec_out",
+        name: `${name}/dec_out`,
       }),
       CONFIG.LORA_R,
       CONFIG.LORA_ALPHA,
@@ -909,7 +909,8 @@ class FourierTimeEmbed {
  * Label Conditioned Drift Network (U-Net)
  */
 export class LabelConditionedDrift {
-  constructor() {
+  constructor(name = "drift") {
+    this.name = name;
     this.latentChannels = CONFIG.LATENT_CHANNELS || 8;
     this.labelDim = CONFIG.LABEL_EMB_DIM || 128;
 
@@ -920,9 +921,9 @@ export class LabelConditionedDrift {
           units: 256,
           activation: "relu",
           inputShape: [128],
-          name: "drift/time_mlp1",
+          name: `${name}/time_mlp1`,
         }),
-        tf.layers.dense({ units: 256, name: "drift/time_mlp2" }),
+        tf.layers.dense({ units: 256, name: `${name}/time_mlp2` }),
       ],
     });
 
@@ -933,9 +934,9 @@ export class LabelConditionedDrift {
           units: 64,
           activation: "relu",
           inputShape: [1],
-          name: "drift/time_weight1",
+          name: `${name}/time_weight1`,
         }),
-        tf.layers.dense({ units: 1, name: "drift/time_weight2" }),
+        tf.layers.dense({ units: 1, name: `${name}/time_weight2` }),
       ],
     });
 
@@ -945,18 +946,18 @@ export class LabelConditionedDrift {
         256,
         512,
         this.labelDim,
-        "drift/text_enc",
+        `${name}/text_enc`,
       );
     } else {
       this.labelEmb = tf.layers.embedding({
         inputDim: CONFIG.NUM_CLASSES || 11,
         outputDim: this.labelDim,
-        name: "drift/label_emb",
+        name: `${name}/label_emb`,
       });
     }
 
     this.condProj = wrapWithLoRA(
-      tf.layers.dense({ units: 512, name: "drift/cond_proj" }),
+      tf.layers.dense({ units: 512, name: `${name}/cond_proj` }),
       CONFIG.LORA_R,
       CONFIG.LORA_ALPHA,
     );
@@ -967,20 +968,20 @@ export class LabelConditionedDrift {
         filters: 64,
         kernelSize: 3,
         padding: "same",
-        name: "drift/head",
+        name: `${name}/head`,
       }),
       CONFIG.LORA_R,
       CONFIG.LORA_ALPHA,
     );
 
-    this.down1 = new LabelConditionedBlock(64, 128, 512, "drift/down1");
+    this.down1 = new LabelConditionedBlock(64, 128, 512, `${name}/down1`);
     this.down2Conv = wrapWithLoRA(
       tf.layers.conv2d({
         filters: 128,
         kernelSize: 4,
         strides: 2,
         padding: "same",
-        name: "drift/down2_conv",
+        name: `${name}/down2_conv`,
       }),
       CONFIG.LORA_R,
       CONFIG.LORA_ALPHA,
@@ -989,12 +990,12 @@ export class LabelConditionedDrift {
       128,
       128,
       512,
-      "drift/down2_block",
+      `${name}/down2_block`,
     );
 
-    this.mid1 = new LabelConditionedBlock(128, 128, 512, "drift/mid1");
-    this.midAttn = new SpatialSplitAttention(128, 4, "drift/mid_attn");
-    this.mid2 = new LabelConditionedBlock(128, 128, 512, "drift/mid2");
+    this.mid1 = new LabelConditionedBlock(128, 128, 512, `${name}/mid1`);
+    this.midAttn = new SpatialSplitAttention(128, 4, `${name}/mid_attn`);
+    this.mid2 = new LabelConditionedBlock(128, 128, 512, `${name}/mid2`);
 
     this.up2Conv = wrapWithLoRA(
       tf.layers.conv2dTranspose({
@@ -1002,20 +1003,20 @@ export class LabelConditionedDrift {
         kernelSize: 4,
         strides: 2,
         padding: "same",
-        name: "drift/up2_conv",
+        name: `${name}/up2_conv`,
       }),
       CONFIG.LORA_R,
       CONFIG.LORA_ALPHA,
     );
-    this.up2Block = new LabelConditionedBlock(128, 128, 512, "drift/up2_block");
+    this.up2Block = new LabelConditionedBlock(128, 128, 512, `${name}/up2_block`);
 
-    this.up1 = new LabelConditionedBlock(128, 64, 512, "drift/up1");
+    this.up1 = new LabelConditionedBlock(128, 64, 512, `${name}/up1`);
     this.tail = wrapWithLoRA(
       tf.layers.conv2d({
         filters: this.latentChannels,
         kernelSize: 3,
         padding: "same",
-        name: "drift/tail",
+        name: `${name}/tail`,
       }),
       CONFIG.LORA_R,
       CONFIG.LORA_ALPHA,

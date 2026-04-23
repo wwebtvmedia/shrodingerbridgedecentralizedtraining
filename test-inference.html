@@ -152,94 +152,117 @@
       }
 
       async function testInference() {
-        addLog("🔮 Initializing inference engine...");
+        try {
+          addLog("🔮 Initializing inference engine...");
 
-        // Create a mock model manager
-        const mockModelManager = {
-          isInitialized: true,
-          initialize: async () => {},
-        };
+          // Create a mock model manager
+          const mockModelManager = {
+            isInitialized: true,
+            initialize: async () => {},
+          };
 
-        window.inferenceEngine = new InferenceEngine(mockModelManager);
-        await window.inferenceEngine.initialize();
+          window.inferenceEngine = new InferenceEngine(mockModelManager);
+          await window.inferenceEngine.initialize();
 
-        addLog("✅ Inference engine initialized");
+          addLog("✅ Inference engine initialized");
 
-        // Test generation
-        const result = await window.inferenceEngine.generateSamples({
-          sampleCount: 4,
-          steps: 20,
-          temperature: 0.7,
-        });
+          // Test generation
+          addLog("🎨 Generating samples...");
+          const result = await window.inferenceEngine.generateSamples({
+            sampleCount: 4,
+            steps: 20,
+            temperature: 0.7,
+          });
 
-        addLog(
-          `✅ Generated ${result.samples.length} samples in ${result.inference.duration}ms`,
-        );
+          addLog(
+            `✅ Generated ${result.samples.length} samples in ${result.inference.duration}ms`,
+          );
 
-        // Display samples
-        const samplesContainer = document.getElementById("inference-samples");
-        samplesContainer.innerHTML = "";
+          // Display samples
+          const samplesContainer = document.getElementById("inference-samples");
+          samplesContainer.innerHTML = "";
 
-        result.samples.forEach((sample) => {
-          const div = document.createElement("div");
-          div.className = "sample";
-          div.innerHTML = `<img src="${sample.image}" alt="Sample">`;
-          samplesContainer.appendChild(div);
-        });
+          result.samples.forEach((sample) => {
+            const div = document.createElement("div");
+            div.className = "sample";
+            div.innerHTML = `<img src="${sample.image}" alt="Sample">`;
+            samplesContainer.appendChild(div);
+          });
+          addLog("🖼️ Samples displayed");
+        } catch (error) {
+          console.error("Inference error:", error);
+          addLog(`❌ Inference failed: ${error.message}`);
+          addLog(`Stack: ${error.stack}`);
+        }
       }
 
       async function testLabelConditioned() {
-        if (!window.inferenceEngine) {
-          addLog("❌ Inference engine not initialized");
-          return;
+        try {
+          if (!window.inferenceEngine) {
+            addLog("❌ Inference engine not initialized");
+            return;
+          }
+
+          addLog("🔢 Testing label-conditioned generation (label: 3)...");
+          const result = await window.inferenceEngine.generateWithLabel(3, {
+            sampleCount: 2,
+            steps: 15,
+          });
+
+          addLog(
+            `✅ Generated ${result.samples.length} label-conditioned samples`,
+          );
+        } catch (error) {
+          console.error("Label conditioned generation error:", error);
+          addLog(`❌ Label conditioned generation failed: ${error.message}`);
         }
-
-        addLog("🔢 Testing label-conditioned generation (label: 3)...");
-        const result = await window.inferenceEngine.generateWithLabel(3, {
-          sampleCount: 2,
-          steps: 15,
-        });
-
-        addLog(
-          `✅ Generated ${result.samples.length} label-conditioned samples`,
-        );
       }
 
       async function testTextConditioned() {
-        if (!window.inferenceEngine) {
-          addLog("❌ Inference engine not initialized");
-          return;
+        try {
+          if (!window.inferenceEngine) {
+            addLog("❌ Inference engine not initialized");
+            return;
+          }
+
+          addLog(
+            '📝 Testing text-conditioned generation (prompt: "red circle blue square")...',
+          );
+          const result = await window.inferenceEngine.generateWithPrompt(
+            "red circle blue square",
+            {
+              sampleCount: 2,
+              steps: 15,
+            },
+          );
+
+          addLog(
+            `✅ Generated ${result.samples.length} text-conditioned samples`,
+          );
+        } catch (error) {
+          console.error("Text conditioned generation error:", error);
+          addLog(`❌ Text conditioned generation failed: ${error.message}`);
         }
-
-        addLog(
-          '📝 Testing text-conditioned generation (prompt: "red circle blue square")...',
-        );
-        const result = await window.inferenceEngine.generateWithPrompt(
-          "red circle blue square",
-          {
-            sampleCount: 2,
-            steps: 15,
-          },
-        );
-
-        addLog(
-          `✅ Generated ${result.samples.length} text-conditioned samples`,
-        );
       }
 
       async function testUnconditional() {
-        if (!window.inferenceEngine) {
-          addLog("❌ Inference engine not initialized");
-          return;
+        try {
+          if (!window.inferenceEngine) {
+            addLog("❌ Inference engine not initialized");
+            return;
+          }
+
+          addLog("🎲 Testing unconditional generation...");
+          const result = await window.inferenceEngine.generateUnconditional({
+            sampleCount: 2,
+            steps: 15,
+          });
+
+          addLog(`✅ Generated ${result.samples.length} unconditional samples`);
+        } catch (error) {
+          console.error("Unconditional generation error:", error);
+          addLog(`❌ Unconditional generation failed: ${error.message}`);
         }
-
-        addLog("🎲 Testing unconditional generation...");
-        const result = await window.inferenceEngine.generateUnconditional({
-          sampleCount: 2,
-          steps: 15,
-        });
-
-        addLog(`✅ Generated ${result.samples.length} unconditional samples`);
       }
 
       async function testImageImport() {
