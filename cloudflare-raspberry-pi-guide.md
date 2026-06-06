@@ -57,7 +57,14 @@ Cloudflare Tunnels (formerly Argo Tunnel) allow you to expose your local Raspber
     # Server Settings
     SERVER_PORT=8080
     NODE_ENV=production
+
+    # Security (required) — generate with: openssl rand -hex 32
+    SECRET_TOKEN=your-strong-random-token
+    ALLOWED_ORIGINS=https://training.yourdomain.com
     ```
+
+    > The browser client must present the same `SECRET_TOKEN` via
+    > `window.SWARM_AUTH_TOKEN` (e.g. `localStorage.setItem('swarmAuthToken', '...')`).
 
 ---
 

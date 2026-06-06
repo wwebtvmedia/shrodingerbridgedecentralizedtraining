@@ -292,6 +292,17 @@
       window.seedrandom = seedrandom;
       console.log("✅ seedrandom initialized");
     </script>
+    <script>
+      // Consolidation-server auth token. The token is NO LONGER hardcoded in the
+      // app source. Provide it at runtime without committing a secret, e.g.:
+      //   localStorage.setItem('swarmAuthToken', '<your SECRET_TOKEN>')
+      // or inject window.SWARM_AUTH_TOKEN from your deployment/build step.
+      // It must match the server's SECRET_TOKEN.
+      window.SWARM_AUTH_TOKEN =
+        window.SWARM_AUTH_TOKEN ||
+        (window.localStorage && localStorage.getItem("swarmAuthToken")) ||
+        "";
+    </script>
     <script type="module" src="/src/enhanced-app.js"></script>
     <script>
       // Attempt to lock orientation to portrait on mobile devices

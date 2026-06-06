@@ -34,21 +34,37 @@ git pull origin main
 echo "📦 Ensuring dependencies are up to date..."
 npm install
 
-# 3. Clean PM2 Environment
+# 3. Load environment / verify auth secret
+# The server authenticates protected endpoints against SECRET_TOKEN. Load .env
+# if present so pm2 inherits it, and warn if no token is configured (the server
+# will then run with a random ephemeral token printed to its log).
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+fi
+if [ -z "${SECRET_TOKEN:-}" ]; then
+  echo "⚠️  SECRET_TOKEN is not set. Set it in .env (openssl rand -hex 32) for a"
+  echo "    stable shared secret; otherwise the server uses a random per-run token."
+fi
+
+# 4. Clean PM2 Environment
 echo "🧹 Cleaning up existing processes..."
 pm2 delete all || true
 
-# 4. Start Swarm Server
+# 5. Start Swarm Server
 echo "🧠 Starting Swarm Consolidation Server on port 8080..."
-# We explicitly set PORT=8080 to override any old .env settings
-PORT=8080 pm2 start server/index.js --name swarm-server
+# We explicitly set PORT=8080 to override any old .env settings.
+# --update-env ensures pm2 picks up SECRET_TOKEN/ALLOWED_ORIGINS from above.
+PORT=8080 pm2 start server/index.js --name swarm-server --update-env
 
-# 5. Start Cloudflare Tunnel
+# 6. Start Cloudflare Tunnel
 echo "☁️ Starting Cloudflare Tunnel (pi-server -> localhost:8080)..."
 # Replace 'pi-server' if your tunnel name is different
 pm2 start "cloudflared tunnel run --url http://localhost:8080 pi-server" --name cf-tunnel
 
-# 6. Persistence
+# 7. Persistence
 echo "💾 Saving PM2 process list for automatic reboot..."
 pm2 save
 

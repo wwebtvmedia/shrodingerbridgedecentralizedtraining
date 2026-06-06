@@ -93,15 +93,49 @@ The Schrödinger Bridge finds the optimal drift \( u^\*(x, t) \) that connects n
 npm install
 ```
 
-### 2. Run Development Environment
+### 2. Configure (required for the server)
+
+The consolidation server authenticates every protected endpoint with a token.
+Copy the env template and set a strong secret:
 
 ```bash
-npm run dev
+cp .env.template .env
+# Generate a token and put it in .env as SECRET_TOKEN=...
+openssl rand -hex 32
 ```
 
-Open `http://localhost:3000` in multiple tabs to witness the swarm in action.
+| Variable          | Purpose                                                                                                                                                           |
+| :---------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SECRET_TOKEN`    | Shared auth token for all protected HTTP/WS endpoints. If unset, the server generates a random ephemeral token and prints it to the log (never a shared default). |
+| `ALLOWED_ORIGINS` | Comma-separated CORS allowlist (defaults to `localhost`).                                                                                                         |
+| `MAX_CONN_PER_IP` | Max concurrent WebSocket connections per IP (default 20).                                                                                                         |
+| `PORT`            | Server port (default 3001).                                                                                                                                       |
 
-### 3. Build for Production
+The **browser client** must present the same token. It is no longer hardcoded —
+provide it at runtime, e.g. in the browser console:
+
+```js
+localStorage.setItem("swarmAuthToken", "<your SECRET_TOKEN>");
+```
+
+or by injecting `window.SWARM_AUTH_TOKEN` from your deployment/build step.
+
+### 3. Run Development Environment
+
+```bash
+# Front-end only
+npm run dev            # Vite dev server (http://localhost:3000)
+
+# Consolidation server (reads SECRET_TOKEN from the environment)
+SECRET_TOKEN=$(openssl rand -hex 32) npm run server
+
+# Both together
+npm run dev:full
+```
+
+Open the app in multiple tabs to witness the swarm in action.
+
+### 4. Build for Production
 
 ```bash
 npm run build
@@ -112,7 +146,28 @@ npm run build
 - **Browser**: Modern browser with WebGL/WebGPU support.
 - **Memory**: 4GB+ RAM recommended for 96x96 resolution.
 - **Backend**: TensorFlow.js (Hardware Accelerated).
-- **Communication**: WebRTC (Simple-Peer).
+- **Communication**: WebSocket tunnel + WebRTC data channels.
+
+## 🔒 Security & Hardening
+
+The server and client validate and sanitize all untrusted input:
+
+- **Auth**: required `SECRET_TOKEN` (no shared default), constant-time compare,
+  token sent via WebSocket subprotocol (not the URL).
+- **CORS**: restricted to an `ALLOWED_ORIGINS` allowlist.
+- **Input validation**: strict message schemas, finite-number checks, payload
+  size caps, and prototype-pollution-safe JSON parsing/sanitization.
+- **DoS guards**: submitted-model size cap, model-file pruning, idle-connection
+  reaper, and per-IP connection limits.
+- **Output safety**: all server/peer-supplied fields are escaped before being
+  rendered in the DOM (no `innerHTML` injection).
+- **Checkpoints**: Python tooling loads with `weights_only=True` to avoid pickle
+  code execution from untrusted `.pt` files.
+
+> [!CAUTION]
+> `start-swarm.sh` stashes local changes before pulling. The old destructive
+> reset is opt-in via `FORCE_RESET=1` and preserves `data/`, `models/`,
+> `checkpoints/`, and `.env`.
 
 ## 📝 Reviewer Quick Start
 
@@ -126,4 +181,4 @@ To effectively review this implementation:
 
 ---
 
-_Last updated: April 19, 2026_
+_Last updated: June 6, 2026_

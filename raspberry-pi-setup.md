@@ -74,6 +74,12 @@ User=pi
 WorkingDirectory=/home/pi/prototype
 Environment=NODE_ENV=production
 Environment=PORT=8080
+# Required auth secret for protected endpoints. Generate with:
+#   openssl rand -hex 32
+# Prefer EnvironmentFile=/home/pi/prototype/.env to keep the secret out of the
+# unit file. The browser client must present the same value.
+Environment=SECRET_TOKEN=replace-with-openssl-rand-hex-32
+Environment=ALLOWED_ORIGINS=https://training.yourdomain.com
 ExecStart=/usr/bin/node server/index.js
 Restart=on-failure
 
@@ -98,6 +104,16 @@ For stability on RPi, we recommend increasing the swap size:
 > [!IMPORTANT]
 > **Never** expose port 8080 directly to the internet. Always use the **Cloudflare Tunnel** method described in [cloudflare-raspberry-pi-guide.md](./cloudflare-raspberry-pi-guide.md).
 
+### Auth Secret
+
+> [!IMPORTANT]
+> Set a strong `SECRET_TOKEN` (`openssl rand -hex 32`). Without it the server
+> generates a random token at boot (printed to the journal), so clients can't
+> authenticate until you read it from the log. Keep the secret in an
+> `EnvironmentFile` rather than the unit file, and configure `ALLOWED_ORIGINS`
+> to your domain. The browser client must present the same token (see the
+> [README](./README.md#-getting-started)).
+
 ---
 
 ## ❓ Troubleshooting
@@ -110,4 +126,4 @@ For stability on RPi, we recommend increasing the swap size:
 
 ---
 
-_Last updated: April 19, 2026_
+_Last updated: June 6, 2026_
