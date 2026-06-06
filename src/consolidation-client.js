@@ -48,41 +48,22 @@ class ConsolidationClient {
   }
 
   setupEventListeners() {
-    // Connection buttons
-    document
-      .getElementById("connect-btn")
-      .addEventListener("click", () => this.connect());
-    document
-      .getElementById("disconnect-btn")
-      .addEventListener("click", () => this.disconnect());
-    document
-      .getElementById("register-btn")
-      .addEventListener("click", () => this.registerAsTrainer());
+    // Connection buttons (null-safe: a missing element shouldn't throw and
+    // abort the rest of the bindings).
+    this.bindClick("connect-btn", () => this.connect());
+    this.bindClick("disconnect-btn", () => this.disconnect());
+    this.bindClick("register-btn", () => this.registerAsTrainer());
 
     // Training buttons
-    document
-      .getElementById("start-training-btn")
-      .addEventListener("click", () => this.startTraining());
-    document
-      .getElementById("stop-training-btn")
-      .addEventListener("click", () => this.stopTraining());
-    document
-      .getElementById("submit-model-btn")
-      .addEventListener("click", () => this.submitModel());
+    this.bindClick("start-training-btn", () => this.startTraining());
+    this.bindClick("stop-training-btn", () => this.stopTraining());
+    this.bindClick("submit-model-btn", () => this.submitModel());
 
     // Other buttons
-    document
-      .getElementById("refresh-clients-btn")
-      .addEventListener("click", () => this.refreshClients());
-    document
-      .getElementById("broadcast-test-btn")
-      .addEventListener("click", () => this.testBroadcast());
-    document
-      .getElementById("clear-log-btn")
-      .addEventListener("click", () => this.clearLog());
-    document
-      .getElementById("download-model-btn")
-      .addEventListener("click", () => this.downloadBestModel());
+    this.bindClick("refresh-clients-btn", () => this.refreshClients());
+    this.bindClick("broadcast-test-btn", () => this.testBroadcast());
+    this.bindClick("clear-log-btn", () => this.clearLog());
+    this.bindClick("download-model-btn", () => this.downloadBestModel());
   }
 
   initChart() {
@@ -153,10 +134,12 @@ class ConsolidationClient {
     this.log(`Connecting to server at ${serverUrl}...`, "info");
 
     try {
+      this.manualClose = false;
       this.ws = new WebSocket(serverUrl);
 
       this.ws.onopen = () => {
         this.isConnected = true;
+        this.reconnectAttempts = 0;
         this.log("Connected to consolidation server", "success");
         this.updateConnectionStatus();
         this.updateButtonStates();
@@ -178,13 +161,14 @@ class ConsolidationClient {
 
         // Stop heartbeat
         this.stopHeartbeat();
+
+        // Auto-reconnect with bounded backoff unless the user disconnected.
+        if (!this.manualClose) this.scheduleReconnect();
       };
 
-      this.ws.onerror = (error) => {
-        this.log(
-          `WebSocket error: ${error.message || "Unknown error"}`,
-          "error",
-        );
+      this.ws.onerror = (event) => {
+        // WebSocket error events have no `message`; log the event type instead.
+        this.log(`WebSocket error: ${event?.type || "error"}`, "error");
       };
     } catch (error) {
       this.log(`Connection failed: ${error.message}`, "error");
@@ -192,6 +176,11 @@ class ConsolidationClient {
   }
 
   disconnect() {
+    this.manualClose = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -201,6 +190,26 @@ class ConsolidationClient {
     this.log("Disconnected from server", "info");
     this.updateConnectionStatus();
     this.updateButtonStates();
+  }
+
+  scheduleReconnect() {
+    const maxAttempts = 5;
+    this.reconnectAttempts = (this.reconnectAttempts || 0) + 1;
+    if (this.reconnectAttempts > maxAttempts) {
+      this.log(
+        "Reconnect attempts exhausted; click Connect to retry.",
+        "error",
+      );
+      return;
+    }
+    const delay = Math.min(1000 * 2 ** (this.reconnectAttempts - 1), 30000);
+    this.log(
+      `Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${maxAttempts})...`,
+      "info",
+    );
+    this.reconnectTimer = setTimeout(() => {
+      if (!this.manualClose) this.connect();
+    }, delay);
   }
 
   registerAsTrainer() {
@@ -277,9 +286,8 @@ class ConsolidationClient {
     );
 
     // Update server status
-    document.getElementById("best-model-loss").textContent =
-      model.loss.toFixed(4);
-    document.getElementById("model-updates").textContent = this.modelUpdates;
+    this.setText("best-model-loss", this.fmtNum(model.loss));
+    this.setText("model-updates", this.modelUpdates);
   }
 
   startHeartbeat() {
@@ -423,8 +431,13 @@ class ConsolidationClient {
       buffer[i] = Math.floor(Math.random() * 256);
     }
 
-    // Convert to base64
-    const binary = String.fromCharCode.apply(null, buffer);
+    // Convert to base64 in chunks. String.fromCharCode.apply(null, bigArray)
+    // throws RangeError (max call stack / arg count) for ~100KB inputs.
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < buffer.length; i += CHUNK) {
+      binary += String.fromCharCode.apply(null, buffer.subarray(i, i + CHUNK));
+    }
     return btoa(binary);
   }
 
@@ -542,35 +555,44 @@ class ConsolidationClient {
 
     const model = this.bestModel;
     const timestamp = new Date(model.timestamp).toLocaleString();
+    // All server-supplied fields are escaped/validated before interpolation —
+    // a malicious/compromised server must not be able to inject markup here.
+    const clientId = this.escapeHtml(model.clientId);
+    const clientShort = this.escapeHtml(
+      String(model.clientId ?? "").substring(0, 8),
+    );
+    const sizeMB = Number.isFinite(model.size)
+      ? (model.size / 1024 / 1024).toFixed(2)
+      : "—";
+    const epoch = Number.isFinite(model.epoch) ? model.epoch : "—";
 
     modelInfoElement.innerHTML = `
-            <p><strong>Best Model</strong> from client <code>${model.clientId}</code></p>
-            <p>Last updated: ${timestamp}</p>
+            <p><strong>Best Model</strong> from client <code>${clientId}</code></p>
+            <p>Last updated: ${this.escapeHtml(timestamp)}</p>
         `;
 
     modelStatsElement.innerHTML = `
             <div class="stat-item">
                 <div class="label">Loss</div>
-                <div class="value">${model.loss.toFixed(4)}</div>
+                <div class="value">${this.fmtNum(model.loss)}</div>
             </div>
             <div class="stat-item">
                 <div class="label">Epoch</div>
-                <div class="value">${model.epoch}</div>
+                <div class="value">${epoch}</div>
             </div>
             <div class="stat-item">
                 <div class="label">Client</div>
-                <div class="value">${model.clientId.substring(0, 8)}...</div>
+                <div class="value">${clientShort}...</div>
             </div>
             <div class="stat-item">
                 <div class="label">Size</div>
-                <div class="value">${(model.size / 1024 / 1024).toFixed(2)} MB</div>
+                <div class="value">${sizeMB} MB</div>
             </div>
         `;
 
     // Update server status
-    document.getElementById("best-model-loss").textContent =
-      model.loss.toFixed(4);
-    document.getElementById("model-updates").textContent = this.modelUpdates;
+    this.setText("best-model-loss", this.fmtNum(model.loss));
+    this.setText("model-updates", this.modelUpdates);
   }
 
   updateLocalTrainingStatus() {
@@ -619,11 +641,17 @@ class ConsolidationClient {
         ? `${Math.floor((Date.now() - lastSeen.getTime()) / 1000)} seconds ago`
         : "Never";
 
+      // Escape peer-supplied fields (name/capabilities/id) before rendering.
+      const name = this.escapeHtml(client.name || client.id);
+      const caps = Array.isArray(client.capabilities)
+        ? this.escapeHtml(client.capabilities.join(", "))
+        : "No capabilities";
+
       clientElement.innerHTML = `
                 <div class="client-info">
-                    <div class="client-name">${client.name || client.id}</div>
+                    <div class="client-name">${name}</div>
                     <div class="client-metrics">
-                        ${client.capabilities ? client.capabilities.join(", ") : "No capabilities"} |
+                        ${caps} |
                         Last seen: ${lastSeenText}
                     </div>
                 </div>
@@ -644,8 +672,36 @@ class ConsolidationClient {
     this.updateChart();
   }
 
+  // --- helpers ---
+  // Escape untrusted strings before interpolating into innerHTML (XSS guard).
+  escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // Format a value as a fixed-decimal number, tolerating missing/non-numeric.
+  fmtNum(value, digits = 4) {
+    return Number.isFinite(value) ? value.toFixed(digits) : "—";
+  }
+
+  // Null-safe element lookup + click binding.
+  bindClick(id, handler) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", handler);
+  }
+
+  setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
   log(message, type = "info") {
     const logContainer = document.getElementById("log-container");
+    if (!logContainer) return;
     const logEntry = document.createElement("div");
     logEntry.className = `log-entry ${type}`;
 

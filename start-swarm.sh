@@ -13,9 +13,21 @@ echo "======================================"
 
 # 1. Update Codebase
 echo "📥 Pulling latest updates from GitHub..."
-# Discard local changes to prevent pull conflicts
-git reset --hard
-git clean -fd
+# Do NOT blindly `git reset --hard` + `git clean -fd`: that silently destroys
+# uncommitted changes AND untracked runtime data (.env, data/, models/,
+# checkpoints/, logs). Instead, stash local changes so they can be recovered,
+# and only force-discard when FORCE_RESET=1 is explicitly set.
+if [ "${FORCE_RESET:-0}" = "1" ]; then
+  echo "⚠️  FORCE_RESET=1 — discarding local changes (untracked data preserved)."
+  git reset --hard
+  # -d removes untracked dirs but -e keeps runtime data out of harm's way.
+  git clean -fd -e .env -e data -e models -e checkpoints -e "*.log"
+else
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "📦 Stashing local changes (recover with 'git stash pop')..."
+    git stash push -u -m "auto-stash before swarm startup" || true
+  fi
+fi
 git pull origin main
 
 # 2. Install/Update Dependencies

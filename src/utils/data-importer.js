@@ -177,24 +177,77 @@ class DataImporter {
   }
 
   parseCSV(content) {
-    const lines = content.split("\n");
-    const headers = lines[0].split(",").map((h) => h.trim());
+    // RFC-4180-aware parser: handles quoted fields, embedded commas/newlines,
+    // and escaped quotes ("") inside quoted fields. Naive split(",") breaks on
+    // all of these.
+    const records = this.tokenizeCSV(content);
+    if (records.length === 0) return [];
+
+    const headers = records[0].map((h) => h.trim());
     const data = [];
+    for (let i = 1; i < records.length; i++) {
+      const values = records[i];
+      // Skip fully blank rows.
+      if (values.length === 1 && values[0].trim() === "") continue;
 
-    for (let i = 1; i < lines.length; i++) {
-      if (lines[i].trim() === "") continue;
-
-      const values = lines[i].split(",").map((v) => v.trim());
       const row = {};
-
       for (let j = 0; j < headers.length && j < values.length; j++) {
         row[headers[j]] = values[j];
       }
-
       data.push(row);
     }
-
     return data;
+  }
+
+  // Split CSV text into an array of records (each an array of field strings).
+  tokenizeCSV(content) {
+    const records = [];
+    let field = "";
+    let record = [];
+    let inQuotes = false;
+    let started = false;
+
+    const pushField = () => {
+      record.push(field);
+      field = "";
+    };
+    const pushRecord = () => {
+      pushField();
+      records.push(record);
+      record = [];
+    };
+
+    for (let i = 0; i < content.length; i++) {
+      const c = content[i];
+      started = true;
+      if (inQuotes) {
+        if (c === '"') {
+          if (content[i + 1] === '"') {
+            field += '"';
+            i++; // skip escaped quote
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          field += c;
+        }
+      } else if (c === '"') {
+        inQuotes = true;
+      } else if (c === ",") {
+        pushField();
+      } else if (c === "\n") {
+        pushRecord();
+      } else if (c === "\r") {
+        // ignore; handles CRLF
+      } else {
+        field += c;
+      }
+    }
+    // Flush trailing field/record if the file didn't end with a newline.
+    if (started && (field.length > 0 || record.length > 0)) {
+      pushRecord();
+    }
+    return records;
   }
 
   tokenizeText(text) {

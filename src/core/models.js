@@ -147,20 +147,35 @@ export class ModelManager {
     try {
       // Get real weights for hash
       const sample_weights = await tfjsTrainer.getHashSample();
-      // Use small part of weights for stable but unique hash
-      const sample = Array.isArray(sample_weights)
-        ? sample_weights.flat().slice(0, 10)
-        : [Math.random()];
+      const sample = Array.isArray(sample_weights) ? sample_weights.flat() : [];
 
-      const sum = sample.reduce(
-        (a, b) => a + (typeof b === "number" ? b : 0),
-        0,
-      );
-      const avg = sample.length > 0 ? sum / sample.length : 0;
+      if (sample.length === 0) {
+        this.state.hash = `model_empty`;
+        return;
+      }
 
-      this.state.hash = `model_${Math.abs(avg).toFixed(8).replace(".", "")}_${Date.now().toString().slice(-4)}`;
+      // Deterministic FNV-1a hash over the weight values. The previous hash
+      // averaged only the first 10 weights and appended Date.now(), so it was
+      // both collision-prone and non-deterministic (the same model hashed
+      // differently each call) — useless for dedup/verification.
+      let h = 0x811c9dc5; // FNV offset basis
+      for (let i = 0; i < sample.length; i++) {
+        const v = typeof sample[i] === "number" ? sample[i] : 0;
+        // Mix the 32-bit float representation of each weight.
+        const bits = Math.round(v * 1e6) | 0;
+        h ^= bits & 0xff;
+        h = Math.imul(h, 0x01000193);
+        h ^= (bits >>> 8) & 0xff;
+        h = Math.imul(h, 0x01000193);
+        h ^= (bits >>> 16) & 0xff;
+        h = Math.imul(h, 0x01000193);
+        h ^= (bits >>> 24) & 0xff;
+        h = Math.imul(h, 0x01000193);
+      }
+      const hex = (h >>> 0).toString(16).padStart(8, "0");
+      this.state.hash = `model_${sample.length}_${hex}`;
     } catch (e) {
-      this.state.hash = `model_fallback_${Date.now()}`;
+      this.state.hash = `model_fallback`;
     }
   }
 

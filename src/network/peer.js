@@ -1,4 +1,8 @@
 import { v4 as uuidv4 } from "uuid";
+import { Sanitizer } from "../utils/sanitizer.js";
+
+// Reject oversized peer frames before parsing (DoS / memory guard).
+const MAX_PEER_MSG_BYTES = 32 * 1024 * 1024; // 32 MB
 
 class PeerNetwork {
   constructor() {
@@ -189,6 +193,13 @@ class PeerNetwork {
     // Clean old cache entries
     this.cleanGossipCache();
 
+    // Resolve TTL without resurrecting expired messages: a missing TTL gets the
+    // default, but an explicit 0 must NOT be re-defaulted (0 || default === default),
+    // which would let dead messages loop forever.
+    const ttl =
+      typeof message.ttl === "number" ? message.ttl : this.config.gossipTTL;
+    if (ttl <= 0) return;
+
     // Select random peers to gossip to
     const peers = Array.from(this.peers.keys());
     const fanout = Math.min(this.config.gossipFanout, peers.length);
@@ -196,16 +207,20 @@ class PeerNetwork {
 
     // Send to selected peers
     for (const peerId of selectedPeers) {
-      this.sendToPeer(peerId, {
-        ...message,
-        ttl: message.ttl || this.config.gossipTTL,
-      });
+      this.sendToPeer(peerId, { ...message, ttl });
     }
   }
 
   async handleMessage(peerId, data) {
     try {
-      const message = typeof data === "string" ? JSON.parse(data) : data;
+      // Size-guard raw frames, then sanitize parsed objects to strip
+      // prototype-pollution keys (__proto__/constructor) from untrusted peers.
+      if (typeof data === "string" && data.length > MAX_PEER_MSG_BYTES) {
+        console.warn(`Dropping oversized message from ${peerId}`);
+        return;
+      }
+      const raw = typeof data === "string" ? JSON.parse(data) : data;
+      const message = Sanitizer.sanitize(raw);
 
       // Check if we've seen this message recently (deduplication)
       if (message.id && this.gossipCache.has(message.id)) {
@@ -241,6 +256,14 @@ class PeerNetwork {
 
         case "SAMPLE_SHARE":
           this.handleSampleShare(peerId, message);
+          break;
+
+        case "PEER_RESEARCH_REQUEST":
+          this.handleResearchRequest(peerId, message);
+          break;
+
+        case "PEER_RESEARCH_RESPONSE":
+          this.handleResearchResponse(peerId, message);
           break;
 
         default:
@@ -357,7 +380,10 @@ class PeerNetwork {
         isConnected: true,
         peerCount: this.peers.size,
         knownModels: this.knownModels.size,
-        uptime: process.uptime ? process.uptime() : 0,
+        uptime:
+          typeof process !== "undefined" && process.uptime
+            ? process.uptime()
+            : 0,
         // Metrics would be injected here in production
         metrics: {
           loss: 0.25 + Math.random() * 0.1,
@@ -514,9 +540,29 @@ class PeerNetwork {
   }
 
   disconnect() {
-    // Close all connections
-    for (const [peerId, connection] of this.peers.entries()) {
-      connection.close();
+    // Detach handlers and close data channels so closed connections can't keep
+    // firing callbacks (e.g. handlePeerDisconnected) after teardown.
+    for (const [, dataChannel] of this.dataChannels.entries()) {
+      dataChannel.onopen = null;
+      dataChannel.onclose = null;
+      dataChannel.onerror = null;
+      dataChannel.onmessage = null;
+      try {
+        dataChannel.close();
+      } catch {
+        /* already closed */
+      }
+    }
+
+    // Close all peer connections.
+    for (const [, connection] of this.peers.entries()) {
+      connection.onicecandidate = null;
+      connection.onconnectionstatechange = null;
+      try {
+        connection.close();
+      } catch {
+        /* already closed */
+      }
     }
 
     this.peers.clear();

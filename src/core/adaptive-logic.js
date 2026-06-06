@@ -66,6 +66,21 @@ export class TrajectoryAdvantageEstimator {
 }
 
 /**
+ * Deep clone that preserves numeric values. JSON.parse(JSON.stringify(x))
+ * converts NaN/Infinity to null, silently corrupting model weights on round-trip.
+ */
+function deepClone(value) {
+  if (typeof structuredClone === "function") return structuredClone(value);
+  if (Array.isArray(value)) return value.map(deepClone);
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const k of Object.keys(value)) out[k] = deepClone(value[k]);
+    return out;
+  }
+  return value;
+}
+
+/**
  * Evolutionary Optimizer
  * Implements mutation and crossover for model weights (LoRA adapters).
  */
@@ -80,7 +95,7 @@ export class EvolutionaryOptimizer {
    * @param {Object} parameters - Model parameters (vae_params, drift_params)
    */
   mutate(parameters) {
-    const mutated = JSON.parse(JSON.stringify(parameters));
+    const mutated = deepClone(parameters);
 
     const applyMutation = (arr) => {
       if (!Array.isArray(arr)) return arr;
@@ -110,7 +125,7 @@ export class EvolutionaryOptimizer {
    * @param {number} ratio - Crossover ratio (0.5 for uniform)
    */
   crossover(p1, p2, ratio = 0.5) {
-    const child = JSON.parse(JSON.stringify(p1));
+    const child = deepClone(p1);
 
     const combine = (arr1, arr2) => {
       if (!Array.isArray(arr1) || !Array.isArray(arr2)) return arr1;

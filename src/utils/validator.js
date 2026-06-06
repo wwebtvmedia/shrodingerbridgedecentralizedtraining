@@ -61,7 +61,8 @@ export const Validator = {
     },
     MODEL_SHARE: {
       modelHash: { type: "string", required: true },
-      modelData: { type: "any", required: true },
+      // Bound the payload so a peer can't push an unbounded blob into memory.
+      modelData: { type: "any", required: true, maxLength: 64 * 1024 * 1024 },
       timestamp: { type: "number", required: true },
     },
     PEER_RESEARCH_REQUEST: {
@@ -109,10 +110,31 @@ export const Validator = {
         if (rules.type === "array") {
           if (!Array.isArray(value)) return false;
         } else if (rules.type === "any") {
-          // Accept anything
+          // Accept anything (but still honor maxLength below).
         } else if (typeof value !== rules.type) {
           console.warn(
             `Validator [${schemaName}]: Field '${key}' expected type '${rules.type}', got '${typeof value}'`,
+          );
+          return false;
+        }
+
+        // Reject non-finite numbers (NaN/Infinity pass a typeof check but
+        // corrupt comparisons downstream, e.g. "is this loss better?").
+        if (rules.type === "number" && !Number.isFinite(value)) {
+          console.warn(
+            `Validator [${schemaName}]: Field '${key}' is not a finite number`,
+          );
+          return false;
+        }
+
+        // Enforce a maximum string/array length when specified.
+        if (
+          rules.maxLength !== undefined &&
+          typeof value?.length === "number" &&
+          value.length > rules.maxLength
+        ) {
+          console.warn(
+            `Validator [${schemaName}]: Field '${key}' exceeds maxLength ${rules.maxLength}`,
           );
           return false;
         }

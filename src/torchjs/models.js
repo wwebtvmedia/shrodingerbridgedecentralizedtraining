@@ -167,7 +167,10 @@ class PercentileRescale extends tf.layers.Layer {
         const l = tf.sub(mean, tf.mul(2.33, std));
         const h = tf.add(mean, tf.mul(2.33, std));
 
-        // Update buffers (manual EMA as TFJS weights are updated by optimizers if trainable)
+        // Manual EMA update of the (non-trainable) buffers. write()/assign copies
+        // the data, so it's safe even though these tensors are disposed when the
+        // surrounding tidy exits. Without this, low/high stay at their init
+        // values (0/1) forever and the layer degenerates to a plain tanh.
         const newLow = tf.add(
           tf.mul(this.low.read(), 1 - this.momentum),
           tf.mul(l, this.momentum),
@@ -176,9 +179,8 @@ class PercentileRescale extends tf.layers.Layer {
           tf.mul(this.high.read(), 1 - this.momentum),
           tf.mul(h, this.momentum),
         );
-
-        // In TFJS we can't easily update non-trainable weights inside call() without side effects
-        // but for training we'll just use the current values
+        this.low.write(newLow);
+        this.high.write(newHigh);
       }
 
       const scale = tf.maximum(tf.sub(this.high.read(), this.low.read()), 1e-6);
@@ -343,9 +345,11 @@ class SpatialSplitAttention {
       let qkv_v = this.qkv_h.apply(v_norm);
       let [q_v, k_v, v_v] = tf.split(qkv_v, 3, -1);
 
-      // Attention
+      // Attention. This is single-head attention over the full channel dim, so
+      // the key dimension is `c` and the scale is 1/sqrt(c). (Use Math.sqrt — a
+      // JS scalar — not tf.sqrt, which expects a tensor.)
       let attn_v = tf.matMul(q_v, k_v, false, true);
-      attn_v = tf.softmax(tf.div(attn_v, tf.sqrt(c / this.numHeads)));
+      attn_v = tf.softmax(tf.div(attn_v, Math.sqrt(c)));
       let out_v = tf.matMul(attn_v, v_v);
       out_v = this.proj_h.apply(out_v);
 
@@ -363,7 +367,7 @@ class SpatialSplitAttention {
       let [q_h, k_h, v_h] = tf.split(qkv_h, 3, -1);
 
       let attn_h = tf.matMul(q_h, k_h, false, true);
-      attn_h = tf.softmax(tf.div(attn_h, tf.sqrt(c / this.numHeads)));
+      attn_h = tf.softmax(tf.div(attn_h, Math.sqrt(c)));
       let out_h = tf.matMul(attn_h, v_h);
       out_h = this.proj_w.apply(out_h);
 
@@ -1008,7 +1012,12 @@ export class LabelConditionedDrift {
       CONFIG.LORA_R,
       CONFIG.LORA_ALPHA,
     );
-    this.up2Block = new LabelConditionedBlock(128, 128, 512, `${name}/up2_block`);
+    this.up2Block = new LabelConditionedBlock(
+      128,
+      128,
+      512,
+      `${name}/up2_block`,
+    );
 
     this.up1 = new LabelConditionedBlock(128, 64, 512, `${name}/up1`);
     this.tail = wrapWithLoRA(

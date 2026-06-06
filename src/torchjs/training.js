@@ -267,6 +267,19 @@ export class EnhancedLabelTrainer {
     return this.collectVariables(this.drift);
   }
 
+  // Global L2 norm of the gradient set. Surfaced in trainStep metrics so the
+  // trajectory-advantage estimator gets a real magnitude instead of a constant.
+  computeGradNorm(grads) {
+    return tf.tidy(() => {
+      let sumSq = tf.scalar(0);
+      for (const k of Object.keys(grads)) {
+        const g = grads[k];
+        if (g) sumSq = tf.add(sumSq, tf.sum(tf.square(g)));
+      }
+      return Math.sqrt(sumSq.dataSync()[0]);
+    });
+  }
+
   async trainStep(batch, labels, textBytes = null) {
     // console.log("DEBUG: labels =", labels, "type =", typeof labels, "isArray =", Array.isArray(labels));
     // Convert to tensors outside of tidy/grads
@@ -301,7 +314,21 @@ export class EnhancedLabelTrainer {
 
     try {
       if (this.phase === 1) {
+        // Warm up once so all lazily-built layers (including LoRA adapters)
+        // exist BEFORE we collect trainable variables. Otherwise the very first
+        // step trains an incomplete variable set (LoRA weights silently skipped).
+        if (!this._vaeWarmed) {
+          tf.tidy(() =>
+            this.vae.forward(images, labelsTensor, textBytesTensor),
+          );
+          this._vaeWarmed = true;
+        }
         const vaeVars = this.getVaeVariables();
+        if (vaeVars.length === 0) {
+          console.warn(
+            "⚠️ No trainable VAE variables collected — check LoRA/build wiring.",
+          );
+        }
         const gradsObj = tf.variableGrads(() => {
           return tf.tidy(() => {
             const [recon, mu, logvar] = this.vae.forward(
@@ -327,13 +354,37 @@ export class EnhancedLabelTrainer {
           });
         }, vaeVars);
 
+        const gradNorm = this.computeGradNorm(gradsObj.grads);
         this.opt_vae.applyGradients(gradsObj.grads);
         const lossVal = gradsObj.value.dataSync()[0];
         tf.dispose(gradsObj.value);
         tf.dispose(gradsObj.grads);
-        return { loss: lossVal, metrics: { phase: "vae" } };
+        return {
+          loss: lossVal,
+          metrics: { phase: "vae", gradientNorm: gradNorm },
+        };
       } else {
+        // Warm up the drift (and the VAE encoder it depends on) once so every
+        // lazy/LoRA weight is built before variable collection.
+        if (!this._driftWarmed) {
+          tf.tidy(() => {
+            const [mu_w] = this.vae.encode(
+              images,
+              labelsTensor,
+              textBytesTensor,
+            );
+            const t_w = tf.randomUniform([images.shape[0], 1]);
+            const z0_w = tf.randomNormal(mu_w.shape);
+            this.drift.forward(z0_w, t_w, labelsTensor);
+          });
+          this._driftWarmed = true;
+        }
         const driftVars = this.getDriftVariables();
+        if (driftVars.length === 0) {
+          console.warn(
+            "⚠️ No trainable drift variables collected — check LoRA/build wiring.",
+          );
+        }
         const gradsObj = tf.variableGrads(() => {
           return tf.tidy(() => {
             // Temperature annealing
@@ -447,6 +498,7 @@ export class EnhancedLabelTrainer {
           });
         }, driftVars);
 
+        const gradNorm = this.computeGradNorm(gradsObj.grads);
         this.opt_drift.applyGradients(gradsObj.grads);
         const lossVal = gradsObj.value.dataSync()[0];
         tf.dispose(gradsObj.value);
@@ -472,7 +524,10 @@ export class EnhancedLabelTrainer {
 
         return {
           loss: lossVal,
-          metrics: { phase: this.phase === 2 ? "drift" : "both" },
+          metrics: {
+            phase: this.phase === 2 ? "drift" : "both",
+            gradientNorm: gradNorm,
+          },
         };
       }
     } finally {

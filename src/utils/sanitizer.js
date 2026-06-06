@@ -18,17 +18,26 @@ export const Sanitizer = {
     }
 
     if (typeof data === "object") {
-      const sanitized = {};
+      // Build on a null-prototype object so an assigned "__proto__"/"constructor"
+      // key cannot reach Object.prototype.
+      const sanitized = Object.create(null);
       for (const [key, value] of Object.entries(data)) {
-        // Sanitize keys to prevent prototype pollution or JSON injection
+        // Sanitize keys to prevent JSON injection
         const safeKey = this.sanitizeString(key).replace(/[^a-zA-Z0-9_-]/g, "");
+        // Explicitly drop keys that can pollute the prototype chain.
+        if (Sanitizer.FORBIDDEN_KEYS.has(safeKey)) continue;
         sanitized[safeKey] = this.sanitize(value);
       }
-      return sanitized;
+      // Hand back a plain object literal copy (null-proto objects break some
+      // consumers / JSON tooling), but only with the now-safe own keys.
+      return Object.assign({}, sanitized);
     }
 
     return data;
   },
+
+  // Keys that must never survive sanitization, regardless of casing of intent.
+  FORBIDDEN_KEYS: new Set(["__proto__", "constructor", "prototype"]),
 
   /**
    * Sanitizes a string by removing potentially dangerous characters

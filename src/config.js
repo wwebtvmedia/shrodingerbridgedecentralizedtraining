@@ -113,11 +113,18 @@ export const CONFIG = {
     mode: "auto",
     force_phase: null,
     custom_schedule: {},
+    // In "auto" mode only `switch_epoch` is consulted (VAE below it, drift above).
     switch_epoch: 50,
-    switch_epoch_1: Math.max(50, Math.floor(600 / 6)),
-    switch_epoch_2: Math.max(50, Math.floor(600 / 2)),
+    // In "three_phase" mode these two boundaries are used instead.
+    switch_epoch_1: Math.max(50, Math.floor(600 / 6)), // 100
+    switch_epoch_2: Math.max(50, Math.floor(600 / 2)), // 300
+    // Epoch lists for the (optional) explicit-list consumers. Derived from the
+    // boundaries above so they stay consistent if the boundaries change.
     vae_epochs: Array.from({ length: 50 }, (_, i) => i),
-    drift_epochs: Array.from({ length: 150 }, (_, i) => i + 50),
+    drift_epochs: Array.from(
+      { length: Math.max(50, Math.floor(600 / 2)) - 50 },
+      (_, i) => i + 50,
+    ),
     alternate_freq: 5,
   },
 };
@@ -157,8 +164,12 @@ export function klDivergenceSpatial(mu, logvar) {
 }
 
 export function calcSNR(real, recon) {
-  // Calculate Signal-to-Noise Ratio
+  // Calculate Signal-to-Noise Ratio.
+  // `.data` is an async method; we need the synchronous value here, so use
+  // dataSync() and dispose the scalar to avoid leaking a tensor each call.
   const mse = real.sub(recon).pow(2).mean();
-  if (mse.data[0] === 0) return 100.0;
-  return 10 * Math.log10(1.0 / (mse.data[0] + 1e-8));
+  const v = mse.dataSync()[0];
+  mse.dispose();
+  if (v === 0) return 100.0;
+  return 10 * Math.log10(1.0 / (v + 1e-8));
 }

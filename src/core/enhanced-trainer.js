@@ -268,6 +268,9 @@ class EnhancedSwarmTrainer {
 
     this.currentTask = sarsaResult.actionName;
 
+    // Keep the phase manager's epoch in sync (used for phaseHistory stamping).
+    this.phaseManager.setCurrentEpoch(this.currentEpoch);
+
     // Use currentPhase from phaseManager if auto, otherwise use manual phase
     let activePhase = this.currentPhase;
     if (activePhase === "auto") {
@@ -289,8 +292,12 @@ class EnhancedSwarmTrainer {
     if (this.database) {
       const trainingData = await this.database.getTrainingData(targetBatchSize);
       if (trainingData && trainingData.length > 0) {
+        const expectedLen =
+          3 * (CONFIG.IMG_SIZE || 96) * (CONFIG.IMG_SIZE || 96);
         batch = trainingData.map((item) => {
-          return item.data && Array.isArray(item.data)
+          // Only accept correctly-sized image vectors; a short/long array would
+          // reshape incorrectly or throw downstream. Otherwise fall back to dummy.
+          return Array.isArray(item.data) && item.data.length === expectedLen
             ? item.data
             : this.generateDummyData();
         });
@@ -433,10 +440,20 @@ class EnhancedSwarmTrainer {
   async synchronizeWithNeighbor(neighbor) {
     console.log(`🔄 Synchronizing with neighbor ${neighbor.peerId}`);
 
-    const modelData = await this.requestModelFromNeighbor(
-      neighbor.peerId,
-      neighbor.modelHash,
-    );
+    // A timed-out / failed model request should be a soft skip, not a thrown
+    // error that bubbles up and stalls the training loop's catch/backoff.
+    let modelData;
+    try {
+      modelData = await this.requestModelFromNeighbor(
+        neighbor.peerId,
+        neighbor.modelHash,
+      );
+    } catch (err) {
+      console.warn(
+        `⚠️ Model sync with ${neighbor.peerId} failed: ${err.message}`,
+      );
+      return;
+    }
 
     if (!modelData) return;
 
@@ -465,8 +482,9 @@ class EnhancedSwarmTrainer {
     const success = await this.modelManager.loadModel(finalModelData);
     if (!success) return;
 
-    // Synchronize to the neighbor's actual epoch
-    this.currentEpoch = neighbor.epoch || 0;
+    // Adopt the neighbor's epoch but never move backwards — a peer reporting a
+    // lower (or zero) epoch must not reset our phase schedule / checkpoint cadence.
+    this.currentEpoch = Math.max(this.currentEpoch, neighbor.epoch || 0);
 
     this.metrics.syncEvents++;
     this.metrics.modelsReceived++;
@@ -500,7 +518,14 @@ class EnhancedSwarmTrainer {
         }
       }, 30000); // 30 second timeout
 
-      this.pendingModelRequests.set(modelHash, { resolve, reject, timeout });
+      // Record which peer we asked, so a MODEL_SHARE from an unrelated peer
+      // can't satisfy (and potentially poison) this request.
+      this.pendingModelRequests.set(modelHash, {
+        resolve,
+        reject,
+        timeout,
+        peerId,
+      });
 
       this.tunnel
         .sendToPeer(peerId, {
@@ -630,12 +655,16 @@ class EnhancedSwarmTrainer {
     this.sendModelToPeer(peerId, request.modelHash).catch(console.error);
   }
   handleModelShare(peerId, share) {
-    // Resolve pending requests if any
+    // Resolve a pending request only if it came from the peer we actually asked.
     const pending = this.pendingModelRequests.get(share.modelHash);
-    if (pending) {
+    if (pending && pending.peerId === peerId) {
       clearTimeout(pending.timeout);
       this.pendingModelRequests.delete(share.modelHash);
       pending.resolve(share);
+    } else if (pending) {
+      console.warn(
+        `⚠️ Ignoring MODEL_SHARE for ${share.modelHash} from unexpected peer ${peerId}`,
+      );
     }
 
     if (this.database) {

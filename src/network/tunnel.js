@@ -6,7 +6,8 @@ class CloudflareTunnel {
     this.config = {
       tunnelUrl: config.tunnelUrl || "https://tunnel.swarm-training.com",
       apiKey: config.apiKey || "",
-      authToken: config.authToken || "change-me-to-something-secure",
+      // No shipped default secret — must be supplied via config/env.
+      authToken: config.authToken || "",
       tunnelId: config.tunnelId || this.generateTunnelId(),
       reconnectInterval: config.reconnectInterval || 5000,
       maxRetries: config.maxRetries || 3,
@@ -45,76 +46,103 @@ class CloudflareTunnel {
   async connect() {
     if (this.isConnected) return;
 
-    const authUrl = `${this.config.tunnelUrl}?token=${this.config.authToken}`;
     console.log(`🌐 Connecting to Cloudflare Tunnel: ${this.config.tunnelUrl}`);
     this.connectionState = "connecting";
 
-    try {
-      return new Promise((resolve, reject) => {
-        const ws = new WebSocket(authUrl);
+    return new Promise((resolve, reject) => {
+      // Pass the auth token as a WebSocket subprotocol rather than a query
+      // string — URLs are logged by proxies/servers/history, leaking the secret.
+      let settled = false;
+      const settle = (fn, arg) => {
+        if (settled) return;
+        settled = true;
+        fn(arg);
+      };
 
-        ws.onopen = () => {
-          this.ws = ws;
-          this.isConnected = true;
-          this.connectionState = "connected";
-          this.reconnectAttempts = 0;
+      let ws;
+      try {
+        ws = this.config.authToken
+          ? new WebSocket(this.config.tunnelUrl, [this.config.authToken])
+          : new WebSocket(this.config.tunnelUrl);
+      } catch (error) {
+        this.connectionState = "error";
+        this.stats.errors++;
+        return settle(reject, error);
+      }
 
-          console.log("✅ Connected to Cloudflare Tunnel");
-          this.emit("connected", { tunnelId: this.config.tunnelId });
+      ws.onopen = () => {
+        this.ws = ws;
+        this.isConnected = true;
+        this.connectionState = "connected";
+        this.reconnectAttempts = 0;
 
-          // Start heartbeat
-          this.startHeartbeat();
+        console.log("✅ Connected to Cloudflare Tunnel");
+        this.emit("connected", { tunnelId: this.config.tunnelId });
 
-          // Process queued messages
-          this.processMessageQueue();
-          resolve();
-        };
+        this.startHeartbeat();
+        this.processMessageQueue();
+        settle(resolve);
+      };
 
-        ws.onmessage = (event) => {
-          try {
-            const data = event.data;
-            this.stats.messagesReceived++;
+      ws.onmessage = (event) => {
+        try {
+          const data = event.data;
+          this.stats.messagesReceived++;
+          // event.data may be a Blob/ArrayBuffer for binary frames.
+          if (typeof data === "string") {
             this.stats.bytesReceived += data.length;
-            const message = JSON.parse(data);
-            this.handleTunnelMessage(message);
-          } catch (error) {
-            console.error("Error parsing message:", error);
+            this.handleTunnelMessage(JSON.parse(data));
+          } else {
+            this.stats.bytesReceived += data.byteLength || 0;
           }
-        };
+        } catch (error) {
+          console.error("Error parsing message:", error);
+        }
+      };
 
-        ws.onclose = (event) => {
-          this.isConnected = false;
-          this.connectionState = "disconnected";
-          console.log(`⚠️ Tunnel connection closed (Code: ${event.code})`);
-          this.emit("disconnected");
+      ws.onclose = (event) => {
+        this.isConnected = false;
+        this.connectionState = "disconnected";
+        console.log(`⚠️ Tunnel connection closed (Code: ${event.code})`);
+        this.emit("disconnected");
 
-          if (event.code !== 1000 && event.code !== 1001) {
-            this.attemptReconnect();
-          }
-        };
+        // If the socket closed before ever opening, settle the pending promise
+        // so callers awaiting connect() don't hang forever.
+        settle(
+          reject,
+          new Error(`Tunnel closed before open (code ${event.code})`),
+        );
 
-        ws.onerror = (error) => {
-          console.error("❌ Tunnel connection error:", error);
-          this.connectionState = "error";
-          this.stats.errors++;
-          this.emit("error", { error: "WebSocket Error" });
-          reject(new Error("WebSocket connection failed"));
-        };
-      });
-    } catch (error) {
-      console.error("❌ Tunnel connection failed:", error);
-      this.connectionState = "error";
-      this.stats.errors++;
-      this.emit("error", { error: error.message });
-      await this.attemptReconnect();
-    }
+        if (event.code !== 1000 && event.code !== 1001) {
+          this.attemptReconnect();
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("❌ Tunnel connection error:", error);
+        this.connectionState = "error";
+        this.stats.errors++;
+        this.emit("error", { error: "WebSocket Error" });
+        settle(reject, new Error("WebSocket connection failed"));
+      };
+    });
   }
 
   async disconnect() {
     console.log("🔌 Disconnecting from tunnel...");
     this.connectionState = "disconnecting";
     if (this.ws) {
-      this.ws.close();
+      // Detach handlers before closing so a late close/error event can't fire
+      // app callbacks (e.g. trigger a reconnect) after an intentional teardown.
+      this.ws.onopen = null;
+      this.ws.onmessage = null;
+      this.ws.onclose = null;
+      this.ws.onerror = null;
+      try {
+        this.ws.close(1000, "client disconnect");
+      } catch {
+        /* already closing */
+      }
       this.ws = null;
     }
     this.isConnected = false;
@@ -133,6 +161,9 @@ class CloudflareTunnel {
 
   async sendToPeer(peerId, message) {
     if (!this.isConnected) {
+      // Bound the queue so a long disconnection can't grow it without limit.
+      const MAX_QUEUE = 1000;
+      if (this.messageQueue.length >= MAX_QUEUE) this.messageQueue.shift();
       this.messageQueue.push({ peerId, message, timestamp: Date.now() });
       return false;
     }
@@ -371,14 +402,23 @@ class CloudflareTunnel {
     }, delay);
   }
 
-  processMessageQueue() {
+  async processMessageQueue() {
     if (this.messageQueue.length === 0) return;
-    const failedMessages = [];
-    for (const queued of this.messageQueue) {
-      const success = this.sendToPeer(queued.peerId, queued.message);
-      if (!success) failedMessages.push(queued);
+    // Drain the current queue; sendToPeer is async and returns a boolean, so we
+    // must await it (a Promise is always truthy). Take a snapshot and clear so
+    // re-queued failures from sendToPeer aren't re-processed in this pass.
+    const pending = this.messageQueue;
+    this.messageQueue = [];
+    const failed = [];
+    for (const queued of pending) {
+      const success = await this.sendToPeer(queued.peerId, queued.message);
+      if (!success) failed.push(queued);
     }
-    this.messageQueue = failedMessages;
+    // sendToPeer already re-queues when disconnected; only add back genuine
+    // send failures that weren't re-queued.
+    for (const f of failed) {
+      if (!this.messageQueue.includes(f)) this.messageQueue.push(f);
+    }
   }
 
   generateMessageId() {

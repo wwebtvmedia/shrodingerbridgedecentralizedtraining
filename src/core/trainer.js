@@ -57,6 +57,10 @@ class SwarmTrainer {
       clearInterval(this.trainingInterval);
       this.trainingInterval = null;
     }
+    if (this.gossipInterval) {
+      clearInterval(this.gossipInterval);
+      this.gossipInterval = null;
+    }
 
     // Save checkpoint
     await this.saveCheckpoint();
@@ -64,6 +68,9 @@ class SwarmTrainer {
 
   async trainingLoop() {
     while (this.isTraining) {
+      // Keep the phase manager's epoch in sync (used for phaseHistory stamping).
+      this.phaseManager.setCurrentEpoch(this.currentEpoch);
+
       // Determine phase
       if (this.currentPhase === "auto") {
         this.currentPhase = this.phaseManager.determinePhase(this.currentEpoch);
@@ -212,8 +219,9 @@ class SwarmTrainer {
     // Load the model
     await this.modelManager.loadModel(modelData);
 
-    // Synchronize to the best model's epoch
-    this.currentEpoch = bestModel.epoch;
+    // Synchronize to the best model's epoch, but never move our epoch backwards
+    // (that would reset the epoch-driven phase schedule and checkpoint cadence).
+    this.currentEpoch = Math.max(this.currentEpoch, bestModel.epoch || 0);
 
     // Update metrics
     this.syncCount++;
@@ -344,8 +352,9 @@ class SwarmTrainer {
   }
 
   startGossip() {
-    // Start periodic gossip
-    setInterval(async () => {
+    // Start periodic gossip. Store the handle so stop() can clear it; otherwise
+    // the interval keeps firing after the trainer is stopped.
+    this.gossipInterval = setInterval(async () => {
       if (this.isTraining && this.network.peers.size > 0) {
         const latestResult =
           this.lossHistory.length > 0

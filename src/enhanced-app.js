@@ -141,7 +141,9 @@ class EnhancedSwarmApp {
         tunnelConfig: {
           tunnelUrl: window.location.origin.replace(/^http/, "ws"),
           tunnelId: `trainer_${Date.now()}`,
-          authToken: "swarm-prototype-token-2026", // In real app, this would be from config
+          // Token must be supplied at runtime (e.g. injected by the page /
+          // build), never hardcoded in client source where anyone can read it.
+          authToken: window.SWARM_AUTH_TOKEN || "",
         },
         explorationRate: 0.1, // Reduced exploration as we have a checkpoint
         syncInterval: 10,
@@ -495,7 +497,12 @@ class EnhancedSwarmApp {
         temperature: 0.7,
         cfgScale: CONFIG.CFG_SCALE || 3.0,
       };
-      if (label !== null && label !== "") options.label = parseInt(label);
+      // Only forward a valid integer label; the inference engine re-validates
+      // and falls back to a random class for anything out of range.
+      if (label !== null && label.trim() !== "") {
+        const parsed = parseInt(label, 10);
+        if (Number.isInteger(parsed)) options.label = parsed;
+      }
       const result = await this.inferenceEngine.generateSamples(options);
       this.ui.displaySamples(result.samples.map((s) => s.image));
       this.ui.log(`✅ Generated ${result.samples.length} samples at 96x96`);

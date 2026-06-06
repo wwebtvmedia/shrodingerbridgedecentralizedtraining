@@ -69,10 +69,13 @@ export class SarsaBridgeOptimizer {
     const currentState = this.getState(currentPhase, loss);
     const nextAction = this.chooseAction(currentState);
 
-    // Calculate Reward: Improvement per millisecond
-    // High reward if deltaLoss is positive (improvement) and time is low
-    // We normalize to make it more stable
-    const reward = timeMs > 0 ? (deltaLoss * 1000) / timeMs : 0;
+    // Calculate Reward: Improvement per millisecond.
+    // High reward if deltaLoss is positive (improvement) and time is low.
+    // Sub-millisecond timings (e.g. cached steps) can make the raw ratio
+    // explode and destabilize the Q-values, so clamp the denominator and
+    // squash the result into a bounded range.
+    const rawReward = timeMs > 0 ? (deltaLoss * 1000) / Math.max(timeMs, 1) : 0;
+    const reward = Math.tanh(rawReward);
 
     if (this.prevState !== null && this.prevAction !== null) {
       if (!this.qTable.has(this.prevState)) {

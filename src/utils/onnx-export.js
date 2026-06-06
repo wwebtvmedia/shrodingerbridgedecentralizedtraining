@@ -201,10 +201,14 @@ export class ONNXExporter {
     for (let i = 0; i < 4; i++) {
       const inCh = [512, 512, 256, 128][i];
       const outCh = [512, 256, 128, 64][i];
+      // First block consumes the "dec_in" conv output (`dec_in_out`); later
+      // blocks chain off the previous block. The old expression produced the
+      // nonexistent tensor name `dec_blockin_out` for i=0.
+      const inputName = i === 0 ? "dec_in_out" : `dec_block${i - 1}_out`;
       this.addResidualBlock(
         onnxModel,
         `dec_block${i}`,
-        `dec_block${i - 1 >= 0 ? i - 1 : "in"}_out`,
+        inputName,
         `dec_block${i}_out`,
         inCh,
         outCh,

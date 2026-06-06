@@ -17,9 +17,26 @@ class LocalDatabase {
         reject(event.target.error);
       };
 
+      // Fires when another tab holds an older-version connection and blocks the
+      // upgrade. Without this, init() can hang forever with no rejection.
+      request.onblocked = () => {
+        console.warn(
+          "IndexedDB upgrade blocked by another open connection (close other tabs).",
+        );
+      };
+
       request.onsuccess = (event) => {
         this.db = event.target.result;
         this.initialized = true;
+        // If another tab triggers a version upgrade later, close this connection
+        // so it doesn't block them.
+        this.db.onversionchange = () => {
+          console.warn(
+            "IndexedDB version change requested; closing connection.",
+          );
+          this.db.close();
+          this.initialized = false;
+        };
         console.log("✅ Local database initialized");
         resolve();
       };
@@ -247,13 +264,12 @@ class LocalDatabase {
       const transaction = this.db.transaction(["results"], "readwrite");
       const store = transaction.objectStore("results");
 
-      const request = store.put({
-        ...result,
-        timestamp: Date.now(),
-        id:
-          result.id ||
-          Date.now() + "_" + Math.random().toString(36).substr(2, 9),
-      });
+      // The "results" store uses autoIncrement; injecting a string id defeats
+      // it and mixes key types. Let the store assign a numeric key unless the
+      // caller deliberately supplies one.
+      const record = { ...result, timestamp: Date.now() };
+      if (record.id === undefined || record.id === null) delete record.id;
+      const request = store.put(record);
 
       request.onsuccess = () => resolve();
       request.onerror = (event) => reject(event.target.error);
@@ -338,6 +354,9 @@ class LocalDatabase {
             resolve();
           }
         };
+
+        // Without this, a prune error leaves the promise unsettled (hangs).
+        cursorRequest.onerror = (event) => reject(event.target.error);
       };
 
       putRequest.onerror = (event) => reject(event.target.error);
@@ -394,7 +413,7 @@ class LocalDatabase {
     });
   }
 
-  async getMetrics(type, startTime, endTime = Date.now()) {
+  async getMetrics(type, startTime = 0, endTime = Date.now()) {
     await this.ensureInitialized();
 
     return new Promise((resolve, reject) => {
@@ -402,7 +421,8 @@ class LocalDatabase {
       const store = transaction.objectStore("metrics");
       const index = store.index("type");
 
-      const range = IDBKeyRange.bound(startTime, endTime);
+      // The "type" index is keyed by type, not timestamp, so we fetch by type
+      // and filter the time window in JS (default startTime=0 includes all).
       const request = index.getAll(type);
 
       request.onsuccess = () => {
@@ -634,7 +654,11 @@ class LocalDatabase {
   }
 
   async importData(jsonData) {
-    const data = JSON.parse(jsonData);
+    // Drop prototype-pollution keys from the untrusted import file.
+    const forbidden = new Set(["__proto__", "constructor", "prototype"]);
+    const data = JSON.parse(jsonData, (key, value) =>
+      forbidden.has(key) ? undefined : value,
+    );
 
     if (data.version !== "1.0" && data.version !== "1.1") {
       throw new Error(`Unsupported data version: ${data.version}`);

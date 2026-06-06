@@ -4,10 +4,34 @@ import { WebSocketServer } from "ws";
 import { createServer } from "http";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
+import { Sanitizer } from "../src/utils/sanitizer.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Maximum decoded size of a submitted model (bytes). Prevents disk-fill DoS.
+const MAX_MODEL_BYTES = 64 * 1024 * 1024; // 64 MB
+// Keep at most this many per-client model files on disk.
+const MAX_MODEL_FILES = 50;
+
+// JSON.parse reviver that strips prototype-pollution keys from untrusted input.
+const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+function safeReviver(key, value) {
+  if (FORBIDDEN_KEYS.has(key)) return undefined;
+  return value;
+}
+
+// Constant-time token comparison to avoid timing side-channels.
+function tokensMatch(provided, expected) {
+  if (typeof provided !== "string" || typeof expected !== "string")
+    return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
 
 // Simple JSON-based NoSQL storage with size limits
 class JSONDatabase {
@@ -29,7 +53,9 @@ class JSONDatabase {
     try {
       if (fs.existsSync(this.filepath)) {
         const raw = fs.readFileSync(this.filepath, "utf8");
-        const parsed = JSON.parse(raw);
+        // Use a reviver to drop __proto__/constructor keys in case the file
+        // was tampered with.
+        const parsed = JSON.parse(raw, safeReviver);
         this.data.logs = parsed.logs || [];
         this.data.models = parsed.models || [];
         this.data.neighbors = parsed.neighbors || {};
@@ -39,10 +65,34 @@ class JSONDatabase {
     }
   }
 
+  // Coalesce frequent mutations into one async write per tick instead of a
+  // synchronous full-file rewrite on every log/status update (event-loop DoS).
   save() {
+    if (this._saveScheduled) return;
+    this._saveScheduled = true;
+    setTimeout(() => {
+      this._saveScheduled = false;
+      this.flush();
+    }, 250);
+  }
+
+  flush() {
     try {
       this.ensureDirectory();
-      fs.writeFileSync(this.filepath, JSON.stringify(this.data, null, 2));
+      const tmp = `${this.filepath}.tmp`;
+      fs.writeFile(tmp, JSON.stringify(this.data, null, 2), (err) => {
+        if (err) {
+          console.error(`Failed to save database ${this.filepath}:`, err);
+          return;
+        }
+        fs.rename(tmp, this.filepath, (renameErr) => {
+          if (renameErr)
+            console.error(
+              `Failed to commit database ${this.filepath}:`,
+              renameErr,
+            );
+        });
+      });
     } catch (e) {
       console.error(`Failed to save database ${this.filepath}:`, e);
     }
@@ -86,8 +136,18 @@ class ModelConsolidationServer {
     this.wss = new WebSocketServer({ server: this.server });
     this.db = new JSONDatabase("swarm_db");
 
-    // Auth Token from environment
-    this.authToken = process.env.SECRET_TOKEN || "swarm-prototype-token-2026";
+    // Auth token. Never ship a shared, known default: require SECRET_TOKEN, and
+    // if it's missing, generate a random per-process token so an operator who
+    // forgot to set one doesn't silently run with a public credential.
+    this.authToken = process.env.SECRET_TOKEN;
+    if (!this.authToken) {
+      this.authToken = crypto.randomBytes(32).toString("hex");
+      console.warn(
+        "⚠️  SECRET_TOKEN not set — generated an ephemeral token for this run:\n" +
+          `    ${this.authToken}\n` +
+          "    Set SECRET_TOKEN in the environment for a stable, shared secret.",
+      );
+    }
 
     // Model management
     this.bestModel = null;
@@ -141,15 +201,36 @@ class ModelConsolidationServer {
   }
 
   setupMiddleware() {
-    this.app.use(cors());
+    // Restrict CORS to an explicit allowlist (comma-separated ALLOWED_ORIGINS),
+    // defaulting to localhost for development. A wide-open `cors()` combined with
+    // token auth lets any site call protected APIs from a victim's browser.
+    const allowedOrigins = (
+      process.env.ALLOWED_ORIGINS ||
+      "http://localhost:3000,http://localhost:3001"
+    )
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean);
+    this.app.use(
+      cors({
+        origin(origin, cb) {
+          // Allow same-origin/non-browser requests (no Origin header).
+          if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+          cb(new Error("Origin not allowed by CORS"));
+        },
+      }),
+    );
     this.app.use(express.json({ limit: "100mb" }));
     this.app.use(express.static(path.join(__dirname, "../public")));
     this.app.use("/src", express.static(path.join(__dirname, "../src")));
 
-    // Auth Middleware
+    // Auth Middleware (constant-time token comparison).
     this.authenticate = (req, res, next) => {
-      const authHeader = req.headers.authorization;
-      if (authHeader === `Bearer ${this.authToken}`) {
+      const authHeader = req.headers.authorization || "";
+      const provided = authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : "";
+      if (tokensMatch(provided, this.authToken)) {
         next();
       } else {
         res.status(401).json({ error: "Unauthorized" });
@@ -178,14 +259,27 @@ class ModelConsolidationServer {
 
     this.app.post("/api/model/submit", this.authenticate, async (req, res) => {
       const { clientId, modelData, loss, epoch } = req.body;
-      const isBetter = await this.evaluateModel({
-        clientId,
-        modelData,
-        loss,
-        epoch,
-      });
-      if (isBetter) this.broadcastNewBestModel();
-      res.json({ accepted: true, isBest: isBetter });
+      if (
+        typeof clientId !== "string" ||
+        typeof modelData !== "string" ||
+        !Number.isFinite(loss) ||
+        !Number.isFinite(epoch)
+      ) {
+        return res.status(400).json({ error: "Invalid submission" });
+      }
+      try {
+        const isBetter = await this.evaluateModel({
+          clientId,
+          modelData,
+          loss,
+          epoch,
+        });
+        if (isBetter) this.broadcastNewBestModel();
+        res.json({ accepted: true, isBest: isBetter });
+      } catch (err) {
+        console.error("❌ Submit error:", err);
+        res.status(400).json({ error: "Submission failed" });
+      }
     });
 
     this.app.get("/", (req, res) =>
@@ -269,17 +363,36 @@ class ModelConsolidationServer {
 
   setupWebSocket() {
     this.wss.on("connection", (ws, req) => {
+      // Prefer the auth subprotocol (not logged) and fall back to the query
+      // param for compatibility. Query strings leak into proxy/access logs, so
+      // the header form is preferred.
       const url = new URL(req.url, `http://${req.headers.host}`);
-      const token = url.searchParams.get("token");
+      const token =
+        (req.headers["sec-websocket-protocol"] || "")
+          .split(",")
+          .map((s) => s.trim())
+          .find(Boolean) || url.searchParams.get("token");
 
-      if (token !== this.authToken) {
+      if (!tokensMatch(token, this.authToken)) {
         ws.close(4001, "Unauthorized");
         return;
       }
 
-      const clientId = `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const clientIp =
         req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+
+      // Cap concurrent connections per IP to bound connection-flood growth.
+      const perIpLimit = Number(process.env.MAX_CONN_PER_IP || 20);
+      let ipCount = 0;
+      this.clients.forEach((c) => {
+        if (c.ip === clientIp) ipCount++;
+      });
+      if (ipCount >= perIpLimit) {
+        ws.close(4002, "Too many connections");
+        return;
+      }
+
+      const clientId = `ws_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
 
       this.clients.set(clientId, {
         ws,
@@ -291,8 +404,12 @@ class ModelConsolidationServer {
 
       ws.on("message", (data) => {
         try {
-          const message = JSON.parse(data.toString());
-          this.handleWebSocketMessage(clientId, message, clientIp);
+          const message = JSON.parse(data.toString(), safeReviver);
+          // handleWebSocketMessage may dispatch async work; swallow rejections
+          // so a single bad message can't crash the process.
+          Promise.resolve(
+            this.handleWebSocketMessage(clientId, message, clientIp),
+          ).catch((err) => console.error("❌ WS handler error:", err));
         } catch (error) {
           console.error("❌ WS Error:", error);
         }
@@ -391,20 +508,22 @@ class ModelConsolidationServer {
     }
 
     switch (message.type) {
-      case "register_training":
+      case "register_training": {
+        const safeData = Sanitizer.sanitize(message.data);
         this.trainingClients.set(clientId, {
-          ...message.data,
+          ...safeData,
           ip,
           lastSeen: Date.now(),
           ws: client.ws,
         });
         this.db.updateNeighbor(clientId, {
-          ...message.data,
+          ...safeData,
           ip,
           peerId: clientId,
         });
         this.db.log(`Client registered: ${clientId} from IP: ${ip}`);
         break;
+      }
       case "status_update":
         if (this.trainingClients.has(clientId)) {
           const clientData = this.trainingClients.get(clientId);
@@ -412,7 +531,8 @@ class ModelConsolidationServer {
           clientData.ip = ip; // Update IP if it changed
 
           if (message.neighbors) {
-            message.neighbors.slice(0, 50).forEach((n) => {
+            message.neighbors.slice(0, 50).forEach((rawN) => {
+              const n = Sanitizer.sanitize(rawN);
               if (n.peerId)
                 this.db.updateNeighbor(n.peerId, {
                   ...n,
@@ -422,11 +542,10 @@ class ModelConsolidationServer {
           }
 
           if (message.metrics) {
-            this.db.log(
-              `Stats ${clientId} (${ip}): loss=${message.metrics.loss}`,
-            );
+            const safeMetrics = Sanitizer.sanitizeMetrics(message.metrics);
+            this.db.log(`Stats ${clientId} (${ip}): loss=${safeMetrics.loss}`);
             this.db.updateNeighbor(clientId, {
-              metrics: message.metrics,
+              metrics: safeMetrics,
               ip,
               lastSeen: Date.now(),
             });
@@ -467,38 +586,71 @@ class ModelConsolidationServer {
 
   async evaluateModel(submission) {
     const { clientId, modelData, loss, epoch } = submission;
+    // Reject non-finite losses (NaN/Infinity pass a typeof "number" check but
+    // would corrupt the "is better" comparison forever).
+    if (!Number.isFinite(loss) || typeof modelData !== "string") return false;
+
     const safeClientId = String(clientId).replace(/[^a-zA-Z0-9_-]/g, "_");
     const isBetter = !this.bestModel || loss < this.bestModel.loss;
+    if (!isBetter) return false;
 
-    if (isBetter) {
-      const modelPath = path.join(
-        this.modelsDir,
-        `model_${Date.now()}_${safeClientId}.pt`,
-      );
-      try {
-        let modelBuffer = Buffer.from(
-          modelData.startsWith("data:") ? modelData.split(",")[1] : modelData,
-          "base64",
+    const modelPath = path.join(
+      this.modelsDir,
+      `model_${Date.now()}_${safeClientId}.pt`,
+    );
+    try {
+      const b64 = modelData.startsWith("data:")
+        ? modelData.split(",")[1]
+        : modelData;
+      const modelBuffer = Buffer.from(b64, "base64");
+
+      // Cap decoded size to prevent disk-fill DoS.
+      if (modelBuffer.length === 0 || modelBuffer.length > MAX_MODEL_BYTES) {
+        this.db.log(
+          `Rejected model from ${safeClientId}: size ${modelBuffer.length} bytes`,
+          "warn",
         );
-        fs.writeFileSync(modelPath, modelBuffer);
-        fs.writeFileSync(this.latestModelPath, modelBuffer);
-
-        this.bestModel = {
-          path: this.latestModelPath,
-          size: modelBuffer.length,
-          timestamp: new Date(),
-          loss,
-          epoch,
-          clientId,
-        };
-        this.db.addModel({ loss, epoch, clientId });
-        this.db.log(`New best model: ${loss}`);
-        return true;
-      } catch (error) {
-        console.error("❌ Save Error:", error);
+        return false;
       }
+
+      fs.writeFileSync(modelPath, modelBuffer);
+      fs.writeFileSync(this.latestModelPath, modelBuffer);
+      this.pruneModelFiles();
+
+      this.bestModel = {
+        path: this.latestModelPath,
+        size: modelBuffer.length,
+        timestamp: new Date(),
+        loss,
+        epoch,
+        clientId,
+      };
+      this.db.addModel({ loss, epoch, clientId });
+      this.db.log(`New best model: ${loss}`);
+      return true;
+    } catch (error) {
+      console.error("❌ Save Error:", error);
     }
     return false;
+  }
+
+  // Keep only the most recent MAX_MODEL_FILES per-client model files on disk.
+  pruneModelFiles() {
+    try {
+      const files = fs
+        .readdirSync(this.modelsDir)
+        .filter((f) => f.startsWith("model_") && f.endsWith(".pt"))
+        .map((f) => ({
+          f,
+          t: fs.statSync(path.join(this.modelsDir, f)).mtimeMs,
+        }))
+        .sort((a, b) => b.t - a.t);
+      for (const { f } of files.slice(MAX_MODEL_FILES)) {
+        fs.unlinkSync(path.join(this.modelsDir, f));
+      }
+    } catch (e) {
+      console.error("❌ Prune error:", e);
+    }
   }
 
   broadcastNewBestModel() {
@@ -519,11 +671,25 @@ class ModelConsolidationServer {
   startModelEvaluation() {
     setInterval(() => {
       const now = Date.now();
+      // Reap stale training clients.
       this.trainingClients.forEach((c, id) => {
         if (now - c.lastSeen > 30000) {
           this.trainingClients.delete(id);
           const wsC = this.clients.get(id);
           if (wsC) wsC.ws.close();
+        }
+      });
+      // Reap any connected client that has been idle too long, even if it never
+      // registered as a training client (bounds unbounded clients-map growth).
+      this.clients.forEach((c, id) => {
+        if (now - c.lastActivity > 120000) {
+          try {
+            c.ws.close();
+          } catch {
+            /* already closed */
+          }
+          this.clients.delete(id);
+          this.trainingClients.delete(id);
         }
       });
     }, 10000);

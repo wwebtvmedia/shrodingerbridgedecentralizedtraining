@@ -10,4 +10,4 @@ test-research.js
 GEMINI.md
 test-gpu-diagnostic.js
 test-import.js
-server.log
+server.log__pycache__/

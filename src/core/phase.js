@@ -1,6 +1,7 @@
 class PhaseManager {
   constructor() {
     this.currentPhase = "vae";
+    this.currentEpoch = 0; // Updated by the trainer via updatePhaseMetrics / setCurrentEpoch.
     this.phaseHistory = [];
     this.phaseMetrics = {
       vae: { reconstruction: [], kl_divergence: [] },
@@ -45,7 +46,7 @@ class PhaseManager {
     // Adaptive phase determination based on performance
 
     // Update metrics for current phase
-    this.updatePhaseMetrics(this.currentPhase, metrics);
+    this.updatePhaseMetrics(this.currentPhase, metrics, epoch);
 
     // Check for phase transitions
     if (
@@ -101,7 +102,12 @@ class PhaseManager {
     );
   }
 
-  updatePhaseMetrics(phase, metrics) {
+  setCurrentEpoch(epoch) {
+    if (Number.isFinite(epoch)) this.currentEpoch = epoch;
+  }
+
+  updatePhaseMetrics(phase, metrics, epoch) {
+    if (Number.isFinite(epoch)) this.currentEpoch = epoch;
     if (!this.phaseMetrics[phase]) return;
 
     for (const [key, value] of Object.entries(metrics)) {
@@ -257,8 +263,8 @@ class PhaseManager {
   }
 
   getCurrentEpoch() {
-    // This should be provided by the trainer
-    return 0;
+    // Provided by the trainer via setCurrentEpoch()/updatePhaseMetrics(...).
+    return this.currentEpoch;
   }
 
   // Utility methods
@@ -279,11 +285,14 @@ class PhaseManager {
     const first = recent[0];
     const last = recent[recent.length - 1];
 
+    // Guard division by zero (common when a metric starts at 0, e.g. kl/diversity).
+    if (first === 0) return last === 0 ? 0 : last > 0 ? Infinity : -Infinity;
     return (last - first) / first;
   }
 
   reset() {
     this.currentPhase = "vae";
+    this.currentEpoch = 0;
     this.phaseHistory = [];
     this.phaseMetrics = {
       vae: { reconstruction: [], kl_divergence: [] },

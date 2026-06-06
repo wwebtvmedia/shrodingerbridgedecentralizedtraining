@@ -107,10 +107,29 @@ export class InferenceEngine {
 
   async generateSampleWithSB(config, index) {
     const steps = config.steps || 50;
-    const label =
-      config.label !== undefined
-        ? config.label
-        : Math.floor(Math.random() * 10);
+    const numClasses = CONFIG.NUM_CLASSES || 11;
+    const nullClass = numClasses - 1; // NULL class (last index) for CFG.
+
+    // Resolve and validate the label. An out-of-range label would index the
+    // embedding's Gather out of bounds and produce garbage/NaN.
+    let label;
+    if (config.label !== undefined && config.label !== null) {
+      const l = Number(config.label);
+      label =
+        Number.isInteger(l) && l >= 0 && l < nullClass
+          ? l
+          : Math.floor(Math.random() * nullClass);
+    } else {
+      label = Math.floor(Math.random() * nullClass);
+    }
+
+    // Classifier-free guidance scale (0/1 disables guidance).
+    const cfgScale = Number.isFinite(config.cfgScale) ? config.cfgScale : 1.0;
+    const useCFG = cfgScale > 1.0;
+    // Diffusion coefficient for the noise term: g(t)·sqrt(dt)·N(0,1). We use the
+    // OU sigma as the base schedule and let `temperature` scale it, rather than
+    // replacing the diffusion coefficient with the temperature outright.
+    const gBase = CONFIG.OU_SIGMA || Math.SQRT2;
 
     const latentShape = [
       1,
@@ -122,6 +141,7 @@ export class InferenceEngine {
     // 1. Initial Latent (Noise) - [1, 12, 12, 8]
     let zt = tf.randomNormal(latentShape);
     const labelsTensor = tf.tensor([label], [1], "int32");
+    const nullTensor = tf.tensor([nullClass], [1], "int32");
 
     // 2. Iterative Drift updates (Forward Bridge Generation: Noise -> Data)
     const dt = 1.0 / steps;
@@ -130,16 +150,24 @@ export class InferenceEngine {
 
       const nextZt = tf.tidy(() => {
         const tTensor = tf.tensor([[t]]);
-        // Compute drift
-        const predDrift = this.drift.forward(zt, tTensor, labelsTensor);
-        // Update zt (Euler step)
+        // Conditional drift, optionally blended with the unconditional drift
+        // via classifier-free guidance: u = u_uncond + s·(u_cond − u_uncond).
+        const condDrift = this.drift.forward(zt, tTensor, labelsTensor);
+        let predDrift = condDrift;
+        if (useCFG) {
+          const uncondDrift = this.drift.forward(zt, tTensor, nullTensor);
+          predDrift = tf.add(
+            uncondDrift,
+            tf.mul(tf.sub(condDrift, uncondDrift), cfgScale),
+          );
+        }
+        // Update zt (Euler–Maruyama step)
         let res = tf.add(zt, tf.mul(predDrift, dt));
 
-        // Add temperature-scaled noise
+        // Diffusion noise: g(t)·sqrt(dt)·N(0,1), scaled by temperature.
         if (config.temperature > 0 && step < steps - 1) {
-          const noise = tf
-            .randomNormal(latentShape)
-            .mul(config.temperature * Math.sqrt(dt));
+          const noiseScale = config.temperature * gBase * Math.sqrt(dt);
+          const noise = tf.randomNormal(latentShape).mul(noiseScale);
           res = tf.add(res, noise);
         }
         return res;
@@ -152,17 +180,19 @@ export class InferenceEngine {
     // 3. Final Decode
     const decoded = tf.tidy(() => this.vae.decode(zt, labelsTensor));
 
-    // 4. Convert to Image (Canvas)
-    const pixels = await decoded.squeeze().array();
+    // 4. Convert to Image (Canvas). squeeze() allocates a tensor that must be
+    // disposed explicitly (it escapes the tidy above).
+    const squeezed = decoded.squeeze();
+    const pixels = await squeezed.array();
     const image = this.arrayToDataURL(pixels);
 
     // Cleanup
-    tf.dispose([zt, labelsTensor, decoded]);
+    tf.dispose([zt, labelsTensor, nullTensor, decoded, squeezed]);
 
     return {
       id: `sample_${Date.now()}_${index}`,
       image,
-      metadata: { label, steps, temperature: config.temperature },
+      metadata: { label, steps, temperature: config.temperature, cfgScale },
     };
   }
 
@@ -220,7 +250,9 @@ export class InferenceEngine {
   }
 
   async generateWithPrompt(prompt, options = {}) {
-    console.log(`📝 Generating text-conditioned samples with prompt: "${prompt}"`);
+    console.log(
+      `📝 Generating text-conditioned samples with prompt: "${prompt}"`,
+    );
     // For now, treat as unconditional since text conditioning not implemented
     // TODO: integrate neural tokenizer for text conditioning
     return this.generateSamples({

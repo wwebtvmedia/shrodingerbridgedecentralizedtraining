@@ -7,7 +7,17 @@ Based on ../enhancedoptimaltransport/read_ptrfile.py
 import torch
 import json
 import sys
+import collections
 from pathlib import Path
+
+# Allowlist the non-tensor types this checkpoint legitimately contains
+# (kpi_metrics is a defaultdict) so we can load with weights_only=True instead
+# of disabling the unpickling safety guard entirely.
+try:
+    torch.serialization.add_safe_globals([collections.defaultdict])
+except AttributeError:
+    # Older torch without add_safe_globals; weights_only fallback handled below.
+    pass
 
 def inspect_checkpoint(path='checkpoints/latest.pt'):
     """Inspect a PyTorch checkpoint and print its structure."""
@@ -19,9 +29,17 @@ def inspect_checkpoint(path='checkpoints/latest.pt'):
     print(f"🔍 --- Inspecting Checkpoint: {path} ---\n")
 
     try:
-        # Using weights_only=False to allow loading the 'defaultdict' in kpi_metrics
-        # map_location='cpu' ensures we can read it even without a GPU
-        ckpt = torch.load(path, map_location='cpu', weights_only=False)
+        # weights_only=True (with defaultdict allowlisted above) avoids executing
+        # arbitrary pickled code from an untrusted checkpoint.
+        # map_location='cpu' ensures we can read it even without a GPU.
+        try:
+            ckpt = torch.load(path, map_location='cpu', weights_only=True)
+        except Exception:
+            # Fallback for checkpoints containing other safe globals not in the
+            # allowlist. Only reach here for checkpoints you trust.
+            print("⚠️  Restricted load failed; retrying with weights_only=False. "
+                  "Only do this for checkpoints from a trusted source.")
+            ckpt = torch.load(path, map_location='cpu', weights_only=False)
         
         # 1. Basic Metadata
         print("📊 [ METADATA ]")
@@ -120,8 +138,10 @@ def convert_to_web_format(ckpt, output_path='checkpoint_web.json'):
     return web_checkpoint
 
 if __name__ == "__main__":
-    # Inspect the checkpoint
-    checkpoint = inspect_checkpoint('latest.pt')
+    # Inspect the checkpoint. Allow an optional path override on the CLI;
+    # default matches the actual location (checkpoints/latest.pt).
+    ckpt_path = sys.argv[1] if len(sys.argv) > 1 else 'checkpoints/latest.pt'
+    checkpoint = inspect_checkpoint(ckpt_path)
     
     # Convert to web format
     if checkpoint is not None:
