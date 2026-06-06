@@ -223,6 +223,13 @@ class ModelConsolidationServer {
     this.app.use(express.json({ limit: "100mb" }));
     this.app.use(express.static(path.join(__dirname, "../public")));
     this.app.use("/src", express.static(path.join(__dirname, "../src")));
+    // Serve the demos' vendored libraries. The demo pages (served at top-level
+    // routes like /rag-demo) reference "./libs/..." which resolves to "/libs/...";
+    // mounting here lets pdf.js load both via the server and from the filesystem.
+    this.app.use(
+      "/libs",
+      express.static(path.join(__dirname, "../demotokenizer/libs")),
+    );
 
     // Auth Middleware (constant-time token comparison).
     this.authenticate = (req, res, next) => {
