@@ -436,7 +436,28 @@
       />
       <button id="detect-port-btn" type="button">Detect Ollama Port</button>
       <label for="model">Model Name:</label>
-      <input id="model" value="qwen3:14b" autocomplete="off" />
+      <input
+        id="model"
+        value="gemma4:12b"
+        list="model_options"
+        autocomplete="off"
+      />
+      <!--
+        Local LLMs. Names with a ":" are sent to the OpenAI/Ollama-compatible
+        chat endpoint (see API URL), which serves both Ollama and vLLM:
+          - Ollama: ollama pull gemma4:12b  (https://ollama.com/library/gemma4:12b)
+          - vLLM:   vllm serve google/gemma-4-12B-it --served-model-name gemma4:12b
+        Names without a ":" (e.g. Qwen/Qwen2-0.5B-Instruct) run in-browser via
+        transformers.js instead.
+      -->
+      <datalist id="model_options">
+        <option value="gemma4:12b">Gemma 4 12B (default — Ollama / vLLM)</option>
+        <option value="gemma4:12b-it-q8_0">Gemma 4 12B IT q8_0 (Ollama)</option>
+        <option value="qwen3:14b">Qwen3 14B (Ollama / vLLM)</option>
+        <option value="Qwen/Qwen2-0.5B-Instruct">
+          Qwen2 0.5B Instruct (in-browser, transformers.js)
+        </option>
+      </datalist>
       <label for="key">API Key (optional):</label>
       <input id="key" type="text" autocomplete="off" />
       <label for="timeout">API Timeout (seconds):</label>
@@ -1561,7 +1582,7 @@
           document.getElementById("query").value = "";
           document.getElementById("url").value =
             "http://localhost:11434/api/chat";
-          document.getElementById("model").value = "qwen3:14b";
+          document.getElementById("model").value = "gemma4:12b";
           document.getElementById("key").value = "";
           document.getElementById("timeout").value = "500";
           document.getElementById("use_web").checked = false;
