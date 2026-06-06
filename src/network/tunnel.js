@@ -79,6 +79,9 @@ class CloudflareTunnel {
         console.log("✅ Connected to Cloudflare Tunnel");
         this.emit("connected", { tunnelId: this.config.tunnelId });
 
+        // We register only after the server issues our signed identity (the
+        // `identity` message). Registration then carries the host-signed
+        // credential, and the directory uses the host-assigned peer id.
         this.startHeartbeat();
         this.processMessageQueue();
         settle(resolve);
@@ -203,6 +206,35 @@ class CloudflareTunnel {
   }
 
   /**
+   * Announce this client to the signaling server's peer directory. Sent on
+   * every (re)connect; the server keys presence by our tunnelId.
+   */
+  register() {
+    if (!this.isConnected || !this.ws) return;
+    try {
+      const data = {
+        peerId: this.config.tunnelId,
+        name: this.config.tunnelId,
+      };
+      // Echo the host-issued credential so the server can verify we registered
+      // under the identity it minted for us.
+      if (this.identity) {
+        data.issuedAt = this.identity.issuedAt;
+        data.signature = this.identity.signature;
+      }
+      this.ws.send(
+        JSON.stringify({
+          type: "register_training",
+          data,
+          timestamp: Date.now(),
+        }),
+      );
+    } catch (error) {
+      console.error("Failed to register with tunnel server:", error);
+    }
+  }
+
+  /**
    * Periodically sends statistics and reachable neighbors to the server.
    */
   async sendStatusUpdate(metrics, neighbors) {
@@ -245,6 +277,9 @@ class CloudflareTunnel {
     }
 
     switch (message.type) {
+      case "identity":
+        this.handleIdentity(message);
+        break;
       case "PEER_CONNECTED":
         this.handlePeerConnected(message.peerId, message.metadata);
         break;
@@ -287,6 +322,22 @@ class CloudflareTunnel {
         if (message && message.type)
           console.warn(`Unknown tunnel message type: ${message.type}`);
     }
+  }
+
+  /**
+   * Adopt the host-issued, signed identity. The server mints this id; we use it
+   * as our public peer id, then register so we appear in the shared directory.
+   */
+  handleIdentity(message) {
+    this.identity = {
+      peerId: message.peerId,
+      issuedAt: message.issuedAt,
+      signature: message.signature,
+    };
+    this.config.tunnelId = message.peerId;
+    console.log(`🪪 Host-issued peer identity: ${message.peerId}`);
+    this.emit("identity", this.identity);
+    this.register();
   }
 
   handleInitialSync(message) {

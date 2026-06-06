@@ -44,6 +44,21 @@ export const Validator = {
       model: { type: "object", required: true },
       type: { type: "string", required: true },
     },
+    identity: {
+      peerId: { type: "string", required: true },
+      issuedAt: { type: "number", required: true },
+      signature: { type: "string", required: true },
+      type: { type: "string", required: true },
+    },
+    PEER_CONNECTED: {
+      peerId: { type: "string", required: true },
+      metadata: { type: "object", required: false },
+      type: { type: "string", required: true },
+    },
+    PEER_DISCONNECTED: {
+      peerId: { type: "string", required: true },
+      type: { type: "string", required: true },
+    },
 
     // Peer-to-Peer Internal Data (wrapped in data field of PEER_MESSAGE/BROADCAST)
     TRAINING_RESULT: {

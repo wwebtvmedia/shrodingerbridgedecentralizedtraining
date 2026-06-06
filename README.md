@@ -49,12 +49,40 @@ This project implements a distributed training environment for high-resolution (
 
 ### Core Components
 
-| Component           | File                         | Description                                              |
-| :------------------ | :--------------------------- | :------------------------------------------------------- |
-| **SwarmTrainer**    | `src/core/trainer.js`        | Manages local training loop & evolutionary optimization. |
-| **ModelManager**    | `src/core/models.js`         | TF.js model management (12x12x8 latent space).           |
-| **TorchJSTrainer**  | `src/torchjs/integration.js` | Hardware-accelerated training pipeline.                  |
-| **InferenceEngine** | `src/utils/inference.js`     | SDE-based sampling (Reverse SDE).                        |
+| Component            | File                         | Description                                              |
+| :------------------- | :--------------------------- | :------------------------------------------------------- |
+| **SwarmTrainer**     | `src/core/trainer.js`        | Manages local training loop & evolutionary optimization. |
+| **ModelManager**     | `src/core/models.js`         | TF.js model management (12x12x8 latent space).           |
+| **TorchJSTrainer**   | `src/torchjs/integration.js` | Hardware-accelerated training pipeline.                  |
+| **InferenceEngine**  | `src/utils/inference.js`     | SDE-based sampling (Reverse SDE).                        |
+| **CloudflareTunnel** | `src/network/tunnel.js`      | WebSocket transport + peer directory (per-peer).         |
+| **Signaling Server** | `server/index.js`            | Rendezvous directory, identity issuer, message relay.    |
+
+### Peer Discovery Protocol
+
+Peers find each other through the server, which acts as a **rendezvous
+directory** (the standard signaling pattern for browser P2P). The handshake:
+
+```text
+client                              server
+  │ ── WS connect (token subproto) ──▶│  authenticate (constant-time)
+  │ ◀── identity {peerId, sig} ───────│  mint random id, HMAC-sign with secret
+  │ ── register {peerId, sig, meta} ─▶│  verify signature, add to directory
+  │ ◀── PEER_CONNECTED (per peer) ────│  send joiner the current roster …
+  │                                   │  … and announce joiner to the others
+  │ ◀── PEER_DISCONNECTED ────────────│  on any peer leaving (close/idle reap)
+```
+
+- **Host-issued identity.** The client does **not** choose its own id. The
+  server mints a cryptographically-random `peerId` and signs it (HMAC-SHA256
+  over the server secret), so every directory entry is a value minted and
+  signed by the host. A registration whose signature doesn't verify is rejected.
+- **Anti-spoof relay.** The server stamps the authoritative sender id onto every
+  relayed `PEER_MESSAGE`/`BROADCAST`, so a peer cannot impersonate another.
+- **Per-peer directory.** Each client keeps its own live directory of known
+  peers (`tunnel.getPeers()` / `getPeerCount()`), updated from the
+  `PEER_CONNECTED`/`PEER_DISCONNECTED` stream. The server's shared roster is
+  also exposed read-only at `GET /api/peers`.
 
 ## 🧮 Mathematical Foundations
 
@@ -75,7 +103,7 @@ The Schrödinger Bridge finds the optimal drift \( u^\*(x, t) \) that connects n
 ├── public/                 # Static assets & vendor libs (torch.min.js)
 ├── src/
 │   ├── core/               # Core training & phase logic
-│   ├── network/            # P2P (PeerJS) & Tunnel logic
+│   ├── network/            # Peer directory & WebSocket tunnel logic
 │   ├── storage/            # IndexedDB database management
 │   ├── torchjs/            # LoRA & TF.js integration layers
 │   ├── ui/                 # Dashboard & visualization manager
@@ -135,6 +163,26 @@ npm run dev:full
 
 Open the app in multiple tabs to witness the swarm in action.
 
+### Testing across multiple devices (phones, other networks)
+
+To see peers from separate devices (e.g. two phones on different networks),
+they must all reach the **same** server instance and agree on identity:
+
+1.  Open the **`/enhanced`** page on every device (it connects back to whatever
+    origin served it). Do **not** use `localhost` URLs on a phone — `localhost`
+    is the phone itself. Use the server's LAN IP (`http://<ip>:3001`) or a
+    public tunnel URL (`https://…`, which the client upgrades to `wss://`).
+2.  Run the server with a **stable** `SECRET_TOKEN` (otherwise it mints a random
+    one per run that devices can't know).
+3.  On each device set the matching token before connecting:
+    `localStorage.setItem('swarmAuthToken','<token>')`, then reload.
+4.  Hit **Connect** on each. Each device is assigned a host-signed peer id and
+    appears in the others' peer count. Sanity-check from any device by visiting
+    `…/api/peers` — it lists everyone currently connected.
+
+If `/api/peers` shows `0`, the sockets aren't connecting — almost always a token
+mismatch or a `localhost`/`ws://`-over-`https` (mixed content) issue.
+
 ### 4. Build for Production
 
 ```bash
@@ -146,7 +194,8 @@ npm run build
 - **Browser**: Modern browser with WebGL/WebGPU support.
 - **Memory**: 4GB+ RAM recommended for 96x96 resolution.
 - **Backend**: TensorFlow.js (Hardware Accelerated).
-- **Communication**: WebSocket tunnel + WebRTC data channels.
+- **Communication**: WebSocket signaling/relay with a host-issued, signed peer
+  directory (WebRTC direct data channels are the documented next step).
 
 ## 🔒 Security & Hardening
 
@@ -154,6 +203,8 @@ The server and client validate and sanitize all untrusted input:
 
 - **Auth**: required `SECRET_TOKEN` (no shared default), constant-time compare,
   token sent via WebSocket subprotocol (not the URL).
+- **Identity**: peer ids are minted (random) and HMAC-signed by the host, not
+  chosen by clients; relayed messages are stamped with the verified sender id.
 - **CORS**: restricted to an `ALLOWED_ORIGINS` allowlist.
 - **Input validation**: strict message schemas, finite-number checks, payload
   size caps, and prototype-pollution-safe JSON parsing/sanitization.
@@ -178,6 +229,8 @@ To effectively review this implementation:
 3.  **Check `src/torchjs/lora.js`**: Review the low-rank adaptation implementation for TF.js layers.
 4.  **Check `src/utils/inference.js`**: Examine the Euler-Maruyama integration for SDE sampling.
 5.  **Run `node tests/sarsa.test.js`**: Validate the SARSA Q-learning logic.
+6.  **Run `node tests/peer-presence.test.mjs`**: Validate the peer discovery
+    protocol (host-signed identity, directory sharing, spoof rejection).
 
 ---
 

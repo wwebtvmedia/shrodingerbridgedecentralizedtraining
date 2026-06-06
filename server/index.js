@@ -256,6 +256,13 @@ class ModelConsolidationServer {
       res.json({ status: "healthy", clients: this.clients.size });
     });
 
+    // Public peer directory: the list of currently-connected peers that users
+    // share with each other. Returns only public ids/metadata (no IPs/sockets).
+    this.app.get("/api/peers", (req, res) => {
+      const peers = this.getConnectedPeers();
+      res.json({ count: peers.length, peers });
+    });
+
     // Protected endpoints
     this.app.get("/api/model/best", this.authenticate, (req, res) => {
       if (!this.bestModel) return res.status(404).json({ error: "No model" });
@@ -406,12 +413,23 @@ class ModelConsolidationServer {
 
       const clientId = `ws_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
 
+      // Mint a cryptographically-random, host-signed identity. The client
+      // adopts this id (it cannot choose its own), so every peer in the shared
+      // directory is identified by a value minted and signed by the host.
+      const identity = this.issueIdentity();
       this.clients.set(clientId, {
         ws,
         ip: clientIp,
         connectedAt: new Date(),
         lastActivity: Date.now(),
+        // Host-assigned public peer id. `announced` flips true once the client
+        // registers, and guards against double presence broadcasts.
+        peerId: identity.peerId,
+        identity,
+        announced: false,
+        metadata: {},
       });
+      this.sendIdentity(ws, identity);
       this.pushInitialData(ws);
 
       ws.on("message", (data) => {
@@ -428,20 +446,22 @@ class ModelConsolidationServer {
       });
 
       ws.on("close", () => {
-        this.clients.delete(clientId);
-        this.trainingClients.delete(clientId);
+        this.removeClient(clientId);
       });
     });
   }
 
   pushInitialData(ws) {
-    const neighbors = this.db.getNeighbors();
+    // Send only the best-model snapshot here. The live peer roster is delivered
+    // via PEER_CONNECTED once the client registers (see announcePeer) — the old
+    // db.getNeighbors() list was persisted to disk and would resurrect dead
+    // peers as phantom connections.
     const message = {
       type: "initial_sync",
       bestModel: this.bestModel
         ? { loss: this.bestModel.loss, epoch: this.bestModel.epoch }
         : null,
-      neighbors: neighbors.slice(-10),
+      neighbors: [],
     };
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(message));
   }
@@ -522,18 +542,44 @@ class ModelConsolidationServer {
     switch (message.type) {
       case "register_training": {
         const safeData = Sanitizer.sanitize(message.data);
+        if (!client) break;
+        // The peer id is host-assigned, never client-chosen. Verify the client
+        // echoed back the signature we issued so it cannot register under a
+        // tampered or borrowed identity.
+        if (
+          client.identity &&
+          !this.verifyIdentity(
+            client.identity.peerId,
+            client.identity.issuedAt,
+            typeof safeData.signature === "string" ? safeData.signature : "",
+          )
+        ) {
+          this.db.log(
+            `Rejected registration ${clientId}: invalid identity signature`,
+            "warn",
+          );
+          break;
+        }
+        const peerId = client.peerId || clientId;
+        client.metadata = {
+          name: typeof safeData.name === "string" ? safeData.name : peerId,
+          capabilities: Array.isArray(safeData.capabilities)
+            ? safeData.capabilities
+            : [],
+        };
         this.trainingClients.set(clientId, {
           ...safeData,
           ip,
           lastSeen: Date.now(),
           ws: client.ws,
         });
-        this.db.updateNeighbor(clientId, {
-          ...safeData,
-          ip,
-          peerId: clientId,
-        });
-        this.db.log(`Client registered: ${clientId} from IP: ${ip}`);
+        this.db.updateNeighbor(peerId, { ...safeData, ip, peerId });
+        this.db.log(
+          `Client registered: ${clientId} (peer ${peerId}) from IP: ${ip}`,
+        );
+        // Share the directory: send the joiner the current roster, then tell
+        // the existing peers about the joiner.
+        this.announcePeer(clientId);
         break;
       }
       case "status_update":
@@ -568,18 +614,129 @@ class ModelConsolidationServer {
         this.handleClientModelUpdate(clientId, message);
         break;
       case "PEER_MESSAGE":
+        // Stamp the authoritative sender id (anti-spoof): a client cannot relay
+        // a message claiming to originate from another peer.
+        message.from = client?.peerId || clientId;
         this.relayToPeer(message.to, message);
         break;
       case "BROADCAST":
+        message.from = client?.peerId || clientId;
         this.broadcastToAll(message, clientId);
         break;
     }
   }
 
-  relayToPeer(targetId, message) {
-    const target = this.clients.get(targetId);
-    if (target && target.ws.readyState === target.ws.OPEN) {
-      target.ws.send(JSON.stringify(message));
+  relayToPeer(targetPeerId, message) {
+    // Peers address each other by peerId (their tunnelId), not the
+    // server-internal clientId, so resolve the connection by its peerId.
+    for (const [, c] of this.clients) {
+      if (c.peerId === targetPeerId && c.ws.readyState === c.ws.OPEN) {
+        c.ws.send(JSON.stringify(message));
+        return;
+      }
+    }
+  }
+
+  // --- Peer directory / presence ---------------------------------------
+
+  // Snapshot of every currently-announced peer. This is the shared directory
+  // that lets different users discover each other.
+  getConnectedPeers() {
+    const peers = [];
+    this.clients.forEach((c) => {
+      if (c.peerId && c.announced) {
+        peers.push({ peerId: c.peerId, metadata: c.metadata || {} });
+      }
+    });
+    return peers;
+  }
+
+  // Announce a freshly-registered peer: first send it the roster of peers
+  // already present (so it builds its own directory), then tell those peers
+  // about the newcomer. Idempotent per client via the `announced` flag.
+  announcePeer(clientId) {
+    const joiner = this.clients.get(clientId);
+    if (!joiner || !joiner.peerId || joiner.announced) return;
+
+    // 1. Send the joiner everyone already announced.
+    if (joiner.ws.readyState === joiner.ws.OPEN) {
+      this.clients.forEach((c, id) => {
+        if (id === clientId || !c.announced || !c.peerId) return;
+        joiner.ws.send(
+          JSON.stringify({
+            type: "PEER_CONNECTED",
+            peerId: c.peerId,
+            metadata: c.metadata || {},
+          }),
+        );
+      });
+    }
+
+    joiner.announced = true;
+
+    // 2. Tell the others the joiner arrived.
+    const announce = JSON.stringify({
+      type: "PEER_CONNECTED",
+      peerId: joiner.peerId,
+      metadata: joiner.metadata || {},
+    });
+    this.clients.forEach((c, id) => {
+      if (id === clientId || !c.announced) return;
+      if (c.ws.readyState === c.ws.OPEN) c.ws.send(announce);
+    });
+  }
+
+  broadcastPeerDisconnected(peerId) {
+    const msg = JSON.stringify({ type: "PEER_DISCONNECTED", peerId });
+    this.clients.forEach((c) => {
+      if (c.ws.readyState === c.ws.OPEN) c.ws.send(msg);
+    });
+  }
+
+  // Remove a client and announce its departure to remaining peers. Idempotent:
+  // both the socket 'close' handler and the idle reaper may call it.
+  removeClient(clientId) {
+    const client = this.clients.get(clientId);
+    if (!client) return;
+    this.clients.delete(clientId);
+    this.trainingClients.delete(clientId);
+    if (client.peerId && client.announced) {
+      this.broadcastPeerDisconnected(client.peerId);
+    }
+  }
+
+  // --- Host-issued signed identity -------------------------------------
+
+  // Mint a random, host-signed identity. The client adopts this id; it cannot
+  // mint its own. The HMAC ties the id to this host's secret so the credential
+  // is verifiable and tamper-evident.
+  issueIdentity() {
+    const peerId = `peer_${crypto.randomBytes(16).toString("hex")}`;
+    const issuedAt = Date.now();
+    return { peerId, issuedAt, signature: this.signIdentity(peerId, issuedAt) };
+  }
+
+  signIdentity(peerId, issuedAt) {
+    return crypto
+      .createHmac("sha256", this.authToken)
+      .update(`${peerId}.${issuedAt}`)
+      .digest("hex");
+  }
+
+  verifyIdentity(peerId, issuedAt, signature) {
+    return tokensMatch(signature, this.signIdentity(peerId, issuedAt));
+  }
+
+  sendIdentity(ws, identity) {
+    if (ws.readyState === ws.OPEN) {
+      ws.send(
+        JSON.stringify({
+          type: "identity",
+          peerId: identity.peerId,
+          issuedAt: identity.issuedAt,
+          signature: identity.signature,
+        }),
+      );
     }
   }
 
@@ -700,8 +857,7 @@ class ModelConsolidationServer {
           } catch {
             /* already closed */
           }
-          this.clients.delete(id);
-          this.trainingClients.delete(id);
+          this.removeClient(id);
         }
       });
     }, 10000);

@@ -140,7 +140,13 @@ class EnhancedSwarmApp {
         useTunnel: true,
         tunnelConfig: {
           tunnelUrl: window.location.origin.replace(/^http/, "ws"),
-          tunnelId: `trainer_${Date.now()}`,
+          // Cryptographically-random placeholder id; the server issues and
+          // signs the authoritative peer id on connect (see tunnel.handleIdentity).
+          tunnelId: `peer_${
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : Date.now().toString(36) + Math.random().toString(36).slice(2)
+          }`,
           // Token must be supplied at runtime (e.g. injected by the page /
           // build), never hardcoded in client source where anyone can read it.
           authToken: window.SWARM_AUTH_TOKEN || "",
