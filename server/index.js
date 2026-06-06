@@ -214,9 +214,14 @@ class ModelConsolidationServer {
     this.app.use(
       cors({
         origin(origin, cb) {
-          // Allow same-origin/non-browser requests (no Origin header).
+          // Allow same-origin/non-browser requests (no Origin header) and any
+          // allowlisted origin. For a disallowed origin, deny CORS *headers*
+          // (cb(null, false)) rather than throwing — throwing turns every
+          // request that carries an Origin into a 500, including the HTML page
+          // and its assets. Without the CORS headers the browser still blocks
+          // cross-site reads, which is the actual goal.
           if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-          cb(new Error("Origin not allowed by CORS"));
+          cb(null, false);
         },
       }),
     );
