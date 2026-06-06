@@ -7,7 +7,6 @@ models/
 !.env.template
 data/
 test-research.js
-GEMINI.md
 test-gpu-diagnostic.js
 test-import.js
 __pycache__/

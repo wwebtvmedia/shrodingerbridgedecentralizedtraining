@@ -122,6 +122,6 @@ prototype stubs), and remain candidates for follow-up:
 
 ---
 
-**Reviewer:** Claude (Opus 4.8)
+**Reviewer:** Engineering
 **Date:** June 6, 2026
 **Reference commit:** `f313971`
