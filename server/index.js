@@ -332,6 +332,43 @@ class ModelConsolidationServer {
       res.redirect("/knowledge-base.html#intention-economy"),
     );
     this.app.get("/readme.html", (req, res) => res.redirect("/README.md"));
+
+    // Technical docs (read-only allowlist). The repo root is intentionally NOT
+    // statically served (it holds server source, checkpoints, .env on disk),
+    // so expose only these top-level Markdown files. Served as text/plain so
+    // browsers render them inline rather than offering a download.
+    const DOC_FILES = [
+      "README.md",
+      "MIGRATION-GUIDE.md",
+      "raspberry-pi-setup.md",
+      "cloudflare-raspberry-pi-guide.md",
+    ];
+    const DOC_SET = new Set(DOC_FILES);
+    const sendDoc = (res, file) => {
+      res.type("text/plain; charset=utf-8");
+      res.sendFile(path.join(__dirname, "..", file));
+    };
+    this.app.get("/docs", (req, res) => {
+      const links = DOC_FILES.map(
+        (f) => `<li><a href="/docs/${f}">${f}</a></li>`,
+      ).join("");
+      res
+        .type("html")
+        .send(
+          `<!doctype html><meta charset="utf-8"><title>Technical Docs</title>` +
+            `<h1>Technical Docs</h1><ul>${links}</ul>`,
+        );
+    });
+    this.app.get("/docs/:file", (req, res) => {
+      if (!DOC_SET.has(req.params.file))
+        return res.status(404).json({ error: "Doc not found" });
+      sendDoc(res, req.params.file);
+    });
+    // Back-compat: also serve each doc at its root path (e.g. /README.md, which
+    // the /readme.html redirect targets).
+    for (const f of DOC_FILES) {
+      this.app.get(`/${f}`, (req, res) => sendDoc(res, f));
+    }
     this.app.get("/tokenizer-demo", (req, res) =>
       res.sendFile(
         path.join(__dirname, "../demotokenizer/tokenizationDemo.html"),
