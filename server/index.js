@@ -342,6 +342,7 @@ class ModelConsolidationServer {
       "MIGRATION-GUIDE.md",
       "raspberry-pi-setup.md",
       "cloudflare-raspberry-pi-guide.md",
+      "code_review.md",
     ];
     const DOC_SET = new Set(DOC_FILES);
     const sendDoc = (res, file) => {
