@@ -17,18 +17,19 @@ function checkSeedRandom() {
 checkSeedRandom();
 
 import * as tf from "@tensorflow/tfjs";
+import "@tensorflow/tfjs-backend-webgpu";
 import { EnhancedLabelTrainer } from "./training.js";
 
 export class TorchJSTrainer {
   constructor() {
     this.trainer = null;
     this.isInitialized = false;
-    this.device = "webgl";
+    this.device = "webgpu";
     this.status = "initializing";
 
     // Start initialization
     this.initialize().catch((err) => {
-      console.error("❌ TFJS Initialization Error:", err);
+      console.error("❌ TFJS WebGPU Initialization Error:", err);
       this.status = "failed";
     });
   }
@@ -36,7 +37,7 @@ export class TorchJSTrainer {
   async initialize() {
     if (this.isInitialized) return;
 
-    console.log("🔍 Initializing TensorFlow.js hardware acceleration...");
+    console.log("🔍 Initializing TensorFlow.js WebGPU hardware acceleration...");
 
     try {
       // Seedrandom should already be available from synchronous polyfill at top
@@ -45,14 +46,37 @@ export class TorchJSTrainer {
         typeof window === "undefined" &&
         typeof globalThis.seedrandom === "undefined"
       ) {
-        // In Node.js, we might need to handle this differently
-        // For now, just log a warning
         console.log(
           "⚠️  Running in Node.js environment, seedrandom may not be available",
         );
       }
 
-      // Try to use WebGPU if available, fallback to WebGL
+      // Prioritize WebGPU backend
+      let backendSelected = false;
+      try {
+        if (typeof navigator !== "undefined" && navigator.gpu) {
+          await tf.setBackend("webgpu");
+          backendSelected = true;
+        }
+      } catch (gpuErr) {
+        console.warn("⚠️ WebGPU browser adapter check note:", gpuErr.message);
+      }
+
+      if (!backendSelected) {
+        try {
+          await tf.setBackend("webgpu");
+          backendSelected = true;
+        } catch (e) {
+          // Fallback to wasm/cpu if webgpu is unavailable
+          try {
+            await tf.setBackend("wasm");
+            backendSelected = true;
+          } catch (e2) {
+            // default to cpu or tf.ready selection
+          }
+        }
+      }
+
       await tf.ready();
 
       this.device = tf.getBackend();

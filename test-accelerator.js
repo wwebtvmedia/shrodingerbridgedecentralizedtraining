@@ -1,12 +1,13 @@
 import * as tf from "@tensorflow/tfjs";
 import "@tensorflow/tfjs-node";
 import "@tensorflow/tfjs-backend-wasm";
+import "@tensorflow/tfjs-backend-webgpu";
 
 async function testAccelerator() {
   console.log("--- TFJS Hardware Accelerator Probe ---");
   console.log(`TFJS Version: ${tf.version_core}`);
 
-  const backends = ["tensorflow", "webgpu", "webgl", "wasm", "cpu"];
+  const backends = ["tensorflow", "webgpu", "wasm", "cpu"];
 
   for (const backend of backends) {
     try {
@@ -17,6 +18,7 @@ async function testAccelerator() {
       if (hasBackend) {
         const start = Date.now();
         await tf.setBackend(backend);
+        await tf.ready();
         const end = Date.now();
         console.log(
           `- Successfully set backend to ${backend} in ${end - start}ms`,

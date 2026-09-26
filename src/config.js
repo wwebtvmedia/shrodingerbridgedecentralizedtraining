@@ -24,51 +24,55 @@ export const CONFIG = {
   WEIGHT_DECAY: 1e-4,
   GRAD_CLIP: 1.0,
 
-  // Loss weights (Updated for quality)
-  KL_WEIGHT: 0.002,
-  RECON_WEIGHT: 8.0, // Increased from 5.0 to reduce blur
-  DRIFT_WEIGHT: 1.0,
-  DIVERSITY_WEIGHT: 1.2, // Slightly reduced to focus on quality
-  CONSISTENCY_WEIGHT: 1.2, // Increased for stability
-  PHASE3_RECON_SCALE: 0.9, // Increased for joint phase
-  PERCEPTUAL_WEIGHT: 2.5, // Increased from 1.5 to capture more detail
-  SSIM_WEIGHT: 1.5, // Increased from 1.0
-  LPIPS_WEIGHT: 0.5, // Increased from 0.3
-  EDGE_WEIGHT: 0.5, // Increased from 0.3 for sharpness
-  TV_WEIGHT: 0.05, // Increased from 0.02 to reduce noise motifs
+  // Loss weights (Aligned with enhancedoptimaltransport)
+  KL_WEIGHT: 0.004,
+  RECON_WEIGHT: 5.0,
+  DRIFT_WEIGHT: 3.0,
+  DIVERSITY_WEIGHT: 0.7,
+  CONSISTENCY_WEIGHT: 1.5,
+  PHASE3_RECON_SCALE: 0.5,
+  PERCEPTUAL_WEIGHT: 2.0,
+  SSIM_WEIGHT: 3.0,
+  EDGE_WEIGHT: 0.5,
+  TV_WEIGHT: 0.01,
+  CONTRASTIVE_WEIGHT: 0.1,
+  PHASE2_CONTRASTIVE_FACTOR: 1.0,
+  CONTRASTIVE_TEMPERATURE: 0.07,
 
-  // VAE specific
+  // VAE specific (Aligned with enhancedoptimaltransport)
   LATENT_SCALE: 1.0,
-  FREE_BITS: 0.8, // Reduced from 1.0 to encourage better encoding
+  FREE_BITS: 2.0,
   USE_NEURAL_TOKENIZER: false,
   USE_PROJECTION_HEADS: true,
   USE_FOURIER_FEATURES: false,
   USE_SUBPIXEL_CONV: true,
-  USE_CONTEXT: true,
   DIVERSITY_ADAPTIVE: true,
   DIVERSITY_TARGET_START: 0.3,
   DIVERSITY_TARGET_END: 0.8,
-  DIVERSITY_TARGET_STD: 0.8,
   DIVERSITY_MAX_STD: 2.0,
   DIVERSITY_LOW_PENALTY: 2.0,
   DIVERSITY_HIGH_PENALTY: 0.5,
   DIVERSITY_BALANCE_WEIGHT: 0.4,
-  DIVERSITY_ADAPT_EPOCHS: 50,
+  DIVERSITY_ADAPT_EPOCHS: 100,
+  KL_ANNEALING_EPOCHS: 40,
   LOGVAR_CLAMP_MIN: -4,
   LOGVAR_CLAMP_MAX: 4,
   MU_NOISE_SCALE: 0.01,
+  MU_STD_FLOOR: 0.84,
+  MU_STD_FLOOR_WEIGHT: 20.0,
+  CST_COEF_GAUSSIAN_PRIO: 0.8,
 
   // Channel dropout
   CHANNEL_DROPOUT_PROB: 0.2,
   CHANNEL_DROPOUT_SURVIVAL: 0.8,
 
-  // Classifier-Free Guidance
+  // Classifier-Free Guidance (CFG)
   LABEL_DROPOUT_PROB: 0.1,
-  CFG_SCALE: 3.0,
+  CFG_SCALE: 6.5,
 
   // Drift network specific
-  DRIFT_LR_MULTIPLIER: 1.0,
-  DRIFT_GRAD_CLIP_FACTOR: 1.0,
+  DRIFT_LR_MULTIPLIER: 0.5,
+  DRIFT_GRAD_CLIP_FACTOR: 0.5,
   PHASE2_VAE_LR_FACTOR: 0.1,
   PHASE3_VAE_LR_FACTOR: 0.05,
 
@@ -80,13 +84,22 @@ export const CONFIG = {
 
   // Temperature annealing
   TEMPERATURE_START: 1.0,
-  TEMPERATURE_END: 0.3,
+  TEMPERATURE_END: 0.4,
 
   // Target noise for drift training
   DRIFT_TARGET_NOISE_SCALE: 0.01,
 
   // Time weighting factor
-  TIME_WEIGHT_FACTOR: 2.0,
+  TIME_WEIGHT_FACTOR: 3.0,
+
+  // ODE / Inference numerics
+  ODE_CLAMP_MAX: 10.0,
+  DEFAULT_STEPS: 100,
+  DEFAULT_SEED: 42,
+  INFERENCE_TEMPERATURE: 0.4,
+  DEFAULT_LANGEVIN_STEPS: 10,
+  LANGEVIN_STEP_SIZE: 0.01,
+  LANGEVIN_SCORE_SCALE: 1.2,
 
   // Enhanced features
   USE_PERCENTILE: true,
@@ -99,32 +112,27 @@ export const CONFIG = {
   KPI_WINDOW_SIZE: 100,
   EARLY_STOP_PATIENCE: 15,
 
+  // EMA
+  USE_EMA: true,
+  EMA_DECAY: 0.999,
+
   // OU Bridge
   USE_OU_BRIDGE: false,
   OU_THETA: 1.0,
   OU_SIGMA: Math.sqrt(2),
 
   // Three-phase training schedule
-  PHASE1_EPOCHS: Math.max(50, Math.floor(600 / 6)),
-  PHASE2_EPOCHS: Math.max(50, Math.floor(600 / 2)),
+  PHASE1_EPOCHS: 150,
+  PHASE2_EPOCHS: 400,
 
   // Training schedule
   TRAINING_SCHEDULE: {
     mode: "auto",
     force_phase: null,
     custom_schedule: {},
-    // In "auto" mode only `switch_epoch` is consulted (VAE below it, drift above).
-    switch_epoch: 50,
-    // In "three_phase" mode these two boundaries are used instead.
-    switch_epoch_1: Math.max(50, Math.floor(600 / 6)), // 100
-    switch_epoch_2: Math.max(50, Math.floor(600 / 2)), // 300
-    // Epoch lists for the (optional) explicit-list consumers. Derived from the
-    // boundaries above so they stay consistent if the boundaries change.
-    vae_epochs: Array.from({ length: 50 }, (_, i) => i),
-    drift_epochs: Array.from(
-      { length: Math.max(50, Math.floor(600 / 2)) - 50 },
-      (_, i) => i + 50,
-    ),
+    switch_epoch: 150,
+    switch_epoch_1: 150,
+    switch_epoch_2: 400,
     alternate_freq: 5,
   },
 };

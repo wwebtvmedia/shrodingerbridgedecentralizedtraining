@@ -198,9 +198,8 @@ class UIManager {
         element.style.color = "var(--google-red)";
       } else if (
         device &&
-        (device.toLowerCase().includes("gpu") ||
-          device.toLowerCase().includes("webgpu") ||
-          device.toLowerCase().includes("webgl"))
+        (device.toLowerCase().includes("webgpu") ||
+          device.toLowerCase().includes("gpu"))
       ) {
         element.style.color = "var(--google-green)";
       } else {

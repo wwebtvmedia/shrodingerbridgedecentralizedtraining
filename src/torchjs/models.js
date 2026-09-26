@@ -856,6 +856,61 @@ export class LabelConditionedVAE {
     });
   }
 
+  _channelDiversityLoss(mu) {
+    return tf.tidy(() => {
+      // mu shape in TFJS: [B, H, W, C]
+      const { variance } = tf.moments(mu, [0, 1, 2]);
+      const channelStds = tf.sqrt(tf.add(variance, 1e-8)); // [C]
+
+      let targetStd =
+        0.5 *
+        ((CONFIG.DIVERSITY_TARGET_START || 0.3) +
+          (CONFIG.DIVERSITY_TARGET_END || 0.8));
+      if (CONFIG.DIVERSITY_ADAPTIVE && this.currentEpoch !== undefined) {
+        const progress = Math.min(
+          1.0,
+          this.currentEpoch / (CONFIG.DIVERSITY_ADAPT_EPOCHS || 100),
+        );
+        targetStd =
+          (CONFIG.DIVERSITY_TARGET_START || 0.3) +
+          progress *
+            ((CONFIG.DIVERSITY_TARGET_END || 0.8) -
+              (CONFIG.DIVERSITY_TARGET_START || 0.3));
+      }
+
+      const lowPenalty = tf.mul(
+        tf.mean(tf.relu(tf.sub(targetStd, channelStds))),
+        CONFIG.DIVERSITY_LOW_PENALTY || 2.0,
+      );
+      const highPenalty = tf.mul(
+        tf.mean(tf.relu(tf.sub(channelStds, CONFIG.DIVERSITY_MAX_STD || 2.0))),
+        CONFIG.DIVERSITY_HIGH_PENALTY || 0.5,
+      );
+
+      const balanceVariance = tf.moments(channelStds).variance;
+      const balanceStd = tf.sqrt(tf.add(balanceVariance, 1e-8));
+      const balanceLoss = tf.mul(
+        balanceStd,
+        CONFIG.DIVERSITY_BALANCE_WEIGHT || 0.4,
+      );
+
+      return tf.add(tf.add(lowPenalty, highPenalty), balanceLoss);
+    });
+  }
+
+  muFloorLoss(mu) {
+    return tf.tidy(() => {
+      const overallStd = tf.sqrt(tf.add(tf.moments(mu).variance, 1e-8));
+      const deficit = tf.relu(
+        tf.sub(CONFIG.MU_STD_FLOOR || 0.84, overallStd),
+      );
+      return tf.mul(
+        tf.square(deficit),
+        CONFIG.MU_STD_FLOOR_WEIGHT || 20.0,
+      );
+    });
+  }
+
   forward(x, labels, textBytes = null) {
     return tf.tidy(() => {
       const [mu, logvar] = this.encode(x, labels, textBytes);

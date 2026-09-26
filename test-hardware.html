@@ -79,7 +79,7 @@
           const tf = await import("@tensorflow/tfjs");
           log(`TFJS Version: ${tf.version_core}`, "success");
 
-          const backends = ["webgpu", "webgl", "wasm", "cpu"];
+          const backends = ["webgpu", "wasm", "cpu"];
 
           for (const backend of backends) {
             log(`Probing backend: ${backend.toUpperCase()}...`, "info");

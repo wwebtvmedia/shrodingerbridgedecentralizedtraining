@@ -1,5 +1,5 @@
 // Enhanced Schrödinger Bridge Trainer using TensorFlow.js
-// Optimized for GPU acceleration and high-fidelity generation (96x96)
+// Optimized for WebGPU acceleration and high-fidelity generation (96x96)
 // Aligned with enhancedoptimaltransport/training.py
 
 import * as tf from "@tensorflow/tfjs";
@@ -22,7 +22,64 @@ function huberLoss(yTrue, yPred, delta = 1.0) {
 }
 
 /**
- * Simplified SSIM for structural integrity
+ * Total Variation Loss for spatial smoothness
+ */
+function totalVariationLoss(img) {
+  return tf.tidy(() => {
+    // img shape [B, H, W, C]
+    const hDiff = tf.square(
+      tf.sub(
+        tf.slice(img, [0, 1, 0, 0], [-1, -1, -1, -1]),
+        tf.slice(img, [0, 0, 0, 0], [-1, img.shape[1] - 1, -1, -1]),
+      ),
+    );
+    const wDiff = tf.square(
+      tf.sub(
+        tf.slice(img, [0, 0, 1, 0], [-1, -1, -1, -1]),
+        tf.slice(img, [0, 0, 0, 0], [-1, -1, img.shape[2] - 1, -1]),
+      ),
+    );
+    return tf.add(tf.mean(hDiff), tf.mean(wDiff));
+  });
+}
+
+/**
+ * Edge gradient match loss
+ */
+function edgeLoss(recon, target) {
+  return tf.tidy(() => {
+    const reconDy = tf.abs(
+      tf.sub(
+        tf.slice(recon, [0, 1, 0, 0], [-1, -1, -1, -1]),
+        tf.slice(recon, [0, 0, 0, 0], [-1, recon.shape[1] - 1, -1, -1]),
+      ),
+    );
+    const targetDy = tf.abs(
+      tf.sub(
+        tf.slice(target, [0, 1, 0, 0], [-1, -1, -1, -1]),
+        tf.slice(target, [0, 0, 0, 0], [-1, target.shape[1] - 1, -1, -1]),
+      ),
+    );
+    const reconDx = tf.abs(
+      tf.sub(
+        tf.slice(recon, [0, 0, 1, 0], [-1, -1, -1, -1]),
+        tf.slice(recon, [0, 0, 0, 0], [-1, -1, recon.shape[2] - 1, -1]),
+      ),
+    );
+    const targetDx = tf.abs(
+      tf.sub(
+        tf.slice(target, [0, 0, 1, 0], [-1, -1, -1, -1]),
+        tf.slice(target, [0, 0, 0, 0], [-1, -1, target.shape[2] - 1, -1]),
+      ),
+    );
+    const lossY = tf.losses.meanSquaredError(targetDy, reconDy);
+    const lossX = tf.losses.meanSquaredError(targetDx, reconDx);
+    return tf.add(lossY, lossX);
+  });
+}
+
+/**
+ * Structural Similarity (SSIM) Loss
  */
 function ssimLoss(yTrue, yPred) {
   return tf.tidy(() => {
@@ -54,6 +111,60 @@ function ssimLoss(yTrue, yPred) {
     return tf.sub(1, tf.mean(ssim));
   });
 }
+
+/**
+ * InfoNCE Contrastive Loss for multimodal alignment
+ */
+function contrastiveLoss(imageEmb, textEmb, temperature = 0.07) {
+  return tf.tidy(() => {
+    const normImg = tf.div(
+      imageEmb,
+      tf.maximum(tf.norm(imageEmb, 2, -1, true), 1e-8),
+    );
+    const normTxt = tf.div(
+      textEmb,
+      tf.maximum(tf.norm(textEmb, 2, -1, true), 1e-8),
+    );
+    const logits = tf.div(
+      tf.matMul(normImg, normTxt, false, true),
+      temperature,
+    );
+    const b = imageEmb.shape[0];
+    const labels = tf.oneHot(tf.range(0, b, 1, "int32"), b);
+    const lossI2T = tf.losses.softmaxCrossEntropy(labels, logits);
+    const lossT2I = tf.losses.softmaxCrossEntropy(labels, tf.transpose(logits));
+    return tf.div(tf.add(lossI2T, lossT2I), 2.0);
+  });
+}
+
+/**
+ * Clip gradients by L2 norm
+ */
+function clipGradients(grads, maxNorm = 1.0) {
+  return tf.tidy(() => {
+    let sumSq = tf.scalar(0);
+    const keys = Object.keys(grads);
+    for (const k of keys) {
+      if (grads[k]) {
+        sumSq = tf.add(sumSq, tf.sum(tf.square(grads[k])));
+      }
+    }
+    const totalNorm = tf.sqrt(sumSq);
+    const scale = tf.minimum(
+      tf.scalar(1.0),
+      tf.div(tf.scalar(maxNorm), tf.add(totalNorm, 1e-8)),
+    );
+
+    const clipped = {};
+    for (const k of keys) {
+      if (grads[k]) {
+        clipped[k] = tf.mul(grads[k], scale);
+      }
+    }
+    return clipped;
+  });
+}
+
 // OU Reference Process (Aligned with Python)
 class OUReference {
   constructor(theta = 1.0, sigma = Math.sqrt(2)) {
@@ -116,7 +227,7 @@ class OUReference {
 
 // Enhanced Label Trainer using TensorFlow.js
 export class EnhancedLabelTrainer {
-  constructor(device = "gpu") {
+  constructor(device = "webgpu") {
     this.device = device;
     // Initialize models
     this.vae = new LabelConditionedVAE();
@@ -128,7 +239,7 @@ export class EnhancedLabelTrainer {
     // Optimizers
     this.opt_vae = tf.train.adam(CONFIG.LR || 0.0002);
     this.opt_drift = tf.train.adam(
-      (CONFIG.LR || 0.0002) * (CONFIG.DRIFT_LR_MULTIPLIER || 1.0),
+      (CONFIG.LR || 0.0002) * (CONFIG.DRIFT_LR_MULTIPLIER || 0.5),
     );
 
     // Training state
@@ -235,10 +346,9 @@ export class EnhancedLabelTrainer {
       obj.layers.forEach((l) => this.collectVariables(l, vars, visited));
     }
 
-    // 3. Recursively check custom properties (like encBlocks, decBlocks, etc.)
+    // 3. Recursively check custom properties
     const keys = Object.keys(obj);
     for (const key of keys) {
-      // Skip internal properties, already visited ones, and known non-model properties
       if (
         key.startsWith("_") ||
         key === "layers" ||
@@ -267,8 +377,6 @@ export class EnhancedLabelTrainer {
     return this.collectVariables(this.drift);
   }
 
-  // Global L2 norm of the gradient set. Surfaced in trainStep metrics so the
-  // trajectory-advantage estimator gets a real magnitude instead of a constant.
   computeGradNorm(grads) {
     return tf.tidy(() => {
       let sumSq = tf.scalar(0);
@@ -280,20 +388,45 @@ export class EnhancedLabelTrainer {
     });
   }
 
+  _setEpochLrs() {
+    const e = Math.min(this.epoch, (CONFIG.EPOCHS || 600) - 1);
+    const etaFrac = 0.01;
+    const decay =
+      etaFrac +
+      (1.0 - etaFrac) *
+        0.5 *
+        (1.0 + Math.cos((Math.PI * e) / (CONFIG.EPOCHS || 600)));
+    const vaeFactor =
+      this.phase === 1
+        ? 1.0
+        : this.phase === 2
+          ? CONFIG.PHASE2_VAE_LR_FACTOR || 0.1
+          : CONFIG.PHASE3_VAE_LR_FACTOR || 0.05;
+
+    const vaeLr = (CONFIG.LR || 2e-4) * decay * vaeFactor;
+    const driftLr =
+      (CONFIG.LR || 2e-4) * (CONFIG.DRIFT_LR_MULTIPLIER || 0.5) * decay;
+
+    if (this.opt_vae && this.opt_vae.learningRate !== undefined) {
+      this.opt_vae.learningRate = vaeLr;
+    }
+    if (this.opt_drift && this.opt_drift.learningRate !== undefined) {
+      this.opt_drift.learningRate = driftLr;
+    }
+  }
+
   async trainStep(batch, labels, textBytes = null) {
-    // console.log("DEBUG: labels =", labels, "type =", typeof labels, "isArray =", Array.isArray(labels));
-    // Convert to tensors outside of tidy/grads
+    this._setEpochLrs();
+
     const images = tf
       .tensor(batch)
       .reshape([-1, CONFIG.IMG_SIZE, CONFIG.IMG_SIZE, 3]);
 
-    // Safety check for labels shape
     const labelsArray = Array.isArray(labels) ? labels : [labels];
     const labelsTensor = tf.tensor(labelsArray, [labelsArray.length], "int32");
 
     let textBytesTensor = null;
     if (textBytes) {
-      // console.log("DEBUG: textBytes =", textBytes);
       try {
         textBytesTensor = tf.tensor(
           textBytes,
@@ -301,22 +434,18 @@ export class EnhancedLabelTrainer {
           "int32",
         );
       } catch (e) {
-        console.error(
-          "❌ Failed to create textBytesTensor:",
-          e.message,
-          "shape info:",
-          textBytes.length,
-          textBytes[0]?.length,
-        );
+        console.error("❌ Failed to create textBytesTensor:", e.message);
         throw e;
       }
     }
 
+    if (this.vae) {
+      this.vae.currentEpoch = this.epoch;
+    }
+
     try {
       if (this.phase === 1) {
-        // Warm up once so all lazily-built layers (including LoRA adapters)
-        // exist BEFORE we collect trainable variables. Otherwise the very first
-        // step trains an incomplete variable set (LoRA weights silently skipped).
+        // --- Phase 1: VAE Training ---
         if (!this._vaeWarmed) {
           tf.tidy(() =>
             this.vae.forward(images, labelsTensor, textBytesTensor),
@@ -324,11 +453,8 @@ export class EnhancedLabelTrainer {
           this._vaeWarmed = true;
         }
         const vaeVars = this.getVaeVariables();
-        if (vaeVars.length === 0) {
-          console.warn(
-            "⚠️ No trainable VAE variables collected — check LoRA/build wiring.",
-          );
-        }
+
+        let metricsOut = {};
         const gradsObj = tf.variableGrads(() => {
           return tf.tidy(() => {
             const [recon, mu, logvar] = this.vae.forward(
@@ -337,35 +463,116 @@ export class EnhancedLabelTrainer {
               textBytesTensor,
             );
 
-            const raw_l1 = tf.losses.absoluteDifference(images, recon);
-            const recon_loss = tf.mul(raw_l1, CONFIG.RECON_WEIGHT || 5.0);
+            // 1. Reconstruction loss
+            const rawL1 = tf.losses.absoluteDifference(images, recon);
+            const reconLoss = tf.mul(rawL1, CONFIG.RECON_WEIGHT || 5.0);
 
-            const kl_loss = tf.mul(
+            // 2. KL Divergence (with annealing)
+            const klProgress = Math.min(
+              1.0,
+              this.epoch / (CONFIG.KL_ANNEALING_EPOCHS || 40),
+            );
+            const klLoss = tf.mul(
               klDivergenceSpatial(mu, logvar),
-              CONFIG.KL_WEIGHT || 0.002,
+              (CONFIG.KL_WEIGHT || 0.004) * klProgress,
             );
 
-            let ssim_loss = tf.scalar(0);
-            if (CONFIG.SSIM_WEIGHT > 0) {
-              ssim_loss = tf.mul(ssimLoss(images, recon), CONFIG.SSIM_WEIGHT);
+            // 3. SSIM Loss
+            let ssim = tf.scalar(0);
+            if ((CONFIG.SSIM_WEIGHT || 0) > 0) {
+              ssim = tf.mul(
+                ssimLoss(images, recon),
+                CONFIG.SSIM_WEIGHT || 3.0,
+              );
             }
 
-            return tf.add(tf.add(recon_loss, kl_loss), ssim_loss);
+            // 4. Edge gradient loss
+            let edge = tf.scalar(0);
+            if ((CONFIG.EDGE_WEIGHT || 0) > 0) {
+              edge = tf.mul(
+                edgeLoss(recon, images),
+                CONFIG.EDGE_WEIGHT || 0.5,
+              );
+            }
+
+            // 5. Total variation loss
+            let tv = tf.scalar(0);
+            if ((CONFIG.TV_WEIGHT || 0) > 0) {
+              tv = tf.mul(
+                totalVariationLoss(recon),
+                CONFIG.TV_WEIGHT || 0.01,
+              );
+            }
+
+            // 6. Channel diversity loss
+            const divLoss = tf.mul(
+              this.vae._channelDiversityLoss(mu),
+              CONFIG.DIVERSITY_WEIGHT || 0.7,
+            );
+
+            // 7. Multimodal contrastive alignment (if active)
+            let cLoss = tf.scalar(0);
+            if (
+              CONFIG.USE_PROJECTION_HEADS &&
+              this.vae.imageProj &&
+              textBytesTensor
+            ) {
+              const textEmb = this.vae.getConditioning(
+                labelsTensor,
+                textBytesTensor,
+              );
+              const imgFlat = tf.reshape(mu, [mu.shape[0], -1]);
+              const imgEmb = this.vae.imageProj.forward(imgFlat);
+              cLoss = tf.mul(
+                contrastiveLoss(
+                  imgEmb,
+                  textEmb,
+                  CONFIG.CONTRASTIVE_TEMPERATURE || 0.07,
+                ),
+                CONFIG.CONTRASTIVE_WEIGHT || 0.1,
+              );
+            }
+
+            const total = tf.add(
+              tf.add(
+                tf.add(tf.add(reconLoss, klLoss), ssim),
+                tf.add(edge, tv),
+              ),
+              tf.add(divLoss, cLoss),
+            );
+
+            metricsOut = {
+              recon: reconLoss.dataSync()[0],
+              kl: klLoss.dataSync()[0],
+              snr: calcSNR(images, recon),
+            };
+
+            return total;
           });
         }, vaeVars);
 
         const gradNorm = this.computeGradNorm(gradsObj.grads);
-        this.opt_vae.applyGradients(gradsObj.grads);
+        const clippedGrads = clipGradients(
+          gradsObj.grads,
+          CONFIG.GRAD_CLIP || 1.0,
+        );
+        this.opt_vae.applyGradients(clippedGrads);
+
         const lossVal = gradsObj.value.dataSync()[0];
         tf.dispose(gradsObj.value);
         tf.dispose(gradsObj.grads);
+        tf.dispose(clippedGrads);
+
         return {
           loss: lossVal,
-          metrics: { phase: "vae", gradientNorm: gradNorm },
+          metrics: {
+            phase: "vae",
+            gradientNorm: gradNorm,
+            ...metricsOut,
+          },
         };
       } else {
-        // Warm up the drift (and the VAE encoder it depends on) once so every
-        // lazy/LoRA weight is built before variable collection.
+        // --- Phase 2 & 3: Drift + Consistency / Joint Fine-tuning ---
         if (!this._driftWarmed) {
           tf.tidy(() => {
             const [mu_w] = this.vae.encode(
@@ -379,154 +586,185 @@ export class EnhancedLabelTrainer {
           });
           this._driftWarmed = true;
         }
+
         const driftVars = this.getDriftVariables();
-        if (driftVars.length === 0) {
-          console.warn(
-            "⚠️ No trainable drift variables collected — check LoRA/build wiring.",
+        const vaeVars = this.getVaeVariables();
+
+        // 1. Prepare Target Latents (z1, z0, t, zt, target) outside of drift backprop tape
+        const temp =
+          CONFIG.TEMPERATURE_START +
+          (CONFIG.TEMPERATURE_END - CONFIG.TEMPERATURE_START) *
+            (this.epoch / (CONFIG.EPOCHS || 600));
+
+        const { z1, t, z0, zt, target, muRef } = tf.tidy(() => {
+          const [muCurr, logvarCurr] = this.vae.encode(
+            images,
+            labelsTensor,
+            textBytesTensor,
           );
+
+          let muR = muCurr;
+          if (this.vae_ref) {
+            [muR] = this.vae_ref.encode(
+              images,
+              labelsTensor,
+              textBytesTensor,
+            );
+          }
+
+          const noise = tf.mul(
+            tf.randomNormal(muCurr.shape),
+            tf.mul(tf.exp(tf.mul(0.5, logvarCurr)), temp),
+          );
+          const _z1 = tf.add(muCurr, noise);
+          const _t = tf.randomUniform([images.shape[0], 1]);
+          const _z0 = tf.mul(
+            tf.randomNormal(_z1.shape),
+            CONFIG.CST_COEF_GAUSSIAN_PRIO || 0.8,
+          );
+
+          let _zt, _target;
+          if (CONFIG.USE_OU_BRIDGE && this.ou_ref) {
+            const [mean, var_] = this.ou_ref.bridgeSample(_z0, _z1, _t);
+            _zt = tf.add(
+              mean,
+              tf.mul(
+                tf.randomNormal(mean.shape),
+                tf.sqrt(tf.add(var_, 1e-8)),
+              ),
+            );
+            _target = this.ou_ref.bridgeVelocity(_z0, _z1, _t);
+          } else {
+            const t_bc = _t.reshape([-1, 1, 1, 1]);
+            _zt = tf.add(tf.mul(tf.sub(1, t_bc), _z0), tf.mul(t_bc, _z1));
+            _target = tf.sub(_z1, _z0);
+          }
+
+          return {
+            z1: _z1,
+            t: _t,
+            z0: _z0,
+            zt: _zt,
+            target: _target,
+            muRef: muR,
+          };
+        });
+
+        // 2. CFG Label Dropout for Drift
+        let trainLabels = labelsTensor;
+        let trainText = textBytesTensor;
+        if (Math.random() < (CONFIG.LABEL_DROPOUT_PROB || 0.1)) {
+          trainLabels = tf.fill(
+            labelsTensor.shape,
+            (CONFIG.NUM_CLASSES || 11) - 1,
+            "int32",
+          );
+          trainText = null;
         }
-        const gradsObj = tf.variableGrads(() => {
+
+        // 3. Drift Optimization Step
+        let driftLossVal = 0;
+        const driftGradsObj = tf.variableGrads(() => {
           return tf.tidy(() => {
-            // Temperature annealing
-            const temp =
-              CONFIG.TEMPERATURE_START +
-              (CONFIG.TEMPERATURE_END - CONFIG.TEMPERATURE_START) *
-                (this.epoch / CONFIG.EPOCHS);
-
-            const [z1, t, z0, mu, mu_ref] = tf.tidy(() => {
-              const [mu_curr, logvar_curr] = this.vae.encode(
-                images,
-                labelsTensor,
-                textBytesTensor,
-              );
-              let mu_r = mu_curr;
-              if (this.vae_ref) {
-                [mu_r] = this.vae_ref.encode(
-                  images,
-                  labelsTensor,
-                  textBytesTensor,
-                );
-              }
-
-              const noise = tf.mul(
-                tf.randomNormal(mu_curr.shape),
-                tf.mul(tf.exp(tf.mul(0.5, logvar_curr)), temp),
-              );
-              const _z1 = tf.add(mu_curr, noise);
-              const _t = tf.randomUniform([images.shape[0], 1]);
-              const _z0 = tf.randomNormal(
-                _z1.shape,
-                0,
-                CONFIG.CST_COEF_GAUSSIAN_PRIO || 1.0,
-              );
-              return [_z1, _t, _z0, mu_curr, mu_r];
-            });
-
-            // Bridge sampling
-            const [zt, target] = tf.tidy(() => {
-              if (CONFIG.USE_OU_BRIDGE && this.ou_ref) {
-                const [mean, var_] = this.ou_ref.bridgeSample(z0, z1, t);
-                const _zt = tf.add(
-                  mean,
-                  tf.mul(
-                    tf.randomNormal(mean.shape),
-                    tf.sqrt(tf.add(var_, 1e-8)),
-                  ),
-                );
-                const _target = this.ou_ref.bridgeVelocity(z0, z1, t);
-                return [_zt, _target];
-              } else {
-                const t_bc = t.reshape([-1, 1, 1, 1]);
-                const _zt = tf.add(
-                  tf.mul(tf.sub(1, t_bc), z0),
-                  tf.mul(t_bc, z1),
-                );
-                const _target = tf.sub(z1, z0);
-                return [_zt, _target];
-              }
-            });
-
-            // Classifier-Free Guidance Dropout
-            let trainLabels = labelsTensor;
-            let trainText = textBytesTensor;
-            if (Math.random() < (CONFIG.LABEL_DROPOUT_PROB || 0.1)) {
-              trainLabels = tf.fill(
-                labelsTensor.shape,
-                CONFIG.NUM_CLASSES - 1,
-                "int32",
-              );
-              trainText = null;
-            }
-
             const pred = this.drift.forward(zt, t, trainLabels, trainText);
-
-            // Time-weighted Huber loss
             const t_bc = t.reshape([-1, 1, 1, 1]);
             const timeWeights = tf.add(
               1.0,
-              tf.mul(CONFIG.TIME_WEIGHT_FACTOR || 2.0, t_bc),
+              tf.mul(CONFIG.TIME_WEIGHT_FACTOR || 3.0, t_bc),
             );
-            const drift_loss = tf.mul(
-              huberLoss(tf.mul(target, timeWeights), tf.mul(pred, timeWeights)),
-              CONFIG.DRIFT_WEIGHT || 1.0,
+            const dLoss = tf.mul(
+              huberLoss(
+                tf.mul(target, timeWeights),
+                tf.mul(pred, timeWeights),
+              ),
+              CONFIG.DRIFT_WEIGHT || 3.0,
             );
-
-            // Consistency loss
-            const consistency_loss = tf.mul(
-              tf.losses.meanSquaredError(mu, mu_ref),
-              CONFIG.CONSISTENCY_WEIGHT || 1.0,
-            );
-
-            let total_loss = tf.add(drift_loss, consistency_loss);
-
-            // Phase 3 Reconstruction Enhancement
-            if (this.phase === 3) {
-              const recon_p3 = this.vae.decode(
-                mu,
-                labelsTensor,
-                textBytesTensor,
-              );
-              const p3_recon_loss = tf.mul(
-                tf.losses.absoluteDifference(images, recon_p3),
-                (CONFIG.RECON_WEIGHT || 5.0) *
-                  (CONFIG.PHASE3_RECON_SCALE || 0.1),
-              );
-              total_loss = tf.add(total_loss, p3_recon_loss);
-            }
-
-            return total_loss;
+            return dLoss;
           });
         }, driftVars);
 
-        const gradNorm = this.computeGradNorm(gradsObj.grads);
-        this.opt_drift.applyGradients(gradsObj.grads);
-        const lossVal = gradsObj.value.dataSync()[0];
-        tf.dispose(gradsObj.value);
-        tf.dispose(gradsObj.grads);
+        const driftGradNorm = this.computeGradNorm(driftGradsObj.grads);
+        const clippedDriftGrads = clipGradients(
+          driftGradsObj.grads,
+          (CONFIG.GRAD_CLIP || 1.0) * (CONFIG.DRIFT_GRAD_CLIP_FACTOR || 0.5) * 2,
+        );
+        this.opt_drift.applyGradients(clippedDriftGrads);
+        driftLossVal = driftGradsObj.value.dataSync()[0];
+        tf.dispose(driftGradsObj.value);
+        tf.dispose(driftGradsObj.grads);
+        tf.dispose(clippedDriftGrads);
 
-        // Phase 3: Also update VAE if needed
-        if (this.phase === 3) {
-          const vVars = this.getVaeVariables();
-          const vGrads = tf.variableGrads(() => {
-            return tf.tidy(() => {
-              const [recon] = this.vae.forward(
-                images,
+        // 4. VAE Encoder & Consistency Step (Phase 2 & Phase 3)
+        let vaeLossVal = 0;
+        const vaeGradsObj = tf.variableGrads(() => {
+          return tf.tidy(() => {
+            const [muCurr] = this.vae.encode(
+              images,
+              labelsTensor,
+              textBytesTensor,
+            );
+
+            // Consistency anchor loss
+            const consistencyLoss = tf.mul(
+              tf.losses.meanSquaredError(muCurr, muRef),
+              CONFIG.CONSISTENCY_WEIGHT || 1.5,
+            );
+
+            // Channel diversity loss
+            const divLoss = tf.mul(
+              this.vae._channelDiversityLoss(muCurr),
+              CONFIG.DIVERSITY_WEIGHT || 0.7,
+            );
+
+            // Global variance floor loss
+            const muFloorLoss = this.vae.muFloorLoss(muCurr);
+
+            let totalVae = tf.add(
+              tf.add(consistencyLoss, divLoss),
+              muFloorLoss,
+            );
+
+            // Phase 3: Joint Decoder Reconstruction Loss
+            if (this.phase === 3) {
+              const reconP3 = this.vae.decode(
+                muCurr,
                 labelsTensor,
                 textBytesTensor,
               );
-              return tf.losses.absoluteDifference(images, recon);
-            });
-          }, vVars);
-          this.opt_vae.applyGradients(vGrads.grads);
-          tf.dispose(vGrads.value);
-          tf.dispose(vGrads.grads);
-        }
+              const p3Recon = tf.mul(
+                tf.losses.absoluteDifference(images, reconP3),
+                (CONFIG.RECON_WEIGHT || 5.0) *
+                  (CONFIG.PHASE3_RECON_SCALE || 0.5),
+              );
+              totalVae = tf.add(totalVae, p3Recon);
+            }
+
+            return totalVae;
+          });
+        }, vaeVars);
+
+        const vaeGradNorm = this.computeGradNorm(vaeGradsObj.grads);
+        const clippedVaeGrads = clipGradients(
+          vaeGradsObj.grads,
+          CONFIG.GRAD_CLIP || 1.0,
+        );
+        this.opt_vae.applyGradients(clippedVaeGrads);
+        vaeLossVal = vaeGradsObj.value.dataSync()[0];
+        tf.dispose(vaeGradsObj.value);
+        tf.dispose(vaeGradsObj.grads);
+        tf.dispose(clippedVaeGrads);
+
+        // Dispose target latents
+        tf.dispose([z1, t, z0, zt, target, muRef]);
+        if (trainLabels !== labelsTensor) tf.dispose(trainLabels);
 
         return {
-          loss: lossVal,
+          loss: driftLossVal + vaeLossVal,
           metrics: {
             phase: this.phase === 2 ? "drift" : "both",
-            gradientNorm: gradNorm,
+            driftLoss: driftLossVal,
+            vaeLoss: vaeLossVal,
+            gradientNorm: (driftGradNorm + vaeGradNorm) / 2,
           },
         };
       }
@@ -536,31 +774,153 @@ export class EnhancedLabelTrainer {
     }
   }
 
-  async generateSamples(labels, count = 4, textBytes = null) {
-    return tf.tidy(() => {
-      const selectedLabels = labels.slice(0, count);
-      const labelsTensor = tf.tensor(
-        selectedLabels,
-        [selectedLabels.length],
-        "int32",
-      );
-      const textBytesTensor = textBytes
-        ? tf.tensor(
-            textBytes.slice(0, count),
-            [count, textBytes[0].length],
-            "int32",
-          )
-        : null;
+  async generateSamples(
+    labels,
+    count = 4,
+    textBytes = null,
+    options = {},
+  ) {
+    const selectedLabels = labels.slice(0, count);
+    const numSamples = selectedLabels.length;
+    const steps = options.steps || CONFIG.DEFAULT_STEPS || 50;
+    const cfgScale =
+      options.cfgScale !== undefined
+        ? options.cfgScale
+        : CONFIG.CFG_SCALE || 6.5;
+    const method = options.method || "heun"; // 'euler', 'heun', or 'rk4'
+    const langevinSteps =
+      options.langevinSteps !== undefined
+        ? options.langevinSteps
+        : CONFIG.DEFAULT_LANGEVIN_STEPS || 0;
+    const nullClass = (CONFIG.NUM_CLASSES || 11) - 1;
 
-      const z = tf.randomNormal(
-        [count, CONFIG.LATENT_H, CONFIG.LATENT_W, CONFIG.LATENT_CHANNELS],
-        0,
-        CONFIG.CST_COEF_GAUSSIAN_PRIO || 1.0,
-      );
-      const samples = this.vae.decode(z, labelsTensor, textBytesTensor);
+    const labelsTensor = tf.tensor(selectedLabels, [numSamples], "int32");
+    const nullTensor = tf.fill([numSamples], nullClass, "int32");
+    const textBytesTensor = textBytes
+      ? tf.tensor(
+          textBytes.slice(0, numSamples),
+          [numSamples, textBytes[0].length],
+          "int32",
+        )
+      : null;
 
-      return samples.arraySync();
-    });
+    try {
+      // 1. Start from prior standard deviation z0
+      let z = tf.mul(
+        tf.randomNormal([
+          numSamples,
+          CONFIG.LATENT_H || 12,
+          CONFIG.LATENT_W || 12,
+          CONFIG.LATENT_CHANNELS || 8,
+        ]),
+        CONFIG.CST_COEF_GAUSSIAN_PRIO || 0.8,
+      );
+
+      const dt = 1.0 / steps;
+
+      // 2. Numerical ODE integration
+      for (let i = 0; i < steps; i++) {
+        const nextZ = tf.tidy(() => {
+          const tCur = tf.fill([numSamples, 1], i * dt);
+
+          const evalDrift = (zIn, tIn) => {
+            const condDrift = this.drift.forward(
+              zIn,
+              tIn,
+              labelsTensor,
+              textBytesTensor,
+            );
+            if (cfgScale > 1.0) {
+              const uncondDrift = this.drift.forward(
+                zIn,
+                tIn,
+                nullTensor,
+                null,
+              );
+              return tf.add(
+                uncondDrift,
+                tf.mul(tf.sub(condDrift, uncondDrift), cfgScale),
+              );
+            }
+            return condDrift;
+          };
+
+          let zOut;
+          if (method === "euler") {
+            const k1 = evalDrift(z, tCur);
+            zOut = tf.add(z, tf.mul(k1, dt));
+          } else if (method === "rk4") {
+            const k1 = evalDrift(z, tCur);
+            const tHalf = tf.fill([numSamples, 1], (i + 0.5) * dt);
+            const zHalf1 = tf.add(z, tf.mul(k1, 0.5 * dt));
+            const k2 = evalDrift(zHalf1, tHalf);
+            const zHalf2 = tf.add(z, tf.mul(k2, 0.5 * dt));
+            const k3 = evalDrift(zHalf2, tHalf);
+            const tNext = tf.fill([numSamples, 1], (i + 1) * dt);
+            const zNext = tf.add(z, tf.mul(k3, dt));
+            const k4 = evalDrift(zNext, tNext);
+
+            const rkSum = tf.add(
+              tf.add(k1, tf.mul(2.0, k2)),
+              tf.add(tf.mul(2.0, k3), k4),
+            );
+            zOut = tf.add(z, tf.mul(rkSum, dt / 6.0));
+          } else {
+            // Heun (default)
+            const k1 = evalDrift(z, tCur);
+            const tNext = tf.fill([numSamples, 1], (i + 1) * dt);
+            const zPred = tf.add(z, tf.mul(k1, dt));
+            const k2 = evalDrift(zPred, tNext);
+            zOut = tf.add(z, tf.mul(tf.add(k1, k2), dt / 2.0));
+          }
+
+          // Gentle ODE clamping
+          const clampLimit = CONFIG.ODE_CLAMP_MAX || 10.0;
+          return tf.clipByValue(zOut, -clampLimit, clampLimit);
+        });
+
+        z.dispose();
+        z = nextZ;
+      }
+
+      // 3. Optional Langevin refinement at t=1
+      if (langevinSteps > 0) {
+        const stepSize = CONFIG.LANGEVIN_STEP_SIZE || 0.01;
+        const scoreScale = CONFIG.LANGEVIN_SCORE_SCALE || 1.2;
+        const tOne = tf.fill([numSamples, 1], 1.0);
+
+        for (let s = 0; s < langevinSteps; s++) {
+          const nextZ = tf.tidy(() => {
+            const driftScore = this.drift.forward(
+              z,
+              tOne,
+              labelsTensor,
+              textBytesTensor,
+            );
+            const noise = tf.randomNormal(z.shape);
+            const step = tf.mul(driftScore, stepSize * scoreScale);
+            const noiseStep = tf.mul(noise, Math.sqrt(2 * stepSize));
+            return tf.add(tf.add(z, step), noiseStep);
+          });
+          z.dispose();
+          z = nextZ;
+        }
+        tOne.dispose();
+      }
+
+      // 4. Decode final trajectory end-state
+      const decoded = tf.tidy(() =>
+        this.vae.decode(z, labelsTensor, textBytesTensor),
+      );
+      const result = decoded.arraySync();
+      decoded.dispose();
+      z.dispose();
+      return result;
+    } finally {
+      labelsTensor.dispose();
+      nullTensor.dispose();
+      if (textBytesTensor) textBytesTensor.dispose();
+    }
   }
 
   async getCheckpoint() {
@@ -568,7 +928,6 @@ export class EnhancedLabelTrainer {
   }
 
   async getHashSample() {
-    // Only download a few small weights for hashing
     const vaeVars = this.getVaeVariables();
     if (vaeVars.length > 0) {
       return await vaeVars[0].array();
@@ -580,9 +939,7 @@ export class EnhancedLabelTrainer {
     const vaeVars = this.getVaeVariables();
     const driftVars = this.getDriftVariables();
 
-    // Read weights in batches to avoid memory spikes and shader compilation issues
     const batchSize = 10;
-
     const vae_params = [];
     for (let i = 0; i < vaeVars.length; i += batchSize) {
       const batch = vaeVars.slice(i, i + batchSize);

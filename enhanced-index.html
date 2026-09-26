@@ -333,7 +333,7 @@
           attempts++;
           if (window.enhancedApp && window.enhancedApp.isInitialized) {
             clearInterval(check);
-            const device = window.tfjsTrainer?.device || "WEBGL";
+            const device = window.tfjsTrainer?.device || "WEBGPU";
             statusText.innerHTML = `STATE: READY | ACCELERATION: ${device.toUpperCase()}`;
             setTimeout(() => {
               loader.style.opacity = "0";

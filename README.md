@@ -36,7 +36,7 @@ This project implements a distributed training environment for high-resolution (
 - **Schrödinger Bridge SDE**: Generative modeling based on optimal transport.
 - **LoRA Optimization**: Efficient synchronization by only sharing low-rank weight adapters.
 - **Three-Phase Training**: Structured evolution from VAE to Drift to Joint optimization.
-- **Hardware Accelerated**: Native WebGL/WebGPU support via TensorFlow.js.
+- **Hardware Accelerated**: Native WebGPU (with WASM fallback) support via TensorFlow.js.
 
 ## 🏗️ System Architecture
 
@@ -191,7 +191,7 @@ npm run build
 
 ## 🛠️ Technical Specifications
 
-- **Browser**: Modern browser with WebGL/WebGPU support.
+- **Browser**: Modern browser with WebGPU support (Chrome, Edge, Firefox Nightly, Safari 18+).
 - **Memory**: 4GB+ RAM recommended for 96x96 resolution.
 - **Backend**: TensorFlow.js (Hardware Accelerated).
 - **Communication**: WebSocket signaling/relay with a host-issued, signed peer

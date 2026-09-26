@@ -75,7 +75,7 @@ the pre-fix severities.
 
 ## 3. Architecture Notes (current behavior)
 
-- **Engine:** TensorFlow.js (WebGL/WebGPU), Node server on Express + `ws`.
+- **Engine:** TensorFlow.js (WebGPU prioritized with WASM fallback), Node server on Express + `ws`.
 - **Model:** CNN-residual VAE + axial (single-head spatial-split) attention +
   U-Net drift; latent `12×12×8`; `NUM_CLASSES=11` (10 + NULL for CFG).
 - **Adaptation:** LoRA rank 8 / alpha 16; base layers frozen, adapters trained.

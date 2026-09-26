@@ -124,64 +124,106 @@ export class InferenceEngine {
     }
 
     // Classifier-free guidance scale (0/1 disables guidance).
-    const cfgScale = Number.isFinite(config.cfgScale) ? config.cfgScale : 1.0;
-    const useCFG = cfgScale > 1.0;
-    // Diffusion coefficient for the noise term: g(t)·sqrt(dt)·N(0,1). We use the
-    // OU sigma as the base schedule and let `temperature` scale it, rather than
-    // replacing the diffusion coefficient with the temperature outright.
-    const gBase = CONFIG.OU_SIGMA || Math.SQRT2;
+    const cfgScale = Number.isFinite(config.cfgScale) ? config.cfgScale : (CONFIG.CFG_SCALE || 6.5);
+    const method = config.method || "heun";
+    const langevinSteps = config.langevinSteps !== undefined ? config.langevinSteps : (CONFIG.DEFAULT_LANGEVIN_STEPS || 0);
 
     const latentShape = [
       1,
-      CONFIG.LATENT_H,
-      CONFIG.LATENT_W,
-      CONFIG.LATENT_CHANNELS,
+      CONFIG.LATENT_H || 12,
+      CONFIG.LATENT_W || 12,
+      CONFIG.LATENT_CHANNELS || 8,
     ];
 
-    // 1. Initial Latent (Noise) - [1, 12, 12, 8]
-    let zt = tf.randomNormal(latentShape);
+    // 1. Initial Latent (Noise from prior scale)
+    let zt = tf.mul(
+      tf.randomNormal(latentShape),
+      CONFIG.CST_COEF_GAUSSIAN_PRIO || 0.8,
+    );
     const labelsTensor = tf.tensor([label], [1], "int32");
     const nullTensor = tf.tensor([nullClass], [1], "int32");
 
-    // 2. Iterative Drift updates (Forward Bridge Generation: Noise -> Data)
+    const evalDrift = (zIn, tIn) => {
+      const condDrift = this.drift.forward(zIn, tIn, labelsTensor);
+      if (cfgScale > 1.0) {
+        const uncondDrift = this.drift.forward(zIn, tIn, nullTensor);
+        return tf.add(
+          uncondDrift,
+          tf.mul(tf.sub(condDrift, uncondDrift), cfgScale),
+        );
+      }
+      return condDrift;
+    };
+
+    // 2. Iterative Drift updates (ODE Solver)
     const dt = 1.0 / steps;
     for (let step = 0; step < steps; step++) {
-      const t = step / steps;
+      const tVal = step * dt;
 
       const nextZt = tf.tidy(() => {
-        const tTensor = tf.tensor([[t]]);
-        // Conditional drift, optionally blended with the unconditional drift
-        // via classifier-free guidance: u = u_uncond + s·(u_cond − u_uncond).
-        const condDrift = this.drift.forward(zt, tTensor, labelsTensor);
-        let predDrift = condDrift;
-        if (useCFG) {
-          const uncondDrift = this.drift.forward(zt, tTensor, nullTensor);
-          predDrift = tf.add(
-            uncondDrift,
-            tf.mul(tf.sub(condDrift, uncondDrift), cfgScale),
-          );
-        }
-        // Update zt (Euler–Maruyama step)
-        let res = tf.add(zt, tf.mul(predDrift, dt));
+        const tCur = tf.tensor([[tVal]]);
+        let zOut;
 
-        // Diffusion noise: g(t)·sqrt(dt)·N(0,1), scaled by temperature.
-        if (config.temperature > 0 && step < steps - 1) {
-          const noiseScale = config.temperature * gBase * Math.sqrt(dt);
-          const noise = tf.randomNormal(latentShape).mul(noiseScale);
-          res = tf.add(res, noise);
+        if (method === "euler") {
+          const k1 = evalDrift(zt, tCur);
+          zOut = tf.add(zt, tf.mul(k1, dt));
+        } else if (method === "rk4") {
+          const k1 = evalDrift(zt, tCur);
+          const tHalf = tf.tensor([[tVal + 0.5 * dt]]);
+          const zHalf1 = tf.add(zt, tf.mul(k1, 0.5 * dt));
+          const k2 = evalDrift(zHalf1, tHalf);
+          const zHalf2 = tf.add(zt, tf.mul(k2, 0.5 * dt));
+          const k3 = evalDrift(zHalf2, tHalf);
+          const tNext = tf.tensor([[tVal + dt]]);
+          const zNext = tf.add(zt, tf.mul(k3, dt));
+          const k4 = evalDrift(zNext, tNext);
+
+          const rkSum = tf.add(
+            tf.add(k1, tf.mul(2.0, k2)),
+            tf.add(tf.mul(2.0, k3), k4),
+          );
+          zOut = tf.add(zt, tf.mul(rkSum, dt / 6.0));
+        } else {
+          // Heun
+          const k1 = evalDrift(zt, tCur);
+          const tNext = tf.tensor([[tVal + dt]]);
+          const zPred = tf.add(zt, tf.mul(k1, dt));
+          const k2 = evalDrift(zPred, tNext);
+          zOut = tf.add(zt, tf.mul(tf.add(k1, k2), dt / 2.0));
         }
-        return res;
+
+        const clampLimit = CONFIG.ODE_CLAMP_MAX || 10.0;
+        return tf.clipByValue(zOut, -clampLimit, clampLimit);
       });
 
       zt.dispose();
       zt = nextZt;
     }
 
+    // 2b. Optional Langevin refinement at t=1
+    if (langevinSteps > 0) {
+      const stepSize = CONFIG.LANGEVIN_STEP_SIZE || 0.01;
+      const scoreScale = CONFIG.LANGEVIN_SCORE_SCALE || 1.2;
+      const tOne = tf.tensor([[1.0]]);
+
+      for (let s = 0; s < langevinSteps; s++) {
+        const nextZ = tf.tidy(() => {
+          const driftScore = evalDrift(zt, tOne);
+          const noise = tf.randomNormal(zt.shape);
+          const stepDelta = tf.mul(driftScore, stepSize * scoreScale);
+          const noiseDelta = tf.mul(noise, Math.sqrt(2 * stepSize));
+          return tf.add(tf.add(zt, stepDelta), noiseDelta);
+        });
+        zt.dispose();
+        zt = nextZ;
+      }
+      tOne.dispose();
+    }
+
     // 3. Final Decode
     const decoded = tf.tidy(() => this.vae.decode(zt, labelsTensor));
 
-    // 4. Convert to Image (Canvas). squeeze() allocates a tensor that must be
-    // disposed explicitly (it escapes the tidy above).
+    // 4. Convert to Image (Canvas).
     const squeezed = decoded.squeeze();
     const pixels = await squeezed.array();
     const image = this.arrayToDataURL(pixels);
@@ -192,7 +234,7 @@ export class InferenceEngine {
     return {
       id: `sample_${Date.now()}_${index}`,
       image,
-      metadata: { label, steps, temperature: config.temperature, cfgScale },
+      metadata: { label, steps, method, cfgScale },
     };
   }
 

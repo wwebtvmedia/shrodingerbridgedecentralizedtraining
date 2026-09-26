@@ -62,7 +62,7 @@ async function testTFJSIntegration() {
   console.log("\n📊 Summary:");
   console.log("===========");
   console.log("TensorFlow.js implementation has been successfully integrated.");
-  console.log("The system now supports WebGL/WebGPU/Node acceleration.");
+  console.log("The system now supports WebGPU/WASM/Node acceleration.");
 }
 
 // Run the test
