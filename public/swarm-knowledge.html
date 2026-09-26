@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Swarm Knowledge Protocol (OSP v0.6) | Decentralized Knowledge Negotiation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto+Mono:wght@400;500&family=Roboto:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary: #4facfe;
+        --secondary: #00f2fe;
+        --accent: #a855f7;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --bg-dark: #0b0d17;
+        --bg-card: rgba(22, 27, 46, 0.75);
+        --border-color: rgba(79, 172, 254, 0.2);
+        --text-main: #f3f4f6;
+        --text-dim: #9ca3af;
+        --font-mono: "Roboto Mono", monospace;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: radial-gradient(circle at 15% 15%, #1a103c 0%, #0b0d17 100%);
+        min-height: 100vh;
+        color: var(--text-main);
+        line-height: 1.6;
+        padding: 40px 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      /* Header & Nav */
+      header {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        padding: 2.5rem;
+        margin-bottom: 2.5rem;
+        backdrop-filter: blur(16px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+      }
+
+      .top-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 15px;
+      }
+
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.95rem;
+        padding: 8px 16px;
+        background: rgba(79, 172, 254, 0.1);
+        border: 1px solid rgba(79, 172, 254, 0.25);
+        border-radius: 10px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .nav-link:hover {
+        background: var(--primary);
+        color: #0b0d17;
+        transform: translateY(-2px);
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: #0b0d17;
+      }
+
+      h1 {
+        font-size: 2.8rem;
+        font-weight: 800;
+        margin: 1rem 0 0.5rem 0;
+        background: linear-gradient(135deg, #ffffff 0%, #4facfe 50%, #00f2fe 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .lead {
+        font-size: 1.15rem;
+        color: var(--text-dim);
+        max-width: 900px;
+      }
+
+      /* Grid Layout */
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        gap: 25px;
+        margin-bottom: 2.5rem;
+      }
+
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 18px;
+        padding: 2rem;
+        backdrop-filter: blur(12px);
+        transition: transform 0.3s ease, border-color 0.3s ease;
+      }
+
+      .card:hover {
+        border-color: var(--secondary);
+        transform: translateY(-3px);
+      }
+
+      .card h2 {
+        font-size: 1.4rem;
+        color: var(--secondary);
+        margin-bottom: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .card h3 {
+        font-size: 1.1rem;
+        color: #ffffff;
+        margin: 1.2rem 0 0.6rem 0;
+      }
+
+      .card p, .card li {
+        color: #cbd5e1;
+        font-size: 0.95rem;
+      }
+
+      ul {
+        list-style: none;
+        padding-left: 0;
+      }
+
+      ul li {
+        position: relative;
+        padding-left: 24px;
+        margin-bottom: 10px;
+      }
+
+      ul li::before {
+        content: "✦";
+        position: absolute;
+        left: 0;
+        color: var(--primary);
+      }
+
+      /* Code & Envelopes */
+      pre {
+        background: #050711;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 1.2rem;
+        overflow-x: auto;
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        color: #38bdf8;
+        margin: 1rem 0;
+      }
+
+      /* Interactive Simulator */
+      .sim-box {
+        background: rgba(10, 15, 30, 0.85);
+        border: 1px solid rgba(168, 85, 247, 0.3);
+        border-radius: 18px;
+        padding: 2rem;
+        margin-bottom: 2.5rem;
+      }
+
+      .input-group {
+        margin-bottom: 1.2rem;
+      }
+
+      .input-group label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        margin-bottom: 6px;
+        font-weight: 500;
+      }
+
+      input[type="text"], textarea, select {
+        width: 100%;
+        background: #0f172a;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        padding: 12px 16px;
+        color: #fff;
+        font-family: inherit;
+        font-size: 0.95rem;
+      }
+
+      input[type="text"]:focus, textarea:focus, select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 10px rgba(79, 172, 254, 0.3);
+      }
+
+      .btn-action {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: #0b0d17;
+        font-weight: 700;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+      }
+
+      .btn-action:hover {
+        transform: scale(1.02);
+        box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+      }
+
+      .result-pill {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-top: 10px;
+      }
+
+      .pill-pass {
+        background: rgba(16, 185, 129, 0.2);
+        border: 1px solid var(--success);
+        color: #34d399;
+      }
+
+      .pill-fail {
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid var(--danger);
+        color: #f87171;
+      }
+
+      .table-custom {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+        font-size: 0.9rem;
+      }
+
+      .table-custom th, .table-custom td {
+        padding: 12px 16px;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .table-custom th {
+        color: var(--primary);
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 4rem;
+        color: var(--text-dim);
+        font-size: 0.85rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding-top: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="top-nav">
+          <div style="display: flex; gap: 10px; align-items: center">
+            <span class="badge">Omni-Swarm Protocol</span>
+            <span class="badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #a855f7;">OSP v0.6 Connect</span>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="/tools" class="nav-link"><span class="material-icons-outlined">apps</span> Tools Hub</a>
+            <a href="/enhanced" class="nav-link"><span class="material-icons-outlined">psychology</span> Swarm Console</a>
+            <a href="/tree4five-provider" class="nav-link">🌲5️⃣ Tree4Five</a>
+            <a href="/harnessdroid" class="nav-link">🤖 HarnessDroid</a>
+            <a href="/" class="nav-link"><span class="material-icons-outlined">home</span> Main Portal</a>
+          </div>
+        </div>
+        <h1>Swarm Knowledge Protocol</h1>
+        <p class="lead">
+          An open, mathematically grounded protocol specification for decentralized knowledge negotiation,
+          multi-hop evidence synthesis, and cross-swarm artifact exchange with strict hallucination firewalls.
+        </p>
+      </header>
+
+      <!-- Protocol Architecture Overview -->
+      <div class="grid-2">
+        <div class="card">
+          <h2><span class="material-icons-outlined">layers</span> Node Classification Hierarchy</h2>
+          <p>OSP v0.6 defines asymmetric node capabilities to support resource-constrained edge devices alongside server clusters:</p>
+          
+          <table class="table-custom">
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th>Role</th>
+                <th>Depth Bounds</th>
+                <th>Generation Capability</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong style="color: var(--primary);">N1 (Thin Origin)</strong></td>
+                <td>Querying & Local Validation</td>
+                <td>D0 – D1</td>
+                <td>Zero (Validation only)</td>
+              </tr>
+              <tr>
+                <td><strong style="color: var(--secondary);">N2 (Full Responder)</strong></td>
+                <td>Synthesis & Local Inference</td>
+                <td>D0 – D3</td>
+                <td>Local Small Models / On-device</td>
+              </tr>
+              <tr>
+                <td><strong style="color: var(--accent);">N3 (Provider-Backed)</strong></td>
+                <td>Gateway / Deep Reasoning</td>
+                <td>D0 – D5</td>
+                <td>External Provider / Large GGUF</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="font-size: 0.85rem; color: var(--text-dim);">
+            Nodes dynamically advertise their tier in handshake headers and enforce bounded resource allocation.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2><span class="material-icons-outlined">security</span> 3-Layer Hallucination Firewall</h2>
+          <p>Every inbound knowledge packet must pass through three strict cryptographic and semantic verification barriers:</p>
+          <ul>
+            <li>
+              <strong>Layer 1: Envelope & Gas Integrity</strong>
+              <div style="font-size: 0.85rem; color: #94a3b8;">Checks sender cryptographic signature, sequence monotonically decreasing gas limits, and schema structure.</div>
+            </li>
+            <li>
+              <strong>Layer 2: Lexical Groundedness Entailment ($g \ge g_{\min}$)</strong>
+              <div style="font-size: 0.85rem; color: #94a3b8;">Computes semantic Jaccard and embedding bag overlap between claimed assertions and verified evidence chunks. Minimum threshold: <code>0.30</code>.</div>
+            </li>
+            <li>
+              <strong>Layer 3: Closed-Book Evidence Verification</strong>
+              <div style="font-size: 0.85rem; color: #94a3b8;">Zero ungrounded assertions allowed. Unbacked propositions trigger immediate packet rejection with convergence mode <code>REJECTED</code>.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Convergence Modes & Packet Types -->
+      <div class="grid-2">
+        <div class="card">
+          <h2><span class="material-icons-outlined">swap_horiz</span> Protocol Negotiation Packets</h2>
+          <pre>{
+  "protocol": "OSP/0.6",
+  "packetType": "OSP-KNOWLEDGE-ARTIFACT",
+  "envelopeId": "env_9a2f1b_1712498200",
+  "originNodeId": "peer_webgpu_alpha",
+  "nodeClass": "N2",
+  "gasLimit": 100,
+  "artifactType": "image/schrodinger-bridge",
+  "provenance": {
+    "modelHash": "sb_webgpu_v4",
+    "solver": "heun",
+    "groundedness": 0.87,
+    "citedEvidenceCount": 3
+  },
+  "content": {
+    "prompt": "Decentralized optimal transport drift trajectory",
+    "summary": "Schrödinger Bridge Generated image sample",
+    "data": "data:image/png;base64,iVBORw..."
+  },
+  "signature": "ed25519_sig_b7c8e9_1712498200"
+}</pre>
+        </div>
+
+        <div class="card">
+          <h2><span class="material-icons-outlined">alt_route</span> Convergence & Deadlock Resolution</h2>
+          <p>OSP negotiations transition across deterministic state machines:</p>
+          <ul>
+            <li><strong style="color: var(--success);">RESOLVED:</strong> Consensus reached with groundedness verified by quorum $\ge \theta$.</li>
+            <li><strong style="color: var(--danger);">REJECTED:</strong> Hallucination firewall triggered or signature verification failed.</li>
+            <li><strong style="color: var(--warning);">MISMATCH:</strong> Conflicting evidence detected; initiates arbitration sub-swarm.</li>
+            <li><strong style="color: #64748b);">GAS_EXHAUSTED:</strong> Monotonic hop counter hit zero; prevents infinite query loops.</li>
+            <li><strong style="color: #c084fc);">LOOP_DETECTED:</strong> Node visited previously in route trace path.</li>
+          </ul>
+          <p style="margin-top: 15px; font-size: 0.85rem; color: var(--text-dim);">
+            Guarantees $O(\text{gas})$ termination across arbitrarily complex decentralized network topologies.
+          </p>
+        </div>
+      </div>
+
+      <!-- Interactive OSP Packet Simulator -->
+      <div class="sim-box">
+        <h2 style="color: #c084fc; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+          <span class="material-icons-outlined">science</span> Live OSP Packet Inspector & Groundedness Calculator
+        </h2>
+        <p style="color: var(--text-dim); margin-bottom: 1.5rem;">
+          Simulate creating an OSP Knowledge Artifact or Query, compute its lexical embedding bitset, evaluate groundedness against cited evidence, and inspect the cryptographic envelope.
+        </p>
+
+        <div class="grid-2" style="margin-bottom: 0;">
+          <div>
+            <div class="input-group">
+              <label for="sim-packet-type">Packet Type</label>
+              <select id="sim-packet-type">
+                <option value="OSP-KNOWLEDGE-ARTIFACT">OSP-KNOWLEDGE-ARTIFACT (Image / Article)</option>
+                <option value="OSP-QUERY">OSP-QUERY (Ask Swarm)</option>
+                <option value="OSP-BID">OSP-BID (Responder Offer)</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="sim-node-class">Origin Node Class</label>
+              <select id="sim-node-class">
+                <option value="N2">N2 - Full Responder (Browser WebGPU / On-Device)</option>
+                <option value="N1">N1 - Thin Origin (Verifier)</option>
+                <option value="N3">N3 - Provider-Backed (Tree4Five GGUF Gateway)</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="sim-prompt">Prompt / Query Text</label>
+              <textarea id="sim-prompt" rows="3">Schrödinger Bridge optimal transport diffusion trajectories using Heun ODE integration</textarea>
+            </div>
+
+            <div class="input-group">
+              <label for="sim-evidence">Cited Evidence Chunks (One per line)</label>
+              <textarea id="sim-evidence" rows="3">Schrödinger Bridge generative modeling maps noise to data distributions via reverse-time drift ODEs.
+Heun integration provides second-order convergence for drift ODE simulation in WebGPU.</textarea>
+            </div>
+
+            <button id="sim-btn" class="btn-action">
+              <span class="material-icons-outlined">verified</span> Generate & Verify OSP Envelope
+            </button>
+          </div>
+
+          <div>
+            <label style="display: block; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 6px;">Output Envelope & Firewall Status</label>
+            <div id="sim-result-pill" class="result-pill pill-pass">Ready to simulate</div>
+            <pre id="sim-output" style="max-height: 320px;">{
+  "status": "Waiting for generation..."
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Links to related systems -->
+      <div class="card" style="text-align: center; padding: 2.5rem; background: linear-gradient(135deg, rgba(79, 172, 254, 0.1), rgba(168, 85, 247, 0.1));">
+        <h2 style="justify-content: center; color: #fff;">Explore the Sovereign AI Tooling Suite</h2>
+        <p style="max-width: 700px; margin: 0 auto 2rem auto;">
+          Connect Tree4Five on-device LLM providers, HarnessDroid autonomous execution harnesses, and the Schrödinger Bridge WebGPU Trainer into a unified peer swarm.
+        </p>
+        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+          <a href="/tree4five-provider" class="nav-link" style="padding: 12px 24px; font-size: 1rem;">🌲5️⃣ Tree4Five LLM Provider</a>
+          <a href="/harnessdroid" class="nav-link" style="padding: 12px 24px; font-size: 1rem;">🤖 HarnessDroid Agent</a>
+          <a href="/tools" class="nav-link" style="padding: 12px 24px; font-size: 1rem;">🛠️ All Tools Hub</a>
+        </div>
+      </div>
+
+      <footer>
+        <p>Swarm Schrödinger Bridge | Omni-Swarm Protocol (OSP v0.6) Specification | MIT License</p>
+      </footer>
+    </div>
+
+    <script type="module">
+      import { evaluateGroundedness, computeEmbeddingBag, calculateBitsetSimilarity } from '/src/network/swarm-knowledge-bridge.js';
+
+      const simBtn = document.getElementById('sim-btn');
+      const simPrompt = document.getElementById('sim-prompt');
+      const simEvidence = document.getElementById('sim-evidence');
+      const simType = document.getElementById('sim-packet-type');
+      const simClass = document.getElementById('sim-node-class');
+      const simOutput = document.getElementById('sim-output');
+      const simPill = document.getElementById('sim-result-pill');
+
+      simBtn.addEventListener('click', () => {
+        const text = simPrompt.value.trim();
+        const evidenceLines = simEvidence.value.split('\n').map(s => s.trim()).filter(Boolean);
+        const packetType = simType.value;
+        const nodeClass = simClass.value;
+
+        const groundedness = evaluateGroundedness(text, evidenceLines);
+        const timestamp = Date.now();
+        const nodeId = `osp_node_${Math.random().toString(36).substring(2, 8)}`;
+
+        const envelope = {
+          protocol: "OSP/0.6",
+          packetType,
+          envelopeId: `env_${Math.random().toString(36).substring(2, 9)}_${timestamp}`,
+          originNodeId: nodeId,
+          nodeClass,
+          timestamp,
+          gasLimit: 100,
+          provenance: {
+            modelHash: "sb_webgpu_v4",
+            solver: "heun",
+            groundedness: Number(groundedness.toFixed(3)),
+            citedEvidenceCount: evidenceLines.length,
+            firewallPassed: groundedness >= 0.30
+          },
+          content: {
+            text,
+            citedEvidence: evidenceLines,
+            summary: `${packetType} payload validated against OSP v0.6 specifications`
+          },
+          signature: `ed25519_sig_${Math.random().toString(16).substring(2, 10)}_${timestamp}`
+        };
+
+        simOutput.textContent = JSON.stringify(envelope, null, 2);
+
+        if (groundedness >= 0.30) {
+          simPill.className = "result-pill pill-pass";
+          simPill.innerHTML = `✅ Firewall Passed | Groundedness: ${(groundedness * 100).toFixed(1)}% (Threshold: 30%)`;
+        } else {
+          simPill.className = "result-pill pill-fail";
+          simPill.innerHTML = `⚠️ Hallucination Firewall Triggered | Groundedness: ${(groundedness * 100).toFixed(1)}% < 30%`;
+        }
+      });
+    </script>
+  </body>
+</html>

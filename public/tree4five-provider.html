@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tree4Five LLM Provider 🌲5️⃣ | On-Device GGUF Engine for Android</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto+Mono:wght@400;500&family=Roboto:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary: #10b981;
+        --secondary: #34d399;
+        --accent: #4facfe;
+        --bg-dark: #071510;
+        --bg-card: rgba(13, 33, 25, 0.75);
+        --border-color: rgba(16, 185, 129, 0.25);
+        --text-main: #f3f4f6;
+        --text-dim: #9ca3af;
+        --font-mono: "Roboto Mono", monospace;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: radial-gradient(circle at 80% 20%, #0d3829 0%, #071510 100%);
+        min-height: 100vh;
+        color: var(--text-main);
+        line-height: 1.6;
+        padding: 40px 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      header {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        padding: 2.5rem;
+        margin-bottom: 2.5rem;
+        backdrop-filter: blur(16px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+      }
+
+      .top-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 15px;
+      }
+
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--secondary);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.95rem;
+        padding: 8px 16px;
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.25);
+        border-radius: 10px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .nav-link:hover {
+        background: var(--primary);
+        color: #071510;
+        transform: translateY(-2px);
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: #071510;
+      }
+
+      h1 {
+        font-size: 2.8rem;
+        font-weight: 800;
+        margin: 1rem 0 0.5rem 0;
+        background: linear-gradient(135deg, #ffffff 0%, #34d399 50%, #10b981 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .lead {
+        font-size: 1.15rem;
+        color: var(--text-dim);
+        max-width: 900px;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        gap: 25px;
+        margin-bottom: 2.5rem;
+      }
+
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 18px;
+        padding: 2rem;
+        backdrop-filter: blur(12px);
+        transition: transform 0.3s ease, border-color 0.3s ease;
+      }
+
+      .card:hover {
+        border-color: var(--secondary);
+        transform: translateY(-3px);
+      }
+
+      .card h2 {
+        font-size: 1.4rem;
+        color: var(--secondary);
+        margin-bottom: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .card p, .card li {
+        color: #cbd5e1;
+        font-size: 0.95rem;
+      }
+
+      ul {
+        list-style: none;
+        padding-left: 0;
+      }
+
+      ul li {
+        position: relative;
+        padding-left: 24px;
+        margin-bottom: 10px;
+      }
+
+      ul li::before {
+        content: "🌲";
+        position: absolute;
+        left: 0;
+        font-size: 0.8rem;
+      }
+
+      pre {
+        background: #040d0a;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 1.2rem;
+        overflow-x: auto;
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        color: #6ee7b7;
+        margin: 1rem 0;
+      }
+
+      .sim-box {
+        background: rgba(8, 26, 19, 0.9);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        border-radius: 18px;
+        padding: 2rem;
+        margin-bottom: 2.5rem;
+      }
+
+      .input-group {
+        margin-bottom: 1.2rem;
+      }
+
+      .input-group label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        margin-bottom: 6px;
+        font-weight: 500;
+      }
+
+      input[type="text"], textarea, select {
+        width: 100%;
+        background: #071812;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 8px;
+        padding: 12px 16px;
+        color: #fff;
+        font-family: inherit;
+        font-size: 0.95rem;
+      }
+
+      input[type="text"]:focus, textarea:focus, select:focus {
+        outline: none;
+        border-color: var(--secondary);
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+      }
+
+      .btn-action {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: #071510;
+        font-weight: 700;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+      }
+
+      .btn-action:hover {
+        transform: scale(1.02);
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+      }
+
+      .stream-output {
+        min-height: 180px;
+        background: #030a07;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 12px;
+        padding: 1.2rem;
+        font-family: var(--font-mono);
+        color: #a7f3d0;
+        font-size: 0.9rem;
+        white-space: pre-wrap;
+        line-height: 1.5;
+      }
+
+      .stats-badge {
+        display: inline-flex;
+        gap: 15px;
+        margin-top: 10px;
+        font-size: 0.85rem;
+        color: var(--secondary);
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 4rem;
+        color: var(--text-dim);
+        font-size: 0.85rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding-top: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="top-nav">
+          <div style="display: flex; gap: 10px; align-items: center">
+            <span class="badge">🌲5️⃣ Android LLM Provider</span>
+            <span class="badge" style="background: rgba(79, 172, 254, 0.2); color: #38bdf8; border: 1px solid #0284c7;">AIDL IPC Daemon</span>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="/tools" class="nav-link"><span class="material-icons-outlined">apps</span> Tools Hub</a>
+            <a href="/swarm-knowledge" class="nav-link">🌐 Swarm Knowledge</a>
+            <a href="/harnessdroid" class="nav-link">🤖 HarnessDroid</a>
+            <a href="/enhanced" class="nav-link"><span class="material-icons-outlined">psychology</span> Swarm Console</a>
+            <a href="/" class="nav-link"><span class="material-icons-outlined">home</span> Main Portal</a>
+          </div>
+        </div>
+        <h1>Tree4Five LLM Provider</h1>
+        <p class="lead">
+          A high-performance Android on-device LLM runtime built on <code>java-llama.cpp</code>. Exposes system-wide GGUF inference to autonomous agents via asynchronous AIDL IPC interfaces without battery-killing wakeups.
+        </p>
+      </header>
+
+      <!-- Architecture Grid -->
+      <div class="grid-2">
+        <div class="card">
+          <h2><span class="material-icons-outlined">memory</span> Native GGUF Execution Engine</h2>
+          <p>Tree4Five provides native hardware acceleration across mobile chipsets:</p>
+          <ul>
+            <li><strong>Optimized JNI Bindings:</strong> Direct C++ JNI bridge into <code>llama.cpp</code> compiled with ARM NEON / FP16 extensions and Vulkan/OpenCL offloading.</li>
+            <li><strong>Flexible GGUF Quantization:</strong> Runs Q4_K_M, Q5_K_M, Q8_0, and IQ4_XS quantized weights seamlessly with minimal RAM footprint.</li>
+            <li><strong>Thermal & Battery Governor:</strong> Automatic CPU thread scaling and GPU offload regulation during sustained reasoning to prevent throttling.</li>
+            <li><strong>Model Hub Downloader:</strong> Integrated HuggingFace GGUF direct streaming download with chunk resume and checksum verification.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h2><span class="material-icons-outlined">cable</span> AIDL IPC Architecture</h2>
+          <p>Acts as an OS-level LLM daemon accessible by any authorized client app:</p>
+          <pre>// ILLMService.aidl interface
+package com.tree4five.gguf;
+
+import com.tree4five.gguf.ILLMCallback;
+
+interface ILLMService {
+    boolean loadModel(String modelPath, int nGpuLayers, int contextLength);
+    void generateStream(String prompt, float temperature, int maxTokens, ILLMCallback callback);
+    void cancelGeneration();
+    boolean isLoaded();
+    String getActiveModelName();
+}</pre>
+          <p style="font-size: 0.85rem; color: var(--text-dim);">
+            Clients (such as HarnessDroid) bind to <code>com.tree4five.gguf.LLMService</code> via <code>Intent</code> and receive real-time streaming tokens through <code>ILLMCallback</code>.
+          </p>
+        </div>
+      </div>
+
+      <!-- Models & Integration -->
+      <div class="grid-2">
+        <div class="card">
+          <h2><span class="material-icons-outlined">auto_awesome</span> Supported Edge Model Zoo</h2>
+          <ul>
+            <li><strong>Qwen2.5-Coder (0.5B / 1.5B / 3B / 7B):</strong> Top-tier tool dispatch and structured JSON code execution.</li>
+            <li><strong>Llama-3.2 (1B / 3B Mobile):</strong> Compact high-speed reasoning tailored for on-device agent loops.</li>
+            <li><strong>Phi-3.5 Mini / Mistral NeMo:</strong> Instruction-tuned agents for deep semantic analysis and RAG tasks.</li>
+            <li><strong>SmolLM2 / Gemma-2-2B:</strong> Ultra-lightweight footprint suitable for low-spec Android devices (2GB RAM).</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h2><span class="material-icons-outlined">hub</span> Interoperability with Swarm & HarnessDroid</h2>
+          <p>Tree4Five acts as the cognitive engine for the sovereign agent ecosystem:</p>
+          <ul>
+            <li><strong>HarnessDroid Integration:</strong> HarnessDroid binds to Tree4Five to power autonomous MCP agent execution without cloud LLM costs.</li>
+            <li><strong>OSP v0.6 Node Class N3:</strong> Serves as a Provider-Backed node in Swarm Knowledge networks, generating evidence citations and bids.</li>
+            <li><strong>Zero Cloud Telemetry:</strong> 100% offline inference ensures complete privacy of user prompts, documents, and memory vectors.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Interactive Token Streaming Sandbox -->
+      <div class="sim-box">
+        <h2 style="color: var(--secondary); margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+          <span class="material-icons-outlined">terminal</span> On-Device AIDL Token Streaming Simulator
+        </h2>
+        <p style="color: var(--text-dim); margin-bottom: 1.5rem;">
+          Test the asynchronous AIDL generation interface with simulated GGUF model execution, context tokenization, and streaming token dispatch.
+        </p>
+
+        <div class="grid-2" style="margin-bottom: 0;">
+          <div>
+            <div class="input-group">
+              <label for="model-select">Loaded GGUF Model</label>
+              <select id="model-select">
+                <option value="qwen2.5-coder-1.5b-q4_k_m.gguf">Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf (1.1 GB)</option>
+                <option value="llama-3.2-3b-q4_k_m.gguf">Llama-3.2-3B-Instruct-Q4_K_M.gguf (2.0 GB)</option>
+                <option value="smollm2-1.7b-q8_0.gguf">SmolLM2-1.7B-Instruct-Q8_0.gguf (1.8 GB)</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="prompt-input">Agent Prompt / Instruction</label>
+              <textarea id="prompt-input" rows="3">Execute Schrödinger Bridge sampling step with Heun ODE solver and verify OSP groundedness envelope.</textarea>
+            </div>
+
+            <div style="display: flex; gap: 15px; margin-bottom: 1.2rem;">
+              <div style="flex: 1;">
+                <label style="font-size: 0.85rem; color: var(--text-dim);">Temperature: <span id="temp-val">0.7</span></label>
+                <input type="range" id="temp-slider" min="0" max="1" step="0.1" value="0.7" style="width: 100%;">
+              </div>
+              <div style="flex: 1;">
+                <label style="font-size: 0.85rem; color: var(--text-dim);">Max Tokens: <span id="max-tok-val">128</span></label>
+                <input type="range" id="max-tok-slider" min="32" max="256" step="16" value="128" style="width: 100%;">
+              </div>
+            </div>
+
+            <button id="stream-btn" class="btn-action">
+              <span class="material-icons-outlined">play_arrow</span> Invoke ILLMService.generateStream()
+            </button>
+          </div>
+
+          <div>
+            <label style="display: block; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 6px;">ILLMCallback.onTokenReceived() Stream Output</label>
+            <div id="stream-box" class="stream-output">System idle. Press Invoke to initiate AIDL token generation...</div>
+            <div class="stats-badge">
+              <span id="stat-speed">Speed: -- tok/s</span>
+              <span id="stat-ttft">TTFT: -- ms</span>
+              <span id="stat-status">Status: IDLE</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Footer -->
+      <div class="card" style="text-align: center; padding: 2.5rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(79, 172, 254, 0.1));">
+        <h2 style="justify-content: center; color: #fff;">Connect Tree4Five with Autonomous Tool Harnesses</h2>
+        <p style="max-width: 700px; margin: 0 auto 2rem auto;">
+          Pair Tree4Five with HarnessDroid to let your on-device LLM safely interact with device tools, APIs, and peer swarms.
+        </p>
+        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+          <a href="/harnessdroid" class="nav-link" style="padding: 12px 24px; font-size: 1rem;">🤖 HarnessDroid Agent Harness</a>
+          <a href="/swarm-knowledge" class="nav-link" style="padding: 12px 24px; font-size: 1rem;">🌐 Swarm Knowledge Protocol</a>
+          <a href="/tools" class="nav-link" style="padding: 12px 24px; font-size: 1rem;">🛠️ All Tools Hub</a>
+        </div>
+      </div>
+
+      <footer>
+        <p>Tree4Five LLM Provider | Package: <code>com.tree4five.gguf</code> | MIT License</p>
+      </footer>
+    </div>
+
+    <script>
+      const streamBtn = document.getElementById('stream-btn');
+      const promptInput = document.getElementById('prompt-input');
+      const streamBox = document.getElementById('stream-box');
+      const statSpeed = document.getElementById('stat-speed');
+      const statTtft = document.getElementById('stat-ttft');
+      const statStatus = document.getElementById('stat-status');
+      const tempSlider = document.getElementById('temp-slider');
+      const tempVal = document.getElementById('temp-val');
+      const maxTokSlider = document.getElementById('max-tok-slider');
+      const maxTokVal = document.getElementById('max-tok-val');
+
+      tempSlider.addEventListener('input', () => tempVal.textContent = tempSlider.value);
+      maxTokSlider.addEventListener('input', () => maxTokVal.textContent = maxTokSlider.value);
+
+      const simulatedResponses = [
+        "Initiating Schrödinger Bridge drift evaluation. Applying Heun second-order integration with step size dt=0.02. Drift tensor computed: [1, 12, 12, 8]. Generating OSP v0.6 knowledge artifact envelope with verified groundedness g=0.91.",
+        "Executing autonomous tool invocation via MCP over AIDL. Querying local vector embeddings in ChromaDB. Retrieved 3 chunks. Entailment check passed: groundedness score 0.88 >= 0.30 threshold.",
+        "Tree4Five JNI runtime active. Offloading 24 layers to Vulkan compute shader. Token generation rate: 38.4 tokens/second. Context memory bounded at 2048 tokens. Zero cloud telemetry engaged."
+      ];
+
+      let isStreaming = false;
+
+      streamBtn.addEventListener('click', () => {
+        if (isStreaming) return;
+        isStreaming = true;
+        streamBtn.disabled = true;
+        streamBox.textContent = "";
+        statStatus.textContent = "Status: INFERRING";
+        
+        const startTime = Date.now();
+        const responseText = simulatedResponses[Math.floor(Math.random() * simulatedResponses.length)];
+        const words = responseText.split(' ');
+        let wordIdx = 0;
+
+        statTtft.textContent = `TTFT: ${Math.floor(Math.random() * 40 + 25)} ms`;
+
+        const interval = setInterval(() => {
+          if (wordIdx < words.length) {
+            streamBox.textContent += (wordIdx === 0 ? "" : " ") + words[wordIdx];
+            wordIdx++;
+            const elapsedSec = (Date.now() - startTime) / 1000;
+            const tokPerSec = (wordIdx / elapsedSec).toFixed(1);
+            statSpeed.textContent = `Speed: ${tokPerSec} tok/s`;
+          } else {
+            clearInterval(interval);
+            isStreaming = false;
+            streamBtn.disabled = false;
+            statStatus.textContent = "Status: COMPLETE";
+          }
+        }, 60);
+      });
+    </script>
+  </body>
+</html>

@@ -3,6 +3,7 @@ import { UIManager } from "./ui/manager.js";
 import { DataImporter } from "./utils/data-importer.js";
 import { InferenceEngine } from "./utils/inference.js";
 import { CONFIG } from "./config.js";
+import { globalSwarmKnowledge } from "./network/swarm-knowledge-bridge.js";
 
 class EnhancedSwarmApp {
   constructor() {
@@ -10,6 +11,7 @@ class EnhancedSwarmApp {
     this.trainer = null;
     this.dataImporter = new DataImporter();
     this.inferenceEngine = null;
+    this.latestGeneratedSamples = [];
     this.isInitialized = false;
 
     // Start initialization
@@ -106,6 +108,12 @@ class EnhancedSwarmApp {
 
     // Cleanup button
     addListener("cleanup-btn", "click", () => this.cleanupDatabase());
+
+    // Swarm Knowledge OSP buttons
+    addListener("broadcast-sample-btn", "click", () =>
+      this.broadcastLatestSample(),
+    );
+    addListener("osp-query-btn", "click", () => this.sendOspQuery());
   }
 
   async connect() {
@@ -339,6 +347,10 @@ class EnhancedSwarmApp {
     try {
       // Use the trainer's sample generation
       const samples = await this.trainer.generateSamples(4);
+      this.latestGeneratedSamples = samples.map((s, idx) => ({
+        image: s,
+        metadata: { prompt: `SB Generative Epoch Sample #${idx + 1}`, solver: "heun" }
+      }));
       this.ui.displaySamples(samples);
       this.ui.log("✅ Samples generated");
     } catch (error) {
@@ -346,6 +358,10 @@ class EnhancedSwarmApp {
       this.ui.log(`❌ Sample generation failed: ${error.message}`);
       // Fallback to simulation
       const simulated = await this.generateSimulatedSamples(4);
+      this.latestGeneratedSamples = simulated.map((s, idx) => ({
+        image: s,
+        metadata: { prompt: `Simulated SB Sample #${idx + 1}`, solver: "euler" }
+      }));
       this.ui.displaySamples(simulated);
     }
   }
@@ -510,11 +526,158 @@ class EnhancedSwarmApp {
         if (Number.isInteger(parsed)) options.label = parsed;
       }
       const result = await this.inferenceEngine.generateSamples(options);
+      this.latestGeneratedSamples = result.samples;
       this.ui.displaySamples(result.samples.map((s) => s.image));
       this.ui.log(`✅ Generated ${result.samples.length} samples at 96x96`);
     } catch (error) {
       console.error("Inference failed:", error);
       this.ui.log(`❌ Inference failed: ${error.message}`);
+    }
+  }
+
+  async broadcastLatestSample() {
+    if (!this.latestGeneratedSamples || this.latestGeneratedSamples.length === 0) {
+      this.ui.log("⚠️ No generated sample to broadcast. Click 'Generate' or 'Run Inference' first.");
+      return;
+    }
+
+    const sample = this.latestGeneratedSamples[0];
+    const envelope = sample.ospEnvelope || globalSwarmKnowledge.createKnowledgeEnvelope(
+      "image/schrodinger-bridge",
+      { image: sample.image || sample, metadata: sample.metadata },
+      { prompt: sample.metadata?.prompt || "Schrödinger Bridge sample", method: sample.metadata?.method || "heun" },
+    );
+
+    this.ui.log(`🌐 Broadcasting OSP v0.6 Knowledge Artifact [${envelope.envelopeId}]...`);
+
+    if (this.trainer?.tunnel?.ws && this.trainer.tunnel.ws.readyState === WebSocket.OPEN) {
+      const msg = {
+        type: "OSP_BROADCAST",
+        from: this.trainer.tunnel.tunnelId || "browser_node",
+        envelope,
+        timestamp: Date.now(),
+        messageId: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      };
+      this.trainer.tunnel.ws.send(JSON.stringify(msg));
+      this.ui.log(`✅ OSP Knowledge Artifact broadcasted to peer swarm (Groundedness: ${(envelope.provenance.groundedness * 100).toFixed(0)}%)`);
+    } else {
+      this.ui.log(`ℹ️ Swarm offline (local mode): OSP Knowledge Artifact validated locally.`);
+    }
+
+    this.renderOspFeedItem({
+      type: "BROADCAST_SENT",
+      title: "Outbound Image Artifact",
+      prompt: envelope.content?.prompt || "Generated Sample",
+      groundedness: envelope.provenance?.groundedness || 1.0,
+      envelopeId: envelope.envelopeId,
+      image: sample.image || (typeof sample === "string" ? sample : null),
+    });
+  }
+
+  async sendOspQuery() {
+    const input = document.getElementById("osp-query-input");
+    const queryText = input ? input.value.trim() : "";
+    if (!queryText) {
+      this.ui.log("⚠️ Please enter a query for the swarm.");
+      return;
+    }
+
+    const packet = globalSwarmKnowledge.createQueryPacket(queryText);
+    this.ui.log(`🌐 Sent OSP-QUERY to peer swarm: "${queryText}"`);
+
+    if (this.trainer?.tunnel?.ws && this.trainer.tunnel.ws.readyState === WebSocket.OPEN) {
+      const msg = {
+        type: "OSP_QUERY",
+        from: this.trainer.tunnel.tunnelId || "browser_node",
+        query: packet,
+        timestamp: Date.now(),
+        messageId: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      };
+      this.trainer.tunnel.ws.send(JSON.stringify(msg));
+    }
+
+    this.renderOspFeedItem({
+      type: "QUERY_SENT",
+      title: "Outbound Swarm Query",
+      prompt: queryText,
+      groundedness: 1.0,
+      envelopeId: packet.queryId,
+    });
+
+    if (input) input.value = "";
+  }
+
+  handleInboundOspPacket(envelope) {
+    if (!envelope) return;
+    const verification = globalSwarmKnowledge.verifyKnowledgeEnvelope(envelope);
+    this.ui.log(`📥 Inbound OSP Artifact: ${envelope.envelopeId} | Status: ${verification.convergence || (verification.valid ? "VALID" : "INVALID")}`);
+
+    this.renderOspFeedItem({
+      type: "INBOUND_ARTIFACT",
+      title: `Inbound ${envelope.artifactType || "Artifact"} from ${envelope.originNodeId || "peer"}`,
+      prompt: envelope.content?.prompt || envelope.content?.summary || "Swarm Data",
+      groundedness: envelope.provenance?.groundedness || 0.8,
+      envelopeId: envelope.envelopeId,
+      image: envelope.content?.data?.startsWith?.("data:image") ? envelope.content.data : null,
+      firewallValid: verification.valid,
+    });
+  }
+
+  handleInboundOspQuery(msg) {
+    const queryPacket = msg.query || msg;
+    this.ui.log(`📥 Received OSP-QUERY from ${msg.from}: "${queryPacket.query}"`);
+    const bid = globalSwarmKnowledge.respondToQuery(queryPacket);
+    if (bid && this.trainer?.tunnel?.ws && this.trainer.tunnel.ws.readyState === WebSocket.OPEN) {
+      const responseMsg = {
+        type: "OSP_MESSAGE",
+        from: this.trainer.tunnel.tunnelId || "browser_node",
+        to: msg.from,
+        envelope: bid,
+        timestamp: Date.now(),
+        messageId: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      };
+      this.trainer.tunnel.ws.send(JSON.stringify(responseMsg));
+      this.ui.log(`📤 Dispatched OSP-BID to ${msg.from} (Bid Score: ${(bid.bidScore * 100).toFixed(0)}%)`);
+    }
+  }
+
+  renderOspFeedItem(item) {
+    const list = document.getElementById("osp-feed-list");
+    const status = document.getElementById("osp-feed-status");
+    if (status) status.style.display = "none";
+    if (!list) return;
+
+    const div = document.createElement("div");
+    div.style.background = "rgba(255, 255, 255, 0.04)";
+    div.style.border = item.firewallValid === false ? "1px solid #ef4444" : "1px solid rgba(79, 172, 254, 0.25)";
+    div.style.borderRadius = "8px";
+    div.style.padding = "8px 12px";
+    div.style.fontSize = "0.85rem";
+    div.style.display = "flex";
+    div.style.alignItems = "center";
+    div.style.justifyContent = "space-between";
+    div.style.gap = "10px";
+
+    const isImg = Boolean(item.image);
+    div.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 10px;">
+        ${isImg ? `<img src="${item.image}" style="width: 36px; height: 36px; border-radius: 4px; object-fit: cover; border: 1px solid rgba(255,255,255,0.2);" />` : `<span style="font-size: 1.2rem;">🌐</span>`}
+        <div>
+          <div style="font-weight: 600; color: #38bdf8;">${item.title}</div>
+          <div style="color: #cbd5e1; font-size: 0.8rem;">${item.prompt}</div>
+        </div>
+      </div>
+      <div style="text-align: right; min-width: 110px;">
+        <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; background: ${item.groundedness >= 0.3 ? 'rgba(16, 185, 129, 0.2); color: #34d399;' : 'rgba(239, 68, 68, 0.2); color: #f87171;'}">
+          g = ${(item.groundedness * 100).toFixed(0)}%
+        </span>
+        <div style="font-size: 0.7rem; color: #9ca3af; margin-top: 2px;">${item.envelopeId ? item.envelopeId.substring(0, 12) : ''}</div>
+      </div>
+    `;
+
+    list.insertBefore(div, list.firstChild);
+    if (list.children.length > 8) {
+      list.removeChild(list.lastChild);
     }
   }
 

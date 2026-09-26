@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sovereign AI Tools Suite | Decentralized Intelligence Ecosystem</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto+Mono:wght@400;500&family=Roboto:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary: #4facfe;
+        --secondary: #00f2fe;
+        --accent: #a855f7;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --bg-dark: #090c15;
+        --bg-card: rgba(20, 26, 45, 0.7);
+        --border-color: rgba(79, 172, 254, 0.2);
+        --text-main: #f3f4f6;
+        --text-dim: #9ca3af;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: radial-gradient(circle at 50% 10%, #151a38 0%, #090c15 100%);
+        min-height: 100vh;
+        color: var(--text-main);
+        line-height: 1.6;
+        padding: 40px 20px;
+      }
+
+      .container {
+        max-width: 1240px;
+        margin: 0 auto;
+      }
+
+      header {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        padding: 2.5rem;
+        margin-bottom: 2.5rem;
+        backdrop-filter: blur(16px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+        text-align: center;
+      }
+
+      .top-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 15px;
+      }
+
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.95rem;
+        padding: 8px 16px;
+        background: rgba(79, 172, 254, 0.1);
+        border: 1px solid rgba(79, 172, 254, 0.25);
+        border-radius: 10px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .nav-link:hover {
+        background: var(--primary);
+        color: #090c15;
+        transform: translateY(-2px);
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: #090c15;
+      }
+
+      h1 {
+        font-size: 3rem;
+        font-weight: 800;
+        margin: 1rem 0 0.5rem 0;
+        background: linear-gradient(135deg, #ffffff 0%, #4facfe 50%, #00f2fe 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .lead {
+        font-size: 1.15rem;
+        color: var(--text-dim);
+        max-width: 850px;
+        margin: 0 auto;
+      }
+
+      /* Ecosystem Architecture Diagram */
+      .architecture-banner {
+        background: rgba(14, 20, 38, 0.85);
+        border: 1px solid rgba(79, 172, 254, 0.3);
+        border-radius: 18px;
+        padding: 2rem;
+        margin-bottom: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        flex-wrap: wrap;
+        gap: 20px;
+      }
+
+      .arch-node {
+        text-align: center;
+        padding: 15px 20px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        min-width: 160px;
+      }
+
+      .arch-node .icon {
+        font-size: 2rem;
+        margin-bottom: 8px;
+      }
+
+      .arch-node .title {
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+
+      .arch-arrow {
+        color: var(--secondary);
+        font-size: 1.5rem;
+        font-weight: bold;
+      }
+
+      /* Tools Grid */
+      .tools-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 25px;
+        margin-bottom: 2.5rem;
+      }
+
+      .tool-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 18px;
+        padding: 2.2rem;
+        backdrop-filter: blur(12px);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .tool-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+      }
+
+      .tool-card.highlight-cyan:hover {
+        border-color: var(--secondary);
+      }
+
+      .tool-card.highlight-green:hover {
+        border-color: var(--success);
+      }
+
+      .tool-card.highlight-amber:hover {
+        border-color: var(--warning);
+      }
+
+      .tool-card.highlight-purple:hover {
+        border-color: var(--accent);
+      }
+
+      .tool-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.2rem;
+      }
+
+      .tool-icon {
+        font-size: 2.5rem;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 14px;
+      }
+
+      .tool-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin-bottom: 0.5rem;
+      }
+
+      .tool-desc {
+        color: #cbd5e1;
+        font-size: 0.95rem;
+        margin-bottom: 1.5rem;
+        flex-grow: 1;
+      }
+
+      .tool-features {
+        list-style: none;
+        padding-left: 0;
+        margin-bottom: 1.8rem;
+      }
+
+      .tool-features li {
+        position: relative;
+        padding-left: 22px;
+        margin-bottom: 8px;
+        font-size: 0.88rem;
+        color: var(--text-dim);
+      }
+
+      .tool-features li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--primary);
+        font-weight: bold;
+      }
+
+      .tool-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-weight: 700;
+        text-decoration: none;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+      }
+
+      .btn-cyan {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: #090c15;
+      }
+
+      .btn-green {
+        background: linear-gradient(135deg, #10b981, #34d399);
+        color: #090c15;
+      }
+
+      .btn-amber {
+        background: linear-gradient(135deg, #f59e0b, #fbbf24);
+        color: #090c15;
+      }
+
+      .btn-purple {
+        background: linear-gradient(135deg, #a855f7, #c084fc);
+        color: #090c15;
+      }
+
+      .tool-btn:hover {
+        transform: scale(1.02);
+        filter: brightness(1.1);
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 4rem;
+        color: var(--text-dim);
+        font-size: 0.85rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding-top: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="top-nav">
+          <div style="display: flex; gap: 10px; align-items: center">
+            <span class="badge">Decentralized AI Suite</span>
+            <span class="badge" style="background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2);">Sovereign Tools</span>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="/enhanced" class="nav-link"><span class="material-icons-outlined">psychology</span> Swarm Console</a>
+            <a href="/knowledge-base.html" class="nav-link"><span class="material-icons-outlined">menu_book</span> Knowledge Base</a>
+            <a href="/" class="nav-link"><span class="material-icons-outlined">home</span> Main Portal</a>
+          </div>
+        </div>
+        <h1>Sovereign AI Tools Suite</h1>
+        <p class="lead">
+          A modular ecosystem of decentralized AI components designed for local intelligence, on-device GGUF execution, autonomous agent tooling, and peer-to-peer knowledge negotiation.
+        </p>
+      </header>
+
+      <!-- Architecture Pipeline -->
+      <div class="architecture-banner">
+        <div class="arch-node">
+          <div class="icon">🌲5️⃣</div>
+          <div class="title" style="color: #34d399;">Tree4Five</div>
+          <div style="font-size: 0.75rem; color: #9ca3af;">On-Device GGUF</div>
+        </div>
+        <div class="arch-arrow">➔</div>
+        <div class="arch-node">
+          <div class="icon">🤖</div>
+          <div class="title" style="color: #fbbf24;">HarnessDroid</div>
+          <div style="font-size: 0.75rem; color: #9ca3af;">MCP over AIDL</div>
+        </div>
+        <div class="arch-arrow">➔</div>
+        <div class="arch-node">
+          <div class="icon">⚡</div>
+          <div class="title" style="color: #38bdf8;">Schrödinger Bridge</div>
+          <div style="font-size: 0.75rem; color: #9ca3af;">WebGPU Drift ODEs</div>
+        </div>
+        <div class="arch-arrow">➔</div>
+        <div class="arch-node">
+          <div class="icon">🌐</div>
+          <div class="title" style="color: #c084fc;">OSP v0.6 Protocol</div>
+          <div style="font-size: 0.75rem; color: #9ca3af;">Swarm Negotiation</div>
+        </div>
+      </div>
+
+      <!-- Tools Grid -->
+      <div class="tools-grid">
+        <!-- Swarm Knowledge Protocol -->
+        <div class="tool-card highlight-cyan">
+          <div>
+            <div class="tool-header">
+              <div class="tool-icon" style="background: rgba(79, 172, 254, 0.1); color: #38bdf8;">🌐</div>
+              <span class="badge" style="background: rgba(79, 172, 254, 0.2); color: #38bdf8; border: 1px solid #0284c7;">OSP v0.6</span>
+            </div>
+            <div class="tool-title">Swarm Knowledge Protocol</div>
+            <div class="tool-desc">
+              Decentralized multi-hop knowledge negotiation protocol featuring 3-layer hallucination firewalls, lexical groundedness entailment ($g \ge 0.30$), and cryptographic evidence envelopes.
+            </div>
+            <ul class="tool-features">
+              <li>Node Class hierarchy (N1 Origin, N2 Responder, N3 Provider)</li>
+              <li>Bounded monotonic gas limits & loop detection</li>
+              <li>Cross-swarm artifact exchange for images and articles</li>
+            </ul>
+          </div>
+          <a href="/swarm-knowledge" class="tool-btn btn-cyan">
+            <span class="material-icons-outlined">explore</span> Explore Protocol Specification
+          </a>
+        </div>
+
+        <!-- Tree4Five LLM Provider -->
+        <div class="tool-card highlight-green">
+          <div>
+            <div class="tool-header">
+              <div class="tool-icon" style="background: rgba(16, 185, 129, 0.1); color: #34d399;">🌲5️⃣</div>
+              <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #059669;">com.tree4five.gguf</span>
+            </div>
+            <div class="tool-title">Tree4Five LLM Provider</div>
+            <div class="tool-desc">
+              High-performance Android GGUF runtime powered by <code>java-llama.cpp</code> with ARM Neon / Vulkan offloading. Exposes system-wide streaming inference via asynchronous AIDL IPC.
+            </div>
+            <ul class="tool-features">
+              <li>Persistent Foreground Service with zero idle wakeups</li>
+              <li>Q4_K_M, Q8_0 GGUF quantization zoo (Qwen2.5, Llama-3.2, Phi)</li>
+              <li>Integrated HuggingFace model downloader with chunk resume</li>
+            </ul>
+          </div>
+          <a href="/tree4five-provider" class="tool-btn btn-green">
+            <span class="material-icons-outlined">memory</span> View Runtime & AIDL Simulator
+          </a>
+        </div>
+
+        <!-- HarnessDroid -->
+        <div class="tool-card highlight-amber">
+          <div>
+            <div class="tool-header">
+              <div class="tool-icon" style="background: rgba(245, 158, 11, 0.1); color: #fbbf24;">🤖</div>
+              <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #d97706;">com.ai.harnessdroid</span>
+            </div>
+            <div class="tool-title">HarnessDroid Agent Platform</div>
+            <div class="tool-desc">
+              Android autonomous agent execution harness. Dynamically discovers and invokes tools via Model Context Protocol (MCP) over AIDL intents with Human-in-the-Loop permission controls.
+            </div>
+            <ul class="tool-features">
+              <li>Dynamic tool discovery via ACTION_PROVIDE_TOOLS</li>
+              <li>Three-tier HITL safety firewall (Safe, Elevated, Critical)</li>
+              <li>Autonomous planning, tool execution, and reflection loops</li>
+            </ul>
+          </div>
+          <a href="/harnessdroid" class="tool-btn btn-amber">
+            <span class="material-icons-outlined">smart_toy</span> Launch Agent Showcase
+          </a>
+        </div>
+
+        <!-- Schrödinger Bridge WebGPU Trainer -->
+        <div class="tool-card highlight-cyan">
+          <div>
+            <div class="tool-header">
+              <div class="tool-icon" style="background: rgba(0, 242, 254, 0.1); color: #00f2fe;">⚡</div>
+              <span class="badge" style="background: rgba(0, 242, 254, 0.2); color: #00f2fe; border: 1px solid #0891b2;">WebGPU Core</span>
+            </div>
+            <div class="tool-title">Schrödinger Bridge Trainer</div>
+            <div class="tool-desc">
+              Decentralized generative model training in browser WebGPU. Features multi-phase loss, cosine annealing, LoRA weight adaptation, and Heun / RK4 / Euler drift trajectory ODE solvers.
+            </div>
+            <ul class="tool-features">
+              <li>High-res 96x96 latent optimal transport drift matching</li>
+              <li>Real backpropagation & P2P model consensus</li>
+              <li>Langevin terminal score refinement at t=1</li>
+            </ul>
+          </div>
+          <a href="/enhanced" class="tool-btn btn-cyan">
+            <span class="material-icons-outlined">rocket_launch</span> Launch Swarm Trainer
+          </a>
+        </div>
+
+        <!-- ChromaDB Vector Store & RAG -->
+        <div class="tool-card highlight-purple">
+          <div>
+            <div class="tool-header">
+              <div class="tool-icon" style="background: rgba(168, 85, 247, 0.1); color: #c084fc;">📚</div>
+              <span class="badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #7e22ce;">ChromaDB + Memory</span>
+            </div>
+            <div class="tool-title">RAG & ChromaDB Memory</div>
+            <div class="tool-desc">
+              Browser-based Retrieval-Augmented Generation (RAG) engine with ChromaDB vector storage, semantic search, PDF document parsing, and long-term memory retrieval.
+            </div>
+            <ul class="tool-features">
+              <li>Cosine similarity search across embedding vectors</li>
+              <li>PDF.js document chunking and vector indexing</li>
+              <li>Contextual prompt augmentation for local LLMs</li>
+            </ul>
+          </div>
+          <a href="/rag-demo" class="tool-btn btn-purple">
+            <span class="material-icons-outlined">library_books</span> Open RAG Interactive Demo
+          </a>
+        </div>
+
+        <!-- Tokenizer & Attention Suite -->
+        <div class="tool-card highlight-cyan">
+          <div>
+            <div class="tool-header">
+              <div class="tool-icon" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8;">🔤</div>
+              <span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #0284c7;">Interactive AI</span>
+            </div>
+            <div class="tool-title">Tokenizer & Attention Suite</div>
+            <div class="tool-desc">
+              Visual exploration of LLM fundamentals: Byte-Pair Encoding (BPE), sinusoidal positional embeddings, multi-head self-attention heatmaps, and 3D vector space visualization.
+            </div>
+            <ul class="tool-features">
+              <li>Byte-pair token segmentation and vocabulary explorer</li>
+              <li>Multi-head attention score calculation and weights visualizer</li>
+              <li>Three.js 3D vector embedding cluster projection</li>
+            </ul>
+          </div>
+          <a href="/tokenizer-demo" class="tool-btn btn-cyan">
+            <span class="material-icons-outlined">view_in_ar</span> Launch Attention & Tokenizer Suite
+          </a>
+        </div>
+      </div>
+
+      <footer>
+        <p>Swarm Schrödinger Bridge Project | Complete Sovereign AI Suite | April 2026 | MIT License</p>
+      </footer>
+    </div>
+  </body>
+</html>

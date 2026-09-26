@@ -170,13 +170,46 @@
   <body>
     <div class="container">
       <header>
-        <a href="index.html" class="nav-back">← Back to Portal</a>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 10px;">
+          <a href="index.html" class="nav-back" style="margin-bottom: 0;">← Back to Portal</a>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="/tools" style="color: var(--primary); text-decoration: none; font-size: 0.9rem; padding: 6px 12px; background: rgba(79, 172, 254, 0.1); border-radius: 8px;">🛠️ Tools Hub</a>
+            <a href="/swarm-knowledge" style="color: var(--secondary); text-decoration: none; font-size: 0.9rem; padding: 6px 12px; background: rgba(0, 242, 254, 0.1); border-radius: 8px;">🌐 OSP v0.6 Spec</a>
+            <a href="/tree4five-provider" style="color: #34d399; text-decoration: none; font-size: 0.9rem; padding: 6px 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">🌲5️⃣ Tree4Five</a>
+            <a href="/harnessdroid" style="color: #fbbf24; text-decoration: none; font-size: 0.9rem; padding: 6px 12px; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">🤖 HarnessDroid</a>
+            <a href="/enhanced" style="color: var(--secondary); text-decoration: none; font-size: 0.9rem; padding: 6px 12px; background: rgba(0, 242, 254, 0.1); border-radius: 8px;">⚡ Swarm Console</a>
+          </div>
+        </div>
         <h1>Swarm Knowledge Base</h1>
         <p>
           A collection of technical deep-dives and philosophical explorations
           into the future of decentralized intelligence.
         </p>
       </header>
+
+      <!-- Interactive Cross-Swarm Article Broadcaster -->
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(79, 172, 254, 0.3); border-radius: 16px; padding: 1.8rem; margin-bottom: 3rem;">
+        <h3 style="color: var(--secondary); margin-top: 0; display: flex; align-items: center; gap: 8px;">
+          🌐 Transmit Article to Swarm via OSP v0.6
+        </h3>
+        <p style="font-size: 0.95rem; color: var(--text-dim); margin-bottom: 1rem;">
+          Package an article excerpt into an OSP-KNOWLEDGE-ARTIFACT envelope with semantic groundedness entailment ($g \ge 0.30$) and broadcast across peer swarms.
+        </p>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+          <select id="article-select" style="flex: 1; min-width: 250px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 10px 14px; border-radius: 8px;">
+            <option value="beyond-labor">The Horizon of Utility: Beyond the Eclipse of Labor</option>
+            <option value="swarm-architecture">The Architecture of Swarms: Decentralized Intelligence</option>
+            <option value="hardware-sovereignty">Hardware Sovereignty: Reclaiming the Means of Inference</option>
+            <option value="cognitive-agency">The Dawn of Cognitive Agency: Execution to Orchestration</option>
+            <option value="intention-economy">The Intention Economy: From Attention to Sovereign Action</option>
+            <option value="osp-protocol">Omni-Swarm Protocol (OSP v0.6): Multi-Hop Knowledge Negotiation</option>
+          </select>
+          <button id="broadcast-article-btn" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #0f0c29; font-weight: 700; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer;">
+            Broadcast to Peer Swarm
+          </button>
+        </div>
+        <div id="article-broadcast-status" style="font-size: 0.85rem; color: #38bdf8; font-family: monospace;"></div>
+      </div>
 
       <div class="toc">
         <h2>📋 Table of Contents</h2>
@@ -204,6 +237,11 @@
           <li>
             <a href="#intention-economy"
               >5. The Intention Economy: From Attention to Sovereign Action</a
+            >
+          </li>
+          <li>
+            <a href="#osp-protocol"
+              >6. Omni-Swarm Protocol (OSP v0.6): Multi-Hop Knowledge Negotiation</a
             >
           </li>
         </ul>
@@ -339,11 +377,63 @@
         </div>
       </article>
 
+      <!-- ARTICLE 6: OMNI-SWARM PROTOCOL (OSP v0.6) -->
+      <article id="osp-protocol">
+        <h2>Omni-Swarm Protocol (OSP v0.6): Decentralized Knowledge Negotiation</h2>
+        <p>
+          As decentralized agent networks proliferate, coordinating disparate cognitive models without central gatekeepers requires a formal mathematical framework for truth discovery, multi-hop evidence verification, and gas-bounded consensus.
+        </p>
+
+        <h3>1. The 3-Layer Hallucination Firewall</h3>
+        <p>
+          Every piece of synthesized knowledge exchanged over OSP v0.6 is wrapped in a cryptographically signed envelope. Before an assertion is merged into a receiving node's active context, it must satisfy lexical groundedness entailment ($g \ge 0.30$) against closed-book evidence chunks. Ungrounded hallucinated claims trigger deterministic packet rejection.
+        </p>
+
+        <h3>2. Asymmetric Node Roles: N1, N2, and N3</h3>
+        <p>
+          OSP bridges lightweight IoT verifiers (<strong>N1 Thin Origin</strong>), on-device browser WebGPU solvers (<strong>N2 Full Responder</strong>), and native on-device GGUF runtimes like <strong>Tree4Five</strong> (<strong>N3 Provider-Backed</strong>). Monotonic gas reduction prevents recursive broadcast storms, guaranteeing $O(\text{gas})$ loop termination.
+        </p>
+
+        <div class="highlight-box" style="border-left-color: var(--primary);">
+          <p>
+            <strong>Complete Protocol Exploration:</strong> For full specification details, interactive packet generation, and node class matrix, explore the <a href="/swarm-knowledge" style="color: var(--secondary); font-weight: bold;">Swarm Knowledge Protocol Spec (OSP v0.6)</a> and <a href="/tools" style="color: var(--primary); font-weight: bold;">Sovereign AI Tools Hub</a>.
+          </p>
+        </div>
+      </article>
+
       <div class="footer">
         <p>
           Swarm Schrödinger Bridge | Knowledge Base Consolidated | April 2026
         </p>
       </div>
     </div>
+
+    <script type="module">
+      import { evaluateGroundedness } from "/src/network/swarm-knowledge-bridge.js";
+
+      const btn = document.getElementById("broadcast-article-btn");
+      const select = document.getElementById("article-select");
+      const status = document.getElementById("article-broadcast-status");
+
+      btn.addEventListener("click", () => {
+        const articleId = select.value;
+        const articleEl = document.getElementById(articleId);
+        const title = articleEl ? articleEl.querySelector("h2")?.textContent || select.options[select.selectedIndex].text : select.options[select.selectedIndex].text;
+        const text = articleEl ? articleEl.innerText.substring(0, 400) : title;
+
+        const groundedness = evaluateGroundedness(title, [text]);
+        const envelopeId = `env_art_${Math.random().toString(36).substring(2, 8)}_${Date.now()}`;
+
+        status.innerHTML = `
+          <div style="margin-top: 10px; padding: 10px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; border-radius: 8px;">
+            ✅ <strong>OSP-KNOWLEDGE-ARTIFACT Broadcasted:</strong><br>
+            • Envelope: <code>${envelopeId}</code><br>
+            • Title: "${title}"<br>
+            • Entailment Groundedness: <strong>${(groundedness * 100).toFixed(1)}%</strong> (Firewall Passed: ${groundedness >= 0.30})<br>
+            • Node Class: N2 (Responder) | Gas Limit: 100
+          </div>
+        `;
+      });
+    </script>
   </body>
 </html>

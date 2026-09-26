@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HarnessDroid 🤖 | Autonomous Agent Harness with MCP over AIDL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto+Mono:wght@400;500&family=Roboto:wght@300;400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary: #f59e0b;
+        --secondary: #fbbf24;
+        --accent: #4facfe;
+        --success: #10b981;
+        --danger: #ef4444;
+        --bg-dark: #120e06;
+        --bg-card: rgba(36, 26, 12, 0.75);
+        --border-color: rgba(245, 158, 11, 0.25);
+        --text-main: #f3f4f6;
+        --text-dim: #9ca3af;
+        --font-mono: "Roboto Mono", monospace;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: radial-gradient(circle at 20% 80%, #38240a 0%, #120e06 100%);
+        min-height: 100vh;
+        color: var(--text-main);
+        line-height: 1.6;
+        padding: 40px 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      header {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        padding: 2.5rem;
+        margin-bottom: 2.5rem;
+        backdrop-filter: blur(16px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+      }
+
+      .top-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 15px;
+      }
+
+      .nav-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--secondary);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.95rem;
+        padding: 8px 16px;
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.25);
+        border-radius: 10px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .nav-link:hover {
+        background: var(--primary);
+        color: #120e06;
+        transform: translateY(-2px);
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: #120e06;
+      }
+
+      h1 {
+        font-size: 2.8rem;
+        font-weight: 800;
+        margin: 1rem 0 0.5rem 0;
+        background: linear-gradient(135deg, #ffffff 0%, #fbbf24 50%, #f59e0b 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .lead {
+        font-size: 1.15rem;
+        color: var(--text-dim);
+        max-width: 900px;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        gap: 25px;
+        margin-bottom: 2.5rem;
+      }
+
+      .card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 18px;
+        padding: 2rem;
+        backdrop-filter: blur(12px);
+        transition: transform 0.3s ease, border-color 0.3s ease;
+      }
+
+      .card:hover {
+        border-color: var(--secondary);
+        transform: translateY(-3px);
+      }
+
+      .card h2 {
+        font-size: 1.4rem;
+        color: var(--secondary);
+        margin-bottom: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .card p, .card li {
+        color: #cbd5e1;
+        font-size: 0.95rem;
+      }
+
+      ul {
+        list-style: none;
+        padding-left: 0;
+      }
+
+      ul li {
+        position: relative;
+        padding-left: 24px;
+        margin-bottom: 10px;
+      }
+
+      ul li::before {
+        content: "🤖";
+        position: absolute;
+        left: 0;
+        font-size: 0.8rem;
+      }
+
+      pre {
+        background: #080602;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 1.2rem;
+        overflow-x: auto;
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        color: #fde68a;
+        margin: 1rem 0;
+      }
+
+      .sim-box {
+        background: rgba(26, 18, 7, 0.9);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        border-radius: 18px;
+        padding: 2rem;
+        margin-bottom: 2.5rem;
+      }
+
+      .input-group {
+        margin-bottom: 1.2rem;
+      }
+
+      .input-group label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--text-dim);
+        margin-bottom: 6px;
+        font-weight: 500;
+      }
+
+      input[type="text"], textarea, select {
+        width: 100%;
+        background: #171005;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        border-radius: 8px;
+        padding: 12px 16px;
+        color: #fff;
+        font-family: inherit;
+        font-size: 0.95rem;
+      }
+
+      input[type="text"]:focus, textarea:focus, select:focus {
+        outline: none;
+        border-color: var(--secondary);
+        box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+      }
+
+      .btn-action {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: #120e06;
+        font-weight: 700;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+        transition: all 0.2s ease;
+      }
+
+      .btn-action:hover {
+        transform: scale(1.02);
+        box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+      }
+
+      .agent-timeline {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 15px;
+      }
+
+      .timeline-step {
+        background: #0d0a04;
+        border-left: 4px solid var(--primary);
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        font-size: 0.9rem;
+      }
+
+      .timeline-step .step-title {
+        font-weight: 700;
+        color: var(--secondary);
+        margin-bottom: 4px;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .timeline-step .step-desc {
+        color: #d1d5db;
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 4rem;
+        color: var(--text-dim);
+        font-size: 0.85rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding-top: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="top-nav">
+          <div style="display: flex; gap: 10px; align-items: center">
+            <span class="badge">🤖 Autonomous Agent Harness</span>
+            <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid #f59e0b;">MCP over AIDL</span>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="/tools" class="nav-link"><span class="material-icons-outlined">apps</span> Tools Hub</a>
+            <a href="/tree4five-provider" class="nav-link">🌲5️⃣ Tree4Five</a>
+            <a href="/swarm-knowledge" class="nav-link">🌐 Swarm Knowledge</a>
+            <a href="/enhanced" class="nav-link"><span class="material-icons-outlined">psychology</span> Swarm Console</a>
+            <a href="/" class="nav-link"><span class="material-icons-outlined">home</span> Main Portal</a>
+          </div>
+        </div>
+        <h1>HarnessDroid Agent Platform</h1>
+        <p class="lead">
+          An Android autonomous execution harness enabling local AI agents to discover, negotiate, and execute tools via the Model Context Protocol (MCP) over AIDL IPC, guarded by Human-in-the-Loop permission controls.
+        </p>
+      </header>
+
+      <!-- Architecture Grid -->
+      <div class="grid-2">
+        <div class="card">
+          <h2><span class="material-icons-outlined">extension</span> MCP over Android AIDL</h2>
+          <p>HarnessDroid translates standard Model Context Protocol (MCP) JSON schemas into cross-process Android intents:</p>
+          <ul>
+            <li><strong>Dynamic Tool Discovery:</strong> Broadcasts <code>com.ai.harnessdroid.ACTION_PROVIDE_TOOLS</code> to identify all tool providers installed on device.</li>
+            <li><strong>Schema Normalization:</strong> Parses JSON-RPC 2.0 tool definitions (`tools/list`, `tools/call`) into Android Parcelable bundles.</li>
+            <li><strong>Loose Coupling:</strong> Tool providers run in separate sandboxed processes; a crash in a third-party tool does not crash the agent.</li>
+            <li><strong>Zero Cloud Relays:</strong> Tool execution executes locally on device via native IPC.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h2><span class="material-icons-outlined">verified_user</span> Human-in-the-Loop (HITL) Firewall</h2>
+          <p>Security and user safety are enforced at the OS level before executing tools:</p>
+          <pre>// MCP Tool Execution Intent
+Intent intent = new Intent("com.ai.harnessdroid.ACTION_PROVIDE_TOOLS");
+intent.putExtra("method", "tools/call");
+intent.putExtra("tool_name", "schrodinger_bridge_sample");
+intent.putExtra("arguments", "{ \"steps\": 50, \"solver\": \"heun\" }");
+
+// Guarded by HITL Risk Tier:
+// Tier 1 (Safe): Read-only memory & sensors -> Auto-approve
+// Tier 2 (Elevated): Network send & file write -> Notification
+// Tier 3 (Critical): Model weight override -> Explicit Dialog</pre>
+        </div>
+      </div>
+
+      <!-- Agent Loop & Integration -->
+      <div class="grid-2">
+        <div class="card">
+          <h2><span class="material-icons-outlined">sync</span> The Autonomous Agent Loop</h2>
+          <ul>
+            <li><strong>1. Goal Parsing:</strong> Converts user prompt into structured execution graph with dependencies.</li>
+            <li><strong>2. Tool Selection:</strong> Uses Tree4Five LLM to select tool name and format JSON arguments.</li>
+            <li><strong>3. Permission Gate:</strong> Checks user consent and safety bounds.</li>
+            <li><strong>4. IPC Execution:</strong> Dispatches call via AIDL, receives result Parcelable.</li>
+            <li><strong>5. Reflection:</strong> Analyzes observation against goal and iterates until completion.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h2><span class="material-icons-outlined">share</span> Swarm & Schrödinger Bridge Synergy</h2>
+          <p>HarnessDroid acts as the executive controller for the entire ecosystem:</p>
+          <ul>
+            <li><strong>Schrödinger Bridge Tool:</strong> Dispatches training epochs and WebGPU sampling jobs.</li>
+            <li><strong>OSP v0.6 Knowledge Exchange:</strong> Packages completed tool results into OSP-KNOWLEDGE-ARTIFACT envelopes with groundedness scores.</li>
+            <li><strong>RAG ChromaDB Tool:</strong> Ingests and queries memory vectors across autonomous sessions.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Interactive Agent Plan Simulator -->
+      <div class="sim-box">
+        <h2 style="color: var(--secondary); margin-bottom: 1rem; display: flex; align-items: center; gap: 10px;">
+          <span class="material-icons-outlined">play_circle</span> Interactive Autonomous Agent Simulation
+        </h2>
+        <p style="color: var(--text-dim); margin-bottom: 1.5rem;">
+          Dispatch a high-level autonomous task to observe HarnessDroid plan decomposition, MCP tool discovery, HITL security verification, and execution.
+        </p>
+
+        <div class="grid-2" style="margin-bottom: 0;">
+          <div>
+            <div class="input-group">
+              <label for="task-input">High-Level Autonomous Mission</label>
+              <textarea id="task-input" rows="3">Generate a 96x96 generative sample using Schrödinger Bridge Heun solver, verify OSP groundedness, and transmit artifact envelope to peer swarm.</textarea>
+            </div>
+
+            <div class="input-group">
+              <label for="hitl-mode">Human-in-the-Loop Security Policy</label>
+              <select id="hitl-mode">
+                <option value="strict">Strict (Prompt user for elevated & critical tool calls)</option>
+                <option value="auto_safe">Auto-Safe (Auto-approve Tier 1 & 2, prompt Tier 3)</option>
+                <option value="autonomous">Fully Autonomous (Developer Sandbox Mode)</option>
+              </select>
+            </div>
+
+            <button id="run-agent-btn" class="btn-action">
+              <span class="material-icons-outlined">smart_toy</span> Execute Agent Loop
+            </button>
+          </div>
+
+          <div>
+            <label style="display: block; font-size: 0.85rem; color: var(--text-dim); margin-bottom: 6px;">Agent Execution Trace</label>
+            <div id="timeline-container" class="agent-timeline">
+              <div class="timeline-step">
+                <div class="step-title"><span>System Idle</span> <span>READY</span></div>
+                <div class="step-desc">Awaiting autonomous mission dispatch...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Footer -->
+      <div class="card" style="text-align: center; padding: 2.5rem; background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(16, 185, 129, 0.1));">
+        <h2 style="justify-content: center; color: #fff;">Explore the Complete Decentralized Stack</h2>
+        <p style="max-width: 700px; margin: 0 auto 2rem auto;">
+          Combine on-device LLMs, autonomous tool execution harnesses, and P2P knowledge negotiation protocols into a unified sovereign AI system.
+        </p>
+        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+          <a href="/tree4five-provider" class="nav-link" style="padding: 12px 24px; font-size: 1rem;">🌲5️⃣ Tree4Five LLM Provider</a>
+          <a href="/swarm-knowledge" class="nav-link" style="padding: 12px 24px; font-size: 1rem;">🌐 Swarm Knowledge Protocol</a>
+          <a href="/tools" class="nav-link" style="padding: 12px 24px; font-size: 1rem;">🛠️ All Tools Hub</a>
+        </div>
+      </div>
+
+      <footer>
+        <p>HarnessDroid Agent Platform | Package: <code>com.ai.harnessdroid</code> | MIT License</p>
+      </footer>
+    </div>
+
+    <script>
+      const runBtn = document.getElementById('run-agent-btn');
+      const timeline = document.getElementById('timeline-container');
+      const hitlSelect = document.getElementById('hitl-mode');
+
+      const planSteps = [
+        { title: "1. Goal Decomposition", desc: "Tree4Five LLM decomposed mission into 3 sequential MCP tool calls." },
+        { title: "2. MCP Tool Discovery", desc: "Discovered tool 'sb_generate_sample' from package 'com.ai.schrodinger'." },
+        { title: "3. HITL Permission Check", desc: "Risk Tier: SAFE. Auto-approved execution of WebGPU inference kernel." },
+        { title: "4. Tool Execution (AIDL)", desc: "Invoked sb_generate_sample({steps: 50, solver: 'heun'}). Result: Tensor latent [1, 12, 12, 8] generated." },
+        { title: "5. Groundedness Entailment", desc: "Calculated OSP v0.6 groundedness score: g = 0.89 (Threshold 0.30 passed)." },
+        { title: "6. Swarm Broadcast", desc: "Dispatched OSP-KNOWLEDGE-ARTIFACT envelope to peer swarm via WebGPU bridge." },
+        { title: "7. Mission Accomplished", desc: "Goal resolved in 780ms. Artifact ID: env_harness_droid_ok." }
+      ];
+
+      runBtn.addEventListener('click', () => {
+        runBtn.disabled = true;
+        timeline.innerHTML = "";
+        let stepIdx = 0;
+
+        const interval = setInterval(() => {
+          if (stepIdx < planSteps.length) {
+            const step = planSteps[stepIdx];
+            const div = document.createElement('div');
+            div.className = "timeline-step";
+            div.innerHTML = `
+              <div class="step-title">
+                <span>${step.title}</span>
+                <span style="color: var(--success); font-size: 0.75rem;">COMPLETED</span>
+              </div>
+              <div class="step-desc">${step.desc}</div>
+            `;
+            timeline.appendChild(div);
+            stepIdx++;
+          } else {
+            clearInterval(interval);
+            runBtn.disabled = false;
+          }
+        }, 350);
+      });
+    </script>
+  </body>
+</html>

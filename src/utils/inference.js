@@ -7,6 +7,7 @@ import {
   LabelConditionedVAE,
   LabelConditionedDrift,
 } from "../torchjs/models.js";
+import { globalSwarmKnowledge } from "../network/swarm-knowledge-bridge.js";
 
 export class InferenceEngine {
   constructor() {
@@ -231,10 +232,31 @@ export class InferenceEngine {
     // Cleanup
     tf.dispose([zt, labelsTensor, nullTensor, decoded, squeezed]);
 
+    const promptText = config.prompt || `Class ${label} Schrödinger Bridge Generative Sample`;
+    const ospEnvelope = globalSwarmKnowledge.createKnowledgeEnvelope(
+      "image/schrodinger-bridge",
+      {
+        image,
+        metadata: { label, steps, method, cfgScale, prompt: promptText },
+      },
+      {
+        prompt: promptText,
+        label,
+        method,
+        cfgScale,
+        modelHash: "sb_webgpu_v4",
+        citedChunks: config.citedChunks || [
+          `Schrödinger Bridge generative trajectory for class ${label}`,
+          `ODE solver ${method} with CFG scale ${cfgScale}`,
+        ],
+      },
+    );
+
     return {
       id: `sample_${Date.now()}_${index}`,
       image,
-      metadata: { label, steps, method, cfgScale },
+      metadata: { label, steps, method, cfgScale, prompt: promptText },
+      ospEnvelope,
     };
   }
 

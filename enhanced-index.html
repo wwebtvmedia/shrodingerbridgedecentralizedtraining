@@ -91,7 +91,61 @@
       <header>
         <div class="header-nav">
           <h1>Swarm AI Console</h1>
-          <div class="nav-buttons">
+          <div class="nav-buttons" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a
+              href="/tools"
+              class="btn"
+              style="
+                background: rgba(79, 172, 254, 0.15);
+                color: #38bdf8;
+                border: 1px solid rgba(79, 172, 254, 0.3);
+              "
+            >
+              <span
+                class="material-icons-outlined"
+                style="font-size: 18px; margin-right: 6px"
+                >apps</span
+              >
+              Tools Hub
+            </a>
+            <a
+              href="/swarm-knowledge"
+              class="btn"
+              style="
+                background: rgba(168, 85, 247, 0.15);
+                color: #c084fc;
+                border: 1px solid rgba(168, 85, 247, 0.3);
+              "
+            >
+              <span
+                class="material-icons-outlined"
+                style="font-size: 18px; margin-right: 6px"
+                >hub</span
+              >
+              OSP v0.6 Protocol
+            </a>
+            <a
+              href="/tree4five-provider"
+              class="btn"
+              style="
+                background: rgba(16, 185, 129, 0.15);
+                color: #34d399;
+                border: 1px solid rgba(16, 185, 129, 0.3);
+              "
+            >
+              🌲5️⃣ Tree4Five
+            </a>
+            <a
+              href="/harnessdroid"
+              class="btn"
+              style="
+                background: rgba(245, 158, 11, 0.15);
+                color: #fbbf24;
+                border: 1px solid rgba(245, 158, 11, 0.3);
+              "
+            >
+              🤖 HarnessDroid
+            </a>
             <a
               href="/"
               class="btn"
@@ -221,11 +275,52 @@
           <div class="sample-grid" id="sample-grid">
             <!-- Generated samples -->
           </div>
-          <div class="controls">
+          <div class="controls" style="flex-wrap: wrap; gap: 8px;">
             <button id="generate-btn" class="btn">Generate</button>
             <button id="inference-btn" class="btn btn-primary">
               Run Inference
             </button>
+            <button id="broadcast-sample-btn" class="btn" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid #a855f7;">
+              <span class="material-icons-outlined" style="font-size: 16px; margin-right: 4px;">share</span>
+              Broadcast via OSP v0.6
+            </button>
+          </div>
+        </div>
+
+        <!-- Swarm Knowledge & Cross-Swarm Exchange Panel -->
+        <div class="panel swarm-knowledge-panel" style="grid-column: span 2;">
+          <h2>
+            <span class="material-icons-outlined">hub</span> Swarm Knowledge & Cross-Swarm Relay (OSP v0.6)
+          </h2>
+          <p style="color: var(--on-surface-variant); font-size: 0.9rem; margin-bottom: 12px;">
+            Exchange generated diffusion images, synthesized articles, and multi-hop queries across heterogeneous swarms with 3-layer hallucination firewalling ($g \ge 0.30$).
+          </p>
+          <div style="display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;">
+            <input
+              type="text"
+              id="osp-query-input"
+              placeholder="Query peer swarms (e.g. Optimal transport drift trajectory parameters...)"
+              style="
+                flex: 1;
+                min-width: 260px;
+                background: var(--surface-variant);
+                border: 1px solid var(--outline);
+                border-radius: 8px;
+                padding: 10px 14px;
+                color: #fff;
+                font-size: 0.9rem;
+              "
+            />
+            <button id="osp-query-btn" class="btn btn-primary" style="padding: 10px 18px;">
+              <span class="material-icons-outlined" style="font-size: 16px; margin-right: 4px;">send</span>
+              Query Swarm
+            </button>
+          </div>
+          <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px; max-height: 220px; overflow-y: auto;">
+            <div id="osp-feed-status" style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 8px;">
+              📡 Swarm Knowledge Feed: Waiting for OSP packets or broadcast...
+            </div>
+            <div id="osp-feed-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
           </div>
         </div>
 

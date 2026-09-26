@@ -407,6 +407,33 @@ class ModelConsolidationServer {
     this.app.get("/training-consolidation.html", (req, res) =>
       res.sendFile(path.join(__dirname, "../training-consolidation.html")),
     );
+    this.app.get("/swarm-knowledge", (req, res) =>
+      res.sendFile(path.join(__dirname, "../public/swarm-knowledge.html")),
+    );
+    this.app.get("/swarm-knowledge.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../public/swarm-knowledge.html")),
+    );
+    this.app.get("/tree4five-provider", (req, res) =>
+      res.sendFile(path.join(__dirname, "../public/tree4five-provider.html")),
+    );
+    this.app.get("/tree4five-provider.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../public/tree4five-provider.html")),
+    );
+    this.app.get("/harnessdroid", (req, res) =>
+      res.sendFile(path.join(__dirname, "../public/harnessdroid.html")),
+    );
+    this.app.get("/harnessdroid.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../public/harnessdroid.html")),
+    );
+    this.app.get("/tools", (req, res) =>
+      res.sendFile(path.join(__dirname, "../public/tools-hub.html")),
+    );
+    this.app.get("/tools.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../public/tools-hub.html")),
+    );
+    this.app.get("/tools-hub.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../public/tools-hub.html")),
+    );
     this.app.get("/test.html", (req, res) =>
       res.sendFile(path.join(__dirname, "../test.html")),
     );
@@ -537,6 +564,25 @@ class ModelConsolidationServer {
         timestamp: "number",
         messageId: "string",
       },
+      OSP_BROADCAST: {
+        from: "string",
+        envelope: "object",
+        timestamp: "number",
+        messageId: "string",
+      },
+      OSP_MESSAGE: {
+        from: "string",
+        to: "string",
+        envelope: "object",
+        timestamp: "number",
+        messageId: "string",
+      },
+      OSP_QUERY: {
+        from: "string",
+        query: "object",
+        timestamp: "number",
+        messageId: "string",
+      },
     };
 
     const schema = VALID_SCHEMAS[message.type];
@@ -658,6 +704,18 @@ class ModelConsolidationServer {
         this.relayToPeer(message.to, message);
         break;
       case "BROADCAST":
+        message.from = client?.peerId || clientId;
+        this.broadcastToAll(message, clientId);
+        break;
+      case "OSP_BROADCAST":
+        message.from = client?.peerId || clientId;
+        this.broadcastToAll(message, clientId);
+        break;
+      case "OSP_MESSAGE":
+        message.from = client?.peerId || clientId;
+        this.relayToPeer(message.to, message);
+        break;
+      case "OSP_QUERY":
         message.from = client?.peerId || clientId;
         this.broadcastToAll(message, clientId);
         break;
