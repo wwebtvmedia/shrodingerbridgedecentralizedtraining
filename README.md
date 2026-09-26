@@ -53,10 +53,23 @@ This project implements a distributed training environment for high-resolution (
 | :------------------- | :--------------------------- | :------------------------------------------------------- |
 | **SwarmTrainer**     | `src/core/trainer.js`        | Manages local training loop & evolutionary optimization. |
 | **ModelManager**     | `src/core/models.js`         | TF.js model management (12x12x8 latent space).           |
-| **TorchJSTrainer**   | `src/torchjs/integration.js` | Hardware-accelerated training pipeline.                  |
-| **InferenceEngine**  | `src/utils/inference.js`     | SDE-based sampling (Reverse SDE).                        |
+| **TorchJSTrainer**   | `src/torchjs/integration.js` | WebGPU-accelerated training pipeline.                   |
+| **InferenceEngine**  | `src/utils/inference.js`     | SDE-based sampling + OSP v0.6 Knowledge Envelopes.       |
+| **SwarmKnowledge**   | `src/network/swarm-knowledge-bridge.js` | OSP v0.6 protocol negotiation & groundedness firewall. |
 | **CloudflareTunnel** | `src/network/tunnel.js`      | WebSocket transport + peer directory (per-peer).         |
-| **Signaling Server** | `server/index.js`            | Rendezvous directory, identity issuer, message relay.    |
+| **Signaling Server** | `server/index.js`            | Rendezvous directory, OSP message relay, identity issuer.|
+
+### 🛠️ Sovereign AI Tools Suite & Dedicated Pages
+
+The platform provides dedicated presentation portals and interactive sandboxes for every decentralized subsystem:
+
+- **[Sovereign AI Tools Hub (`/tools`)](public/tools-hub.html)**: Central portal connecting all decentralized tools, runtimes, and protocols.
+- **[Swarm Knowledge Protocol Spec (`/swarm-knowledge`)](public/swarm-knowledge.html)**: Omni-Swarm Protocol (OSP v0.6) multi-hop knowledge negotiation, 3-layer hallucination firewall ($g \ge 0.30$), and live packet inspector.
+- **[Tree4Five LLM Provider (`/tree4five-provider`)](public/tree4five-provider.html)**: Native Android on-device GGUF runtime (`com.tree4five.gguf`) with `java-llama.cpp`, Vulkan offload, and asynchronous AIDL IPC token streaming sandbox.
+- **[HarnessDroid Agent Platform (`/harnessdroid`)](public/harnessdroid.html)**: Android autonomous agent execution harness (`com.ai.harnessdroid`) with MCP over AIDL tool discovery and Human-in-the-Loop permission gates.
+- **[Swarm AI Console & WebGPU Trainer (`/enhanced`)](enhanced-index.html)**: Real-time browser WebGPU drift ODE solver, LoRA adaptation, and cross-swarm artifact exchange relay.
+- **[RAG ChromaDB Memory Demo (`/rag-demo`)](demotokenizer/ragchromadbwithprev.html)**: Local vector database semantic search, document chunking, and contextual memory retrieval.
+- **[LLM Tokenizer & Multi-Head Attention Suite (`/tokenizer-demo`)](demotokenizer/tokenizationDemo.html)**: Interactive Byte-Pair Encoding (BPE), positional encoding, and self-attention heatmaps.
 
 ### Peer Discovery Protocol
 
