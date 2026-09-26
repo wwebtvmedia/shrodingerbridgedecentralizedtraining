@@ -1,7 +1,7 @@
 {
   "name": "swarm-schrodinger-bridge",
   "version": "0.2.0",
-  "description": "Decentralized swarm training for Schrödinger Bridge models with centralized consolidation server",
+  "description": "Decentralized swarm training for Schrödinger Bridge generative models with WebGPU acceleration, multi-phase optimization, and LoRA adaptation",
   "main": "src/index.js",
   "type": "module",
   "scripts": {

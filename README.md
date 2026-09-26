@@ -88,13 +88,18 @@ client                              server
 
 ### Schrödinger Bridge Formulation
 
-The Schrödinger Bridge finds the optimal drift \( u^\*(x, t) \) that connects noise to data distribution while minimizing energy:
-\[ \mathbb{E}\left[\int_0^T \frac{1}{2} \|u(X_t, t)\|^2 dt\right] \]
+The Schrödinger Bridge finds the optimal velocity field \( u^*(z, t) \) that steers the prior distribution \( p_0 = \mathcal{N}(0, \sigma_0^2 I) \) to the data latent manifold \( p_1 = q(z_1|x) \) under the reference diffusion process:
+\[ \min_u \mathbb{E}\left[\int_0^1 \frac{1}{2} \|u(Z_t, t)\|^2 dt\right] \quad \text{s.t.} \quad dZ_t = u(Z_t, t)dt + g(t)dW_t \]
+
+- **Target Trajectory**: Linear bridge \( Z_t = (1-t)Z_0 + t Z_1 \) with target velocity \( u^*(Z_t, t) = Z_1 - Z_0 \) (or exact Ornstein-Uhlenbeck bridge transition).
+- **Time-Weighted Huber Loss**: Weighted loss \( \mathcal{L}_{\text{drift}} = \text{Huber}((1 + 3.0 t)(u_\theta(Z_t, t) - u^*(Z_t, t))) \).
+- **Classifier-Free Guidance (CFG)**: Blended vector field \( u_{\text{guided}} = u_\theta(z, t, \emptyset) + s \cdot (u_\theta(z, t, y) - u_\theta(z, t, \emptyset)) \).
+- **Numerical Solvers**: 2nd-order Heun, 4th-order Runge-Kutta (RK4), and Euler ODE integration followed by optional Langevin refinement steps at \( t = 1 \).
 
 ### Low-Rank Adaptation (LoRA)
 
-- **Rank-8 Adapters**: Minimizes trainable parameters.
-- **Fast Sync**: Only LoRA weights are exchanged, reducing network overhead by ~10x.
+- **Rank-8 Adapters**: Minimizes trainable parameters for 2D convolutions and dense projection heads.
+- **Fast Swarm Sync**: Only low-rank matrices are exchanged via gossip protocol, reducing bandwidth by over 90%.
 
 ## 📂 Project Structure
 

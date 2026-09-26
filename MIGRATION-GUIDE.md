@@ -11,7 +11,7 @@
 - [x] **Phase 2**: CNN Architecture implementation
 - [x] **Phase 3**: LoRA Integration
 - [x] **Phase 4**: 96x96 Resolution Support
-- [ ] **Phase 5**: WebGPU Optimization (Experimental)
+- [x] **Phase 5**: WebGPU Optimization & Multi-Phase SB Alignment
 
 ---
 
@@ -21,45 +21,47 @@ Legacy hardcoded URLs have been replaced with `.env` based configuration. Ensure
 
 ---
 
-## 2. AI Engine Migration: js-pytorch to TensorFlow.js (96x96 CNN)
+## 2. AI Engine Migration: js-pytorch to TensorFlow.js (96x96 CNN & WebGPU)
 
 ### What Changed
 
-The system has evolved from an MLP-Mixer architecture to a state-of-the-art, high-resolution CNN trainer.
+The system has evolved from an MLP-Mixer architecture to a state-of-the-art, high-resolution CNN trainer aligned with `enhancedoptimaltransport`.
 
-- **Engine**: Switched from js-pytorch to **TensorFlow.js** (TFJS) for better performance and GPU utilization.
-- **Architecture**: Moved from MLP-Mixer to **CNN Residual** architectures with **Axial Attention**.
+- **Engine**: Switched to **TensorFlow.js WebGPU** hardware acceleration (with WASM fallback) for maximum performance and cross-platform shader compute.
+- **Architecture**: Moved from MLP-Mixer to **CNN Residual** architectures with **Axial Attention** and Group Normalization.
 - **Resolution**: Upgraded from 32x32 to **96x96** images (27,648 features).
-- **Training**: Improved **U-Net** based drift networks for superior generative quality.
-- **Inference**: High-fidelity Schrödinger Bridge sampling with iterative Euler updates.
+- **Training**: Multi-phase Schrödinger Bridge optimization (VAE, Drift with CFG dropout, Joint fine-tuning, variance floor, cosine LR decay).
+- **Inference**: High-fidelity Schrödinger Bridge sampling with **Heun**, **RK4**, and **Euler** ODE solvers + Langevin refinement.
 
 ### 📝 Quick Checklist for Developers
 
-- [ ] Run `npm install @tensorflow/tfjs`
+- [ ] Run `npm install`
 - [ ] Clear Local IndexedDB (Models are incompatible)
-- [ ] Enable "Hardware Acceleration" in Browser
+- [ ] Use a WebGPU-enabled browser (Chrome, Edge, Firefox Nightly, Safari 18+)
 - [ ] Update `.env` with new consolidation server URLs
 
 ### 📊 Comparative Analysis
 
-| Feature          | Legacy (js-pytorch) | Current (TensorFlow.js)       |
-| :--------------- | :------------------ | :---------------------------- |
-| **Architecture** | MLP-Mixer           | **CNN Residual + Attention**  |
-| **Image Size**   | 32x32               | **96x96**                     |
-| **Latent Space** | 64-dim (Flat)       | **12x12x8 (4D Tensor)**       |
-| **Resolution**   | 1,024 pixels        | **9,216 pixels**              |
-| **Optimization** | Adam                | **Adam (LR: 2e-4)**           |
-| **Adaptation**   | None                | **LoRA (Rank: 8, Alpha: 16)** |
+| Feature          | Legacy (js-pytorch) | Current (TensorFlow.js / WebGPU) |
+| :--------------- | :------------------ | :------------------------------- |
+| **Architecture** | MLP-Mixer           | **CNN Residual + Attention**     |
+| **Acceleration** | CPU / WebGL 1.0     | **WebGPU (Hardware Accelerated)**|
+| **Image Size**   | 32x32               | **96x96**                        |
+| **Latent Space** | 64-dim (Flat)       | **12x12x8 (4D Tensor)**          |
+| **Resolution**   | 1,024 pixels        | **9,216 pixels**                 |
+| **Optimization** | Adam                | **AdamW + Cosine LR Schedule**   |
+| **Adaptation**   | None                | **LoRA (Rank: 8, Alpha: 16)**    |
+| **ODE Solvers**  | Simple Step         | **Heun / RK4 / Langevin**        |
 
 ---
 
-## 3. Training Paradigm: Three-Phase Evolution
+## 3. Training Paradigm: Three-Phase Evolution (Aligned with enhancedoptimaltransport)
 
-The system now follows a structured Three-Phase training schedule:
+The system follows a synchronized Three-Phase training schedule:
 
-1.  **Phase 1: VAE Optimization**: Focuses on learning the latent manifold and reconstruction.
-2.  **Phase 2: Drift Learning**: Freezes the VAE and trains the U-Net drift network.
-3.  **Phase 3: Joint Refinement**: Co-optimizes both networks with adaptive loss weighting.
+1.  **Phase 1: VAE Optimization**: Focuses on learning the latent manifold, reconstruction (L1 + SSIM + Edge + TV), KL annealing, and channel diversity.
+2.  **Phase 2: Drift Learning & Anchor Tuning**: Freezes the VAE decoder; trains the U-Net drift network with time-weighted Huber loss & CFG dropout, while regularizing the VAE encoder with consistency, diversity, and global variance floor against `vae_ref`.
+3.  **Phase 3: Joint Refinement**: Co-optimizes Drift network and VAE with balanced reconstruction and consistency loss scales.
 
 ## 4. Efficiency with LoRA (Low-Rank Adaptation)
 
