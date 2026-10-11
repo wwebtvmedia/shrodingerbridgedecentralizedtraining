@@ -40,7 +40,137 @@ and the audit-chain verifier.
 
 ---
 
-## 2. Use case — a school day in Djerba
+## 1 bis. Architecture — module by module
+
+| File | Role |
+|---|---|
+| `security.py` | `SecurityManager`: dynamic whitelist (file-based, mergeable, hot-reload), precise timestamps (`request_time`, `processing_time`, `timestamp`), immutable hash chain + `verify_chain()` replay, torn-tail repair |
+| `consensus.py` | `ConsensusManager`: lease election (3 s heartbeats / 6 s lease), deterministic ordering (lowest IP, then node id), rank-proportional proclamation delays, step-down on smaller key, hermit self-healing, leader address book |
+| `state_manager.py` | `StateManager` + `SwarmSynchronizer`: epoch-versioned replicated state, commutative LWW merge validated by state digest, periodic anti-entropy pull |
+| `gateway.py` | `SwarmGateway`: inter-swarm digest exchange (`/gateway/sync`), TTL peer table, federated request routing with a 2-hop loop guard |
+| `swarm_glu.py` | The HTTP orchestration node: student question routing, GGUF bridge (Ollama `/api/chat` or OpenAI flavor), OSP v0.6 firewall + shared knowledge pool, MCP agent tasks with the Human-in-the-Loop barrier, UDP beacon discovery, hotspot relay |
+| `cli.py` | `serve`, `status`, `ask`, `audit`, `whitelist`, `demo` — full operator CLI |
+| `crypto_auth.py` | Hybrid post-quantum authentication: ECDSA P-256 + ML-KEM-768, HKDF session keys, AES-256-GCM encrypted RPC, weighted lottery + signed 1/8 consensus for decentralized whitelist re-signing |
+| `decentralized_resigner.py` | Periodic decentralized whitelist verification and re-signing under the 1/8 quorum |
+| `kotlin/` | The JVM port of the core (wire-compatible, golden-vector proven) + the executable node |
+| `android/` | The native Android app (`com.tree4five.swarmglu`, 8.8 MB): dashboard, student screen, audit screen, hotspot button, foreground node service |
+| `tests/` | 112 core tests + orchestrators: multi-emulator, real phones, federation, hotspot, full fleet with real LLMs |
+
+## 2. Installation (Linux and Windows)
+
+Zero pip packages are required on any node — everything is Python
+standard library. Pick your platform:
+
+### 2.1 Linux (PC node — recommended for the classroom server)
+
+```bash
+# 1. Python 3.8+ (already present on Debian/Ubuntu/Mint):
+python3 --version
+
+# 2. Get the code (git or a USB stick — both work offline):
+git clone https://github.com/wwebtvmedia/swarmglu.git
+cd swarmglu
+#    …or copy the folder from USB and unzip it.
+
+# 3. Optional tools (only for emulator/LAN orchestrators and the hotspot):
+sudo apt install -y socat        # TCP relay for the LAN topologies
+
+# 4. Optional: the LLM backend on this machine (school server):
+curl -fsSL https://ollama.com/install.sh | sh   # needs Internet ONCE
+ollama pull fastmodel:latest                     # or any model you like
+
+# 5. Open the firewall for the swarm (LAN interface only):
+sudo ufw allow in on wlan0 to any port 7001 proto tcp
+sudo ufw allow in on wlan0 to any port 47479 proto udp
+
+# 6. Start your node:
+python3 cli.py serve --node-id pc-prof --port 7001 --mode full \
+    --gguf-url http://127.0.0.1:11434 --gguf-models fastmodel:latest \
+    --api-flavor ollama-chat --advertise-ip <THIS-MACHINE-LAN-IP>
+```
+
+Run it as a service (survives logout) — `/etc/systemd/system/swarmglu.service`:
+
+```ini
+[Unit]
+Description=SwarmGlu node
+After=network-online.target
+
+[Service]
+WorkingDirectory=/home/YOU/swarmglu
+ExecStart=/usr/bin/python3 cli.py serve --node-id pc-prof --port 7001 --mode full --advertise-ip YOUR_LAN_IP
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now swarmglu
+journalctl -u swarmglu -f          # follow the logs
+```
+
+### 2.2 Windows (PC node — teacher's laptop)
+
+1. **Python 3.8+**: install from <https://www.python.org/downloads/>
+   (tick *"Add python.exe to PATH"* during setup) or use the Microsoft
+   Store. Verify in PowerShell: `python --version` (Windows uses
+   `python`, not `python3`).
+2. **Get the code**: `git clone
+   https://github.com/wwebtvmedia/swarmglu.git` — or download the ZIP
+   from GitHub (*Code* ▸ *Download ZIP*) and extract it, e.g. to
+   `C:\Tools\swarmglu`. No build step, no pip install.
+3. **Firewall** (once, as Administrator — PowerShell):
+
+   ```powershell
+   New-NetFirewallRule -DisplayName "SwarmGlu TCP" -Direction Inbound \`
+     -Protocol TCP -LocalPort 7001 -Action Allow -Profile Private
+   New-NetFirewallRule -DisplayName "SwarmGlu UDP" -Direction Inbound \`
+     -Protocol UDP -LocalPort 47479 -Action Allow -Profile Private
+   ```
+
+   Also mark the Wi-Fi network as **Private** (Settings ▸ Network) —
+   Windows blocks inbound traffic on Public networks.
+4. **Start your node** (PowerShell, from the swarmglu folder):
+
+   ```powershell
+   python cli.py serve --node-id pc-prof --port 7001 --mode full `
+       --advertise-ip <THIS-MACHINE-LAN-IP> --mock-inference
+   ```
+
+   Notes:
+   * `ipconfig` shows the LAN IP to put in `--advertise-ip`.
+   * `curl.exe` ships with Windows 10/11 — all HTTP examples work as is.
+   * To host the LLM on Windows too: install Ollama for Windows from
+     <https://ollama.com>, then `ollama pull <model>` and pass
+     `--gguf-url http://127.0.0.1:11434 --api-flavor ollama-chat`.
+5. **Keep it running**: `Start-Process python -ArgumentList "cli.py
+   serve ..." -WindowStyle Hidden`, or a scheduled task
+   (`taskschd.msc` ▸ trigger *At startup*).
+
+### 2.3 Android (tablets and phones — native app)
+
+* **Google Play**: follow `google-play/PLAY_CHECKLIST.md` (the signed
+  AAB is ready in the repository build).
+* **Sideload (offline classrooms)**: copy `app-release.apk` (built from
+  `android/` per `android/README.md`) to the device over USB, tap it,
+  allow *Install unknown apps*. Then: Dashboard ▸ switch **Nœud** ON,
+  ⚙ settings (node id, swarm, seeds `ip:port` of a PC node), and
+  optionally **📡 Étendre l'essaim** to make the device the swarm
+  router.
+* Disable battery optimization for SwarmGlu (Settings ▸ Apps ▸ Battery)
+  so Doze cannot suspend the heartbeats.
+
+### 2.4 Verify the swarm
+
+```bash
+python3 cli.py status --url http://<any-node>:7001
+python3 cli.py ask    --url http://<any-node>:7001 \
+    --prompt "Quelle est la capitale de la Tunisie ?" --student eleve-1
+python3 cli.py audit  verify --data-dir data/<node>
+```
+
+## 3. Use case — a school day in Djerba
 
 A classroom has one PC (teacher), a stack of tablets/phones, and no
 Internet. The teacher's PC (or any node) hosts an Ollama LLM; a second
@@ -81,7 +211,7 @@ and local by design.
 
 ---
 
-## 3. The full-fleet test (validated end-to-end)
+## 4. The full-fleet test (validated end-to-end)
 
 `tests/test_fleet_full.py` in the SwarmGlu repository orchestrates a
 **7-node, 3-implementation fleet over real network hardware**:
@@ -160,7 +290,7 @@ cd android && ./gradlew connectedDebugAndroidTest  # in-Android loop
 
 ---
 
-## 4. Relation to this repository (Schrödinger Bridge)
+## 5. Relation to this repository (Schrödinger Bridge)
 
 SwarmGlu is the transport/consensus layer that lets the Schrödinger
 Bridge artifacts travel the same way the school knowledge does: models,
