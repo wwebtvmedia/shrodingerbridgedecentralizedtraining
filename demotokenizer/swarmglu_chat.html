@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SwarmGlu Discussion — swarm knowledge chat</title>
+    <style>
+      /* === WEBTVMEDIA.NET Brand CSS (adapted from ragchromadbwithprev.html) === */
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0; padding: 0; height: 100%;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f5f7fa; color: #2d3748;
+        display: flex; flex-direction: column;
+      }
+      header {
+        display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+        padding: 1rem 2rem; background-color: #6a1b9a; color: #fff;
+        box-shadow: 0 2px 8px rgba(0, 83, 159, 0.08);
+      }
+      header h1 { font-size: 1.15rem; margin: 0; font-weight: 700; }
+      header .sub { font-size: 0.78rem; color: #e1bee7; }
+      #statusbar {
+        display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center;
+        padding: 0.5rem 2rem; background: #ede7f6; font-size: 0.8rem;
+        border-bottom: 1px solid #d1c4e9;
+      }
+      .badge {
+        padding: 0.15rem 0.55rem; border-radius: 10px; font-weight: 600;
+        background: #fff; border: 1px solid #d1c4e9; color: #4527a0;
+      }
+      .badge.ok { background: #e8f5e9; border-color: #a5d6a7; color: #1b5e20; }
+      .badge.ko { background: #ffebee; border-color: #ef9a9a; color: #b71c1c; }
+      main {
+        flex: 1; display: flex; gap: 1rem; padding: 1rem 2rem; overflow: hidden;
+      }
+      #chatcol { flex: 3; display: flex; flex-direction: column; min-width: 0; }
+      #sidecol { flex: 1.1; display: flex; flex-direction: column; gap: 0.8rem; overflow-y: auto; }
+      .panel {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+        padding: 0.8rem 1rem; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+      }
+      .panel h2 {
+        font-size: 0.85rem; margin: 0 0 0.5rem; color: #6a1b9a;
+        text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      #chat {
+        flex: 1; overflow-y: auto; background: #fff; border: 1px solid #e2e8f0;
+        border-radius: 8px; padding: 1rem; display: flex; flex-direction: column;
+        gap: 0.7rem;
+      }
+      .msg { max-width: 85%; padding: 0.55rem 0.8rem; border-radius: 10px;
+             line-height: 1.45; font-size: 0.92rem; white-space: pre-wrap; }
+      .msg.user { align-self: flex-end; background: #6a1b9a; color: #fff; }
+      .msg.swarm { align-self: flex-start; background: #f3e5f5; border: 1px solid #e1bee7; }
+      .msg.sys { align-self: center; background: #fffde7; color: #795548;
+                 font-size: 0.8rem; border: 1px dashed #ffe082; }
+      .meta { font-size: 0.72rem; color: #7b1fa2; margin-top: 0.35rem; }
+      .verdict { display: inline-block; padding: 0.05rem 0.45rem; border-radius: 8px;
+                 font-weight: 700; font-size: 0.72rem; margin-right: 0.4rem; }
+      .verdict.V { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
+      .verdict.U { background: #ffebee; color: #b71c1c; border: 1px solid #ef9a9a; }
+      .sources { font-size: 0.72rem; color: #555; margin-top: 0.3rem; }
+      #inputbar { display: flex; gap: 0.6rem; margin-top: 0.8rem; }
+      #question {
+        flex: 1; resize: none; height: 64px; font-family: "Segoe UI", sans-serif;
+        font-size: 0.95rem; padding: 0.55rem; border-radius: 8px;
+        border: 1px solid #a0aec0;
+      }
+      #question:focus { outline: none; border-color: #ab47bc; }
+      button {
+        background: #6a1b9a; color: #fff; border: none; border-radius: 8px;
+        padding: 0.55rem 1.1rem; font-weight: 700; cursor: pointer; font-size: 0.9rem;
+      }
+      button:disabled { background: #b39ddb; cursor: wait; }
+      button.sec { background: #4527a0; }
+      .cfg { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+      .cfg label { font-size: 0.72rem; color: #6a1b9a; display: block; margin-bottom: 0.15rem; }
+      .cfg input {
+        padding: 0.35rem 0.5rem; border: 1px solid #a0aec0; border-radius: 6px;
+        font-size: 0.8rem; width: 200px;
+      }
+      .radios { font-size: 0.8rem; display: flex; gap: 1rem; margin-top: 0.4rem; }
+      .radios label { color: #2d3748; font-weight: 400; }
+      #peers, #knowledge, #auditbox { font-size: 0.78rem; line-height: 1.5;
+        font-family: "Courier New", monospace; white-space: pre-wrap;
+        max-height: 180px; overflow-y: auto; }
+      .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+             margin-right: 4px; }
+      .dot.on { background: #2e7d32; } .dot.off { background: #bdbdbd; }
+      footer { padding: 0.4rem 2rem; font-size: 0.7rem; color: #90a4ae;
+               background: #ede7f6; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>🕸 SwarmGlu Discussion</h1>
+        <div class="sub">SwarmGlu (consensus, routage, savoir commun) + SwarmKnowledge (pont OSP v0.6) — Tree4Five Tools</div>
+      </div>
+    </header>
+
+    <div id="statusbar">
+      <span class="badge" id="b-conn">● non connecté</span>
+      <span class="badge" id="b-role">rôle : —</span>
+      <span class="badge" id="b-epoch">epoch : —</span>
+      <span class="badge" id="b-peers">pairs : —</span>
+      <span class="badge" id="b-know">savoir : —</span>
+      <span class="badge" id="b-audit">audit : —</span>
+      <span class="badge" id="b-osp">pont OSP : —</span>
+    </div>
+
+    <main>
+      <div id="chatcol">
+        <div class="panel">
+          <div class="cfg">
+            <div><label>Nœud SwarmGlu</label>
+              <input id="cfgNode" value="http://127.0.0.1:7001" /></div>
+            <div><label>Pont OSP (host:port)</label>
+              <input id="cfgOsp" value="192.168.1.249:3000" /></div>
+            <div><label>Token OSP</label>
+              <input id="cfgToken" type="password" placeholder="API_TOKEN du pont" /></div>
+            <div><label>Élève</label>
+              <input id="cfgStudent" value="eleve-web" /></div>
+          </div>
+          <div class="radios">
+            <label><input type="radio" name="mode" value="swarm" checked />
+              🕸 via l'essaim (routage LLM réel)</label>
+            <label><input type="radio" name="mode" value="osp" />
+              🔐 via le pont OSP (négociation à 2 enchérisseurs)</label>
+          </div>
+        </div>
+
+        <div id="chat">
+          <div class="msg sys">
+            Connectez un nœud SwarmGlu (interrupteur « Nœud » de l'application
+            ou cli.py serve), puis posez votre question. Les réponses VERIFIED
+            (OSP v0.6, g ≥ 0,30) entrent dans le savoir commun de l'essaim.
+          </div>
+        </div>
+
+        <div id="inputbar">
+          <textarea id="question" placeholder="Votre question pour l'essaim…"></textarea>
+          <button id="btnSend">Envoyer</button>
+        </div>
+      </div>
+
+      <div id="sidecol">
+        <div class="panel">
+          <h2>Pairs de l'essaim</h2>
+          <div id="peers">—</div>
+        </div>
+        <div class="panel">
+          <h2>Savoir commun (RAG distribué)
+            <button class="sec" id="btnKnow" style="padding:0.15rem 0.5rem;font-size:0.7rem;">↻</button>
+          </h2>
+          <div id="knowledge">—</div>
+        </div>
+        <div class="panel">
+          <h2>Chaîne d'audit
+            <button class="sec" id="btnAudit" style="padding:0.15rem 0.5rem;font-size:0.7rem;">↻</button>
+          </h2>
+          <div id="auditbox">—</div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      SwarmGlu v2.0 — Tree4Five Tools · Les questions des élèves sont
+      hashées (SHA-256) dans le journal d'audit · Aucune donnée ne quitte le
+      réseau local.
+    </footer>
+
+    <script>
+      "use strict";
+      const $ = (id) => document.getElementById(id);
+      const chat = $("chat");
+
+      function cfg() {
+        return {
+          node: $("cfgNode").value.trim().replace(/\/$/, ""),
+          osp: $("cfgOsp").value.trim(),
+          token: $("cfgToken").value.trim(),
+          student: $("cfgStudent").value.trim() || "eleve-web",
+        };
+      }
+
+      function badge(id, texte, cls) {
+        const b = $(id);
+        b.textContent = texte;
+        b.className = "badge" + (cls ? " " + cls : "");
+      }
+
+      function ajouterMsg(classe, texte) {
+        const d = document.createElement("div");
+        d.className = "msg " + classe;
+        d.textContent = texte;
+        chat.appendChild(d);
+        chat.scrollTop = chat.scrollHeight;
+        return d;
+      }
+
+      async function jfetch(url, options) {
+        const rep = await fetch(url, options);
+        const texte = await rep.text();
+        let corps;
+        try { corps = JSON.parse(texte); } catch (e) { corps = { raw: texte }; }
+        return { status: rep.status, corps };
+      }
+
+      /* ---------- statut périodique ---------- */
+      async function rafraichirStatut() {
+        const c = cfg();
+        if (!c.node) return;
+        try {
+          const { status, corps } = await jfetch(c.node + "/status");
+          if (status !== 200 || !corps.consensus) throw new Error("no");
+          badge("b-conn", "● " + corps.node_id, "ok");
+          badge("b-role", "rôle : " + corps.consensus.role, corps.consensus.role === "leader" ? "ok" : "");
+          badge("b-epoch", "epoch : " + corps.consensus.epoch);
+          const vivants = (corps.state || {}).alive_count ?? "?";
+          badge("b-peers", "pairs : " + vivants + " vivants",
+                vivants >= 2 ? "ok" : "");
+          const audit = corps.audit || {};
+          badge("b-audit", "audit : " + audit.entries + " blocs " +
+                (audit.ok ? "INTACTE" : "CORROMPUE"), audit.ok ? "ok" : "ko");
+          $("peers").textContent = (corps.peers || []).map((p) =>
+            (p.alive ? "● " : "○ ") + p.node_id + "  " + p.addr +
+            "  [" + (p.models || []).join(", ") + "]"
+          ).join("\n") || "—";
+        } catch (e) {
+          badge("b-conn", "● nœud injoignable", "ko");
+          badge("b-peers", "pairs : —");
+        }
+        try {
+          const { corps: k } = await jfetch(c.node + "/knowledge");
+          badge("b-know", "savoir : " + k.count + " entrée(s)");
+          $("knowledge").textContent =
+            "digest " + (k.digest || "?").slice(0, 16) + "…\n" +
+            (k.entries || []).slice(0, 8).map((e) =>
+              "• " + (e.sources || []).join(", ") +
+              "  (g=" + e.groundedness + ", " + (e.provider || "?") + ")"
+            ).join("\n");
+        } catch (e) {
+          $("knowledge").textContent = "—";
+        }
+        try {
+          /* via le relais du nœud : pas de blocage CORS */
+          const [hote, port] = c.osp.split(":");
+          const { corps: rel } = await jfetch(c.node + "/relay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ host: hote, port: parseInt(port || "3000", 10),
+                                   path: "/osp/endpoint.json", method: "GET" }),
+          });
+          const o = rel.data || {};
+          badge("b-osp", "pont OSP : " + (o.node_id || "?"), o.node_id ? "ok" : "ko");
+        } catch (e) {
+          badge("b-osp", "pont OSP : —", "ko");
+        }
+      }
+
+      /* ---------- audit ---------- */
+      async function verifierAudit() {
+        const c = cfg();
+        try {
+          const { corps: r } = await jfetch(c.node + "/audit/verify");
+          $("auditbox").textContent = r.ok
+            ? "✓ INTACTE — " + r.entries + " bloc(s)\n" +
+              "premier : " + (r.first_hash || "").slice(0, 16) + "…\n" +
+              "dernier : " + (r.last_hash || "").slice(0, 16) + "…"
+            : "✗ CORROMPUE (ligne " + r.line + ") : " + r.error;
+        } catch (e) {
+          $("auditbox").textContent = "nœud injoignable";
+        }
+      }
+
+      /* ---------- envoi d'une question ---------- */
+      async function envoyer() {
+        const c = cfg();
+        const question = $("question").value.trim();
+        if (!question) return;
+        const mode = document.querySelector('input[name="mode"]:checked').value;
+        $("btnSend").disabled = true;
+        ajouterMsg("user", question);
+        const bulle = ajouterMsg("swarm", mode === "osp"
+          ? "🔐 négociation OSP en cours…" : "🕸 routage dans l'essaim…");
+        $("question").value = "";
+
+        try {
+          if (mode === "swarm") {
+            const { status, corps } = await jfetch(c.node + "/ask", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                prompt: question,
+                student_id: c.student,
+                sources: ["osp://swarmknowledge/whatsapp-bot",
+                          "http://192.168.1.249:3000/osp/endpoint.json"],
+              }),
+            });
+            if (status !== 200) throw new Error(corps.error || status);
+            bulle.textContent = corps.answer;
+            const osp = corps.osp || {};
+            const meta = document.createElement("div");
+            meta.className = "meta";
+            meta.innerHTML =
+              '<span class="verdict ' + (osp.verdict === "VERIFIED" ? "V" : "U") + '">' +
+              osp.verdict + " · g=" + osp.groundedness + "</span>" +
+              "fournisseur : " + corps.provider + " · modèle : " + corps.model +
+              " · " + corps.processing_time + " s";
+            bulle.appendChild(meta);
+            if ((corps.sources || []).length) {
+              const src = document.createElement("div");
+              src.className = "sources";
+              src.textContent = "ancres : " + corps.sources.join(" · ");
+              bulle.appendChild(src);
+            }
+            if (corps.knowledge && corps.knowledge.shared)
+              ajouterMsg("sys", "✓ réponse VERIFIED ajoutée au savoir commun (" +
+                corps.knowledge.knowledge_key + ")");
+          } else {
+            /* Pont OSP — via le relais du nœud SwarmGlu (le relais ajoute
+               l'en-tête x-api-token : pas de blocage CORS navigateur). */
+            const relay = await jfetch(c.node + "/relay", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                host: c.osp.split(":")[0],
+                port: parseInt(c.osp.split(":")[1] || "3000", 10),
+                path: "/osp/query",
+                method: "POST",
+                headers: { "x-api-token": c.token },
+                body: { query: question },
+                timeout: 180,
+              }),
+            });
+            const donnee = relay.corps.data || {};
+            if (relay.corps.status !== 200) throw new Error(donnee.error || relay.corps.status);
+            bulle.textContent = donnee.answer || ("(" + donnee.mode + " — voir le détail)");
+            const meta = document.createElement("div");
+            meta.className = "meta";
+            meta.textContent = "mode OSP : " + donnee.mode +
+              " · budget : " + donnee.budget_left +
+              (donnee.groundedness != null ? " · g=" + donnee.groundedness : "");
+            bulle.appendChild(meta);
+            const trace = document.createElement("div");
+            trace.className = "sources";
+            trace.textContent = "trace : " + JSON.stringify(donnee.trace || []);
+            bulle.appendChild(trace);
+            if (donnee.mode === "NO_QUORUM")
+              ajouterMsg("sys", "ℹ️ NO_QUORUM : la négociation exige 2 enchérisseurs " +
+                "compétents (enseignez-leur via /osp/teach). Le protocole est vivant.");
+          }
+        } catch (e) {
+          bulle.textContent = "✗ échec : " + e.message;
+        } finally {
+          $("btnSend").disabled = false;
+          rafraichirStatut();
+        }
+      }
+
+      $("btnSend").addEventListener("click", envoyer);
+      $("question").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); envoyer(); }
+      });
+      $("btnAudit").addEventListener("click", verifierAudit);
+      $("btnKnow").addEventListener("click", rafraichirStatut);
+
+      rafraichirStatut();
+      verifierAudit();
+      setInterval(rafraichirStatut, 5000);
+    </script>
+  </body>
+</html>
