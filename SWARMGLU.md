@@ -123,9 +123,9 @@ journalctl -u swarmglu -f          # follow the logs
 3. **Firewall** (once, as Administrator — PowerShell):
 
    ```powershell
-   New-NetFirewallRule -DisplayName "SwarmGlu TCP" -Direction Inbound \`
+   New-NetFirewallRule -DisplayName "SwarmGlu TCP" -Direction Inbound `
      -Protocol TCP -LocalPort 7001 -Action Allow -Profile Private
-   New-NetFirewallRule -DisplayName "SwarmGlu UDP" -Direction Inbound \`
+   New-NetFirewallRule -DisplayName "SwarmGlu UDP" -Direction Inbound `
      -Protocol UDP -LocalPort 47479 -Action Allow -Profile Private
    ```
 
