@@ -122,6 +122,21 @@ tel-XXXX     every USB-connected physical phone/tablet (auto-detected;
    including the Android-native journals verified block-by-block by the
    Python verifier.
 
+### The complex scenario (9 nodes, 2 real LLMs)
+
+`tests/test_fleet_full.py --model fastmodel:latest` extends the fleet to
+the **full school-day topology**: the **tablet itself becomes an LLM
+provider** — its local OSP bridge (Tree4Five LLM Provider, llama.cpp
+on-device, `/v1` + bridge token read from the device) is detected and
+declared to the swarm registry, so a `model_hint=llmprovider` question
+is routed over the swarm and answered by **real on-device llama.cpp
+inference** (31 s measured), while the teacher's PC serves the school
+Ollama (27B). A second school machine (192.168.1.149) joins via SSH
+deployment when it is awake. The OSP bridge negotiation is exercised
+live: PROPOSE → knowledge teaching (`/osp/teach`) → **competence-scored
+BID** (0.733) — the quorum (q=2 competent bidders) is documented as the
+protocol's scaling requirement.
+
 ### Reproduce it
 
 ```bash
