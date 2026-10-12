@@ -431,6 +431,15 @@ class ModelConsolidationServer {
     this.app.get("/swarmglu.html", (req, res) =>
       res.sendFile(path.join(__dirname, "../public/swarmglu.html")),
     );
+    this.app.get("/swarmglu-chat", (req, res) =>
+      res.sendFile(path.join(__dirname, "../demotokenizer/swarmglu_chat.html")),
+    );
+    this.app.get("/swarmglu-usage", (req, res) =>
+      res.sendFile(path.join(__dirname, "../demotokenizer/swarmglu_chat.html")),
+    );
+    this.app.get("/swarmglu_chat.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../demotokenizer/swarmglu_chat.html")),
+    );
     this.app.get("/tools", (req, res) =>
       res.sendFile(path.join(__dirname, "../public/tools-hub.html")),
     );
