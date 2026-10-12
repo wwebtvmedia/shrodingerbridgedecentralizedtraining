@@ -248,16 +248,23 @@
         font-weight: bold;
       }
 
+      .tool-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: auto;
+      }
+
       .tool-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
-        padding: 12px 20px;
+        padding: 10px 18px;
         border-radius: 10px;
         font-weight: 700;
         text-decoration: none;
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         transition: all 0.2s ease;
       }
 
@@ -279,6 +286,18 @@
       .btn-purple {
         background: linear-gradient(135deg, #a855f7, #c084fc);
         color: #090c15;
+      }
+
+      .btn-github {
+        background: rgba(255, 255, 255, 0.08);
+        color: #f3f4f6;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+      }
+
+      .btn-github:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: #ffffff;
       }
 
       .tool-btn:hover {
@@ -325,6 +344,12 @@
         </div>
         <div class="arch-arrow">➔</div>
         <div class="arch-node">
+          <div class="icon">🧩</div>
+          <div class="title" style="color: #38bdf8;">SwarmGlu</div>
+          <div style="font-size: 0.75rem; color: #9ca3af;">Consensus & Routing</div>
+        </div>
+        <div class="arch-arrow">➔</div>
+        <div class="arch-node">
           <div class="icon">🤖</div>
           <div class="title" style="color: #fbbf24;">HarnessDroid</div>
           <div style="font-size: 0.75rem; color: #9ca3af;">MCP over AIDL</div>
@@ -332,7 +357,7 @@
         <div class="arch-arrow">➔</div>
         <div class="arch-node">
           <div class="icon">⚡</div>
-          <div class="title" style="color: #38bdf8;">Schrödinger Bridge</div>
+          <div class="title" style="color: #00f2fe;">Schrödinger Bridge</div>
           <div style="font-size: 0.75rem; color: #9ca3af;">WebGPU Drift ODEs</div>
         </div>
         <div class="arch-arrow">➔</div>
@@ -362,9 +387,14 @@
               <li>Cross-swarm artifact exchange for images and articles</li>
             </ul>
           </div>
-          <a href="/swarm-knowledge" class="tool-btn btn-cyan">
-            <span class="material-icons-outlined">explore</span> Explore Protocol Specification
-          </a>
+          <div class="tool-actions">
+            <a href="/swarm-knowledge" class="tool-btn btn-cyan">
+              <span class="material-icons-outlined">explore</span> Explore Specification
+            </a>
+            <a href="https://github.com/ybenyedder/swarmknowledgeprotocol" target="_blank" rel="noopener noreferrer" class="tool-btn btn-github">
+              <span class="material-icons-outlined">code</span> GitHub
+            </a>
+          </div>
         </div>
 
         <!-- Tree4Five LLM Provider -->
@@ -384,9 +414,41 @@
               <li>Integrated HuggingFace model downloader with chunk resume</li>
             </ul>
           </div>
-          <a href="/tree4five-provider" class="tool-btn btn-green">
-            <span class="material-icons-outlined">memory</span> View Runtime & AIDL Simulator
-          </a>
+          <div class="tool-actions">
+            <a href="/tree4five-provider" class="tool-btn btn-green">
+              <span class="material-icons-outlined">memory</span> View Runtime & AIDL Simulator
+            </a>
+            <a href="https://github.com/ybenyedder/LLMProvider" target="_blank" rel="noopener noreferrer" class="tool-btn btn-github">
+              <span class="material-icons-outlined">code</span> GitHub
+            </a>
+          </div>
+        </div>
+
+        <!-- SwarmGlu Liaison & Consensus Engine -->
+        <div class="tool-card highlight-cyan">
+          <div>
+            <div class="tool-header">
+              <div class="tool-icon" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8;">🧩</div>
+              <span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #0284c7;">com.tree4five.swarmglu</span>
+            </div>
+            <div class="tool-title">SwarmGlu Consensus & Routing</div>
+            <div class="tool-desc">
+              The liaison, consensus, and routing layer of Tree4Five Tools. Binds heterogeneous devices (Linux/Windows PCs, Android phones and tablets) into a self-healing, zero-SPOF AI swarm over local Wi-Fi with no Internet or cloud server.
+            </div>
+            <ul class="tool-features">
+              <li>Zero-SPOF lease election (2–8s failover) & LWW state merge</li>
+              <li>Immutable SHA-256 audit chain with auto torn-tail repair</li>
+              <li>Hybrid post-quantum crypto (ML-KEM-768 + ECDSA P-256) & 8.8 MB native APK</li>
+            </ul>
+          </div>
+          <div class="tool-actions">
+            <a href="/swarmglu" class="tool-btn btn-cyan">
+              <span class="material-icons-outlined">hub</span> View SwarmGlu Spec
+            </a>
+            <a href="https://github.com/wwebtvmedia/swarmglu" target="_blank" rel="noopener noreferrer" class="tool-btn btn-github">
+              <span class="material-icons-outlined">code</span> GitHub
+            </a>
+          </div>
         </div>
 
         <!-- HarnessDroid -->
@@ -406,9 +468,14 @@
               <li>Autonomous planning, tool execution, and reflection loops</li>
             </ul>
           </div>
-          <a href="/harnessdroid" class="tool-btn btn-amber">
-            <span class="material-icons-outlined">smart_toy</span> Launch Agent Showcase
-          </a>
+          <div class="tool-actions">
+            <a href="/harnessdroid" class="tool-btn btn-amber">
+              <span class="material-icons-outlined">smart_toy</span> Launch Agent Showcase
+            </a>
+            <a href="https://github.com/wwebtvmedia/harnessdroid" target="_blank" rel="noopener noreferrer" class="tool-btn btn-github">
+              <span class="material-icons-outlined">code</span> GitHub
+            </a>
+          </div>
         </div>
 
         <!-- Schrödinger Bridge WebGPU Trainer -->
@@ -428,9 +495,14 @@
               <li>Langevin terminal score refinement at t=1</li>
             </ul>
           </div>
-          <a href="/enhanced" class="tool-btn btn-cyan">
-            <span class="material-icons-outlined">rocket_launch</span> Launch Swarm Trainer
-          </a>
+          <div class="tool-actions">
+            <a href="/enhanced" class="tool-btn btn-cyan">
+              <span class="material-icons-outlined">rocket_launch</span> Launch Swarm Trainer
+            </a>
+            <a href="https://github.com/wwebtvmedia/shrodingerbridgedecentralizedtraining" target="_blank" rel="noopener noreferrer" class="tool-btn btn-github">
+              <span class="material-icons-outlined">code</span> GitHub
+            </a>
+          </div>
         </div>
 
         <!-- ChromaDB Vector Store & RAG -->
@@ -450,9 +522,14 @@
               <li>Contextual prompt augmentation for local LLMs</li>
             </ul>
           </div>
-          <a href="/rag-demo" class="tool-btn btn-purple">
-            <span class="material-icons-outlined">library_books</span> Open RAG Interactive Demo
-          </a>
+          <div class="tool-actions">
+            <a href="/rag-demo" class="tool-btn btn-purple">
+              <span class="material-icons-outlined">library_books</span> Open RAG Interactive Demo
+            </a>
+            <a href="https://github.com/wwebtvmedia/shrodingerbridgedecentralizedtraining" target="_blank" rel="noopener noreferrer" class="tool-btn btn-github">
+              <span class="material-icons-outlined">code</span> GitHub
+            </a>
+          </div>
         </div>
 
         <!-- Tokenizer & Attention Suite -->
@@ -472,9 +549,14 @@
               <li>Three.js 3D vector embedding cluster projection</li>
             </ul>
           </div>
-          <a href="/tokenizer-demo" class="tool-btn btn-cyan">
-            <span class="material-icons-outlined">view_in_ar</span> Launch Attention & Tokenizer Suite
-          </a>
+          <div class="tool-actions">
+            <a href="/tokenizer-demo" class="tool-btn btn-cyan">
+              <span class="material-icons-outlined">view_in_ar</span> Launch Attention & Tokenizer Suite
+            </a>
+            <a href="https://github.com/wwebtvmedia/shrodingerbridgedecentralizedtraining" target="_blank" rel="noopener noreferrer" class="tool-btn btn-github">
+              <span class="material-icons-outlined">code</span> GitHub
+            </a>
+          </div>
         </div>
       </div>
 

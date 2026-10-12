@@ -425,6 +425,12 @@ class ModelConsolidationServer {
     this.app.get("/harnessdroid.html", (req, res) =>
       res.sendFile(path.join(__dirname, "../public/harnessdroid.html")),
     );
+    this.app.get("/swarmglu", (req, res) =>
+      res.sendFile(path.join(__dirname, "../public/swarmglu.html")),
+    );
+    this.app.get("/swarmglu.html", (req, res) =>
+      res.sendFile(path.join(__dirname, "../public/swarmglu.html")),
+    );
     this.app.get("/tools", (req, res) =>
       res.sendFile(path.join(__dirname, "../public/tools-hub.html")),
     );
